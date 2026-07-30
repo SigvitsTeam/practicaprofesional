@@ -433,7 +433,7 @@ Estas tarjetas deben respetar la regla de privacidad: niveles superiores consume
 Los mapas deben respetar el alcance territorial y el rol del usuario.
 
 ```text
-Establecimiento -> mapa de su establecimiento y area de cobertura asignada.
+Establecimiento -> silueta de su municipio, con datos propios y area de cobertura asignada.
 Coordinacion Municipal -> mapa de su municipio.
 Region -> mapa del departamento/region bajo su responsabilidad.
 Nivel Central -> mapa nacional.
@@ -448,18 +448,37 @@ Usuario regional de Cortes -> visualiza el departamento/region de Cortes.
 Usuario de nivel central -> visualiza Honduras completo.
 ```
 
-El mapa debe generarse desde los objetos geograficos administrados en el sistema, no desde condiciones quemadas en codigo.
+El mapa debe generarse desde un catalogo geografico precargado, no desde
+condiciones quemadas en codigo ni desde poligonos dibujados manualmente por cada
+usuario.
 
 Objetos administrables:
 
-- Pais.
-- Region/departamento.
-- Municipio.
+- Catalogo geografico: pais, departamento y municipio.
+- Region sanitaria y su asociacion territorial.
+- Municipio/coordinacion y su asociacion con una silueta precargada.
 - Establecimiento de salud.
 - Comunidad, barrio, colonia, aldea o caserio.
 - Area de cobertura.
 
-Cuando se crea un nuevo establecimiento, municipio o region, el sistema debe permitir registrar su ubicacion o geometria para que aparezca automaticamente en los mapas correspondientes.
+Cuando se crea una coordinacion municipal, el sistema debe asociarla por codigo
+oficial con la silueta existente, mostrar una previsualizacion y solicitar su
+validacion. La carga o sustitucion de una geometria queda reservada para
+SuperAdmin mediante GeoJSON o Shapefile y debe conservar fuente, version e
+historial.
+
+Configuracion geografica municipal:
+
+```text
+- Territorio geografico asociado.
+- Codigo oficial y nombre.
+- Region sanitaria.
+- Estado operativo.
+- Zoom personalizado opcional.
+- Etiqueta visible.
+- Estado, fecha y responsable de validacion.
+- Previsualizar, validar, activar o desactivar.
+```
 
 ### Activacion progresiva del mapa por estructura creada
 
@@ -473,9 +492,11 @@ Secuencia inicial prevista:
 3. Nivel Central crea la primera region operativa: Region Sanitaria Departamental de Cortes, posiblemente Region No. 5 segun validacion institucional.
 4. Al crear y activar la region, el mapa de Cortes queda habilitado a nivel central y para usuarios regionales asignados.
 5. La Region de Cortes crea la Coordinacion Municipal de Salud de Puerto Cortes.
-6. Al crear y activar Puerto Cortes, el mapa municipal queda habilitado para nivel central, nivel regional y coordinacion municipal.
-7. La Coordinacion Municipal de Puerto Cortes crea sus 12 establecimientos de salud.
-8. Cada establecimiento recibe accesos y queda habilitado para capturar ITS 1 y generar ITS 2.
+6. El sistema asocia Puerto Cortes con su silueta precargada por codigo oficial.
+7. La coordinacion previsualiza, valida y activa su configuracion geografica.
+8. El mapa municipal queda habilitado para el establecimiento, la coordinacion, la region y el nivel central, con datos distintos segun el rol.
+9. La Coordinacion Municipal de Puerto Cortes crea sus 12 establecimientos de salud.
+10. Cada establecimiento recibe accesos y queda habilitado para capturar ITS 1 y generar ITS 2.
 ```
 
 La base geografica nacional puede existir previamente como referencia, pero un territorio solo debe considerarse operativo cuando:
@@ -695,7 +716,9 @@ La politica de conteos bajos y privacidad queda pendiente de definicion instituc
 Se incorporan las siguientes mejoras para robustecer el modulo geografico:
 
 1. Catalogo geografico precargado.
-   - Cargar Honduras, sus departamentos/regiones y municipios como base geografica de referencia, aunque no todos esten operativos.
+   - Cargar una sola coleccion con Honduras, departamentos y municipios como base geografica de referencia, aunque no todos esten operativos.
+   - Precargar codigo oficial, nombre, jerarquia, geometria, centroide, zoom recomendado, fuente y version.
+   - La configuracion municipal asocia y valida una silueta; no solicita introducir manualmente sus vertices.
 
 2. Separacion entre mapa base y mapa operativo.
    - Mapa base: referencia territorial.
@@ -705,7 +728,7 @@ Se incorporan las siguientes mejoras para robustecer el modulo geografico:
    - Estados sugeridos: PRECONFIGURADO, CREADO, EN_PILOTAJE, ACTIVO, INACTIVO, SUSPENDIDO.
 
 4. Asistente de activacion territorial.
-   - Al crear region, municipio/coordinacion o establecimiento, guiar al usuario por datos generales, ubicacion, accesos, validaciones y activacion.
+   - Al crear region, municipio/coordinacion o establecimiento, guiar al usuario por datos generales, asociacion geografica, previsualizacion, accesos, validaciones y activacion.
 
 5. Validacion visual de coordenadas por coordinacion.
    - La coordinacion correspondiente debe validar visualmente la ubicacion de sus establecimientos en el mapa antes de activarlos plenamente.
@@ -720,7 +743,7 @@ Se incorporan las siguientes mejoras para robustecer el modulo geografico:
    - Ejemplo: una comunidad pertenece a un establecimiento hasta cierta fecha y luego a otro.
 
 8. Bandeja de territorios incompletos.
-   - Mostrar regiones sin geometria, municipios sin responsable, establecimientos sin coordenadas, comunidades sin cobertura y usuarios sin alcance asignado.
+   - Mostrar regiones sin territorio asociado, municipios sin silueta validada, establecimientos sin coordenadas, comunidades sin cobertura y usuarios sin alcance asignado.
 
 9. Capas de mapa configurables.
    - Activar/desactivar establecimientos, municipios, comunidades, coberturas, procedencias externas, captacion y procedencia real.
@@ -738,7 +761,9 @@ Se incorporan las siguientes mejoras para robustecer el modulo geografico:
    - Usar agregados precalculados para reportes cerrados y mapas historicos.
 
 13. Importacion geografica.
-   - Permitir carga de GeoJSON, CSV con coordenadas o Excel de establecimientos/comunidades/coberturas.
+   - Permitir a SuperAdmin cargar o actualizar el catalogo mediante GeoJSON o Shapefile.
+   - Permitir CSV o Excel con coordenadas para establecimientos y comunidades.
+   - Toda sustitucion de una silueta debe conservar fuente, version, validacion e historial.
 
 14. Normalizacion de nombres y alias.
    - Gestionar variantes de barrios, colonias, comunidades y establecimientos.

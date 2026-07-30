@@ -338,8 +338,9 @@ PostGIS debe ser la fuente de verdad geografica.
 
 Los limites, centroides, establecimientos y areas de cobertura no deben vivir como archivos sueltos en Angular. Deben estar gestionados como datos:
 
-- Tabla de regiones/departamentos con geometria.
-- Tabla de municipios con geometria.
+- Catalogo unico de territorios geograficos con pais, departamentos y municipios.
+- Asociacion de regiones sanitarias con uno o mas territorios.
+- Asociacion de cada coordinacion municipal con una silueta precargada.
 - Tabla de comunidades con punto o poligono.
 - Tabla de establecimientos con punto.
 - Tabla de coberturas con relaciones y, si existe, geometria.
@@ -411,21 +412,25 @@ Si desde el inicio se confirma alcance nacional con muchas capas y poligonos, ev
 
 #### Generacion automatica de mapas
 
-Cuando se crea un municipio, region o establecimiento, el sistema no debe "generar" un mapa como archivo estatico. Lo correcto es que el mapa se renderice dinamicamente desde la data geografica registrada.
+El sistema no debe generar archivos de mapa estaticos ni pedir al usuario que
+dibuje cada municipio. Debe renderizar dinamicamente una coleccion de siluetas
+precargadas y combinarla con datos operativos agregados.
 
 Flujo:
 
 ```text
 Crear establecimiento -> registrar latitud/longitud -> aparece automaticamente como marcador en mapas de su alcance.
-Crear municipio -> cargar/registrar geometria o centroide -> aparece en mapa regional.
-Crear region -> cargar/registrar geometria -> aparece en mapa nacional.
+Crear municipio -> asociar codigo oficial -> previsualizar silueta precargada -> validar y activar.
+Crear region -> asociar departamento(s) del catalogo -> aparece en mapa nacional.
 ```
 
 Para que esto funcione, se necesita una pantalla administrativa de geografia:
 
-- Gestion de coordenadas.
-- Carga de GeoJSON.
-- Validacion visual del punto/poligono.
+- Catalogo precargado con codigo, nombre, jerarquia, geometria, centroide y zoom recomendado.
+- Asociacion automatica por codigo oficial.
+- Previsualizacion y validacion visual.
+- Carga o reemplazo excepcional de GeoJSON/Shapefile por SuperAdmin.
+- Gestion de coordenadas de establecimientos.
 - Asignacion de cobertura.
 - Activar/desactivar objeto geografico.
 

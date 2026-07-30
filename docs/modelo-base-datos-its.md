@@ -154,16 +154,40 @@ usuario_asignaciones
 
 ## Territorio y geografia
 
-### paises
+### territorios_geograficos
+
+Catalogo geografico precargado e independiente de la estructura sanitaria operativa.
+Contiene una sola copia de cada silueta y permite construir las vistas municipal,
+departamental y nacional sin mapas duplicados.
 
 ```sql
-paises
+territorios_geograficos
 - id uuid pk
+- territorio_padre_id uuid null fk territorios_geograficos
+- tipo text -- PAIS, DEPARTAMENTO, MUNICIPIO
+- codigo_oficial text
 - nombre text
-- codigo_iso text
-- geom geometry(MultiPolygon, 4326) null
-- centroide geometry(Point, 4326) null
+- geom geometry(MultiPolygon, 4326) not null
+- centroide geometry(Point, 4326) not null
+- zoom_recomendado numeric null
+- fuente text
+- version_fuente text null
+- fecha_fuente date null
+- estado_validacion text -- IMPORTADO, VALIDADO, REEMPLAZADO, OBSERVADO
+- validado_por uuid null fk usuarios
+- validado_at timestamptz null
 - activo boolean
+- created_at timestamptz
+- updated_at timestamptz
+```
+
+Restricciones:
+
+```text
+unique(tipo, codigo_oficial)
+La geometria oficial se carga por importacion; no se dibuja manualmente.
+Toda geometria se normaliza a EPSG:4326.
+Un municipio tiene como padre un departamento y un departamento tiene como padre Honduras.
 ```
 
 ### regiones
@@ -171,17 +195,28 @@ paises
 ```sql
 regiones
 - id uuid pk
-- pais_id uuid fk paises
 - nombre text
 - codigo text null
 - numero_region text null
 - tipo text -- sanitaria, departamental, metropolitana
 - estado_operativo text -- PRECONFIGURADO, CREADO, EN_PILOTAJE, ACTIVO, INACTIVO, SUSPENDIDO
-- geom geometry(MultiPolygon, 4326) null
-- centroide geometry(Point, 4326) null
 - activo boolean
 - created_at timestamptz
 - updated_at timestamptz
+```
+
+La region es una entidad sanitaria. Su alcance geografico se asigna mediante
+`region_territorios`, incluso cuando inicialmente coincida con un departamento.
+
+### region_territorios
+
+```sql
+region_territorios
+- region_id uuid fk regiones
+- territorio_geografico_id uuid fk territorios_geograficos
+- fecha_inicio date
+- fecha_fin date null
+- activo boolean
 ```
 
 ### municipios
@@ -190,17 +225,25 @@ regiones
 municipios
 - id uuid pk
 - region_id uuid fk regiones
+- territorio_geografico_id uuid unique fk territorios_geograficos
 - nombre text
 - codigo text null
 - estado_operativo text
-- geom geometry(MultiPolygon, 4326) null
-- centroide geometry(Point, 4326) null
+- zoom_personalizado numeric null
+- mostrar_etiqueta boolean default true
+- mapa_validado boolean default false
+- mapa_validado_por uuid null fk usuarios
+- mapa_validado_at timestamptz null
 - activo boolean
 - created_at timestamptz
 - updated_at timestamptz
 ```
 
 Nota: en el piloto, Puerto Cortes se maneja como coordinacion municipal de salud dentro de la region de Cortes.
+
+Al crear o configurar un municipio, el sistema busca `territorio_geografico_id`
+por su codigo oficial, muestra la silueta precargada y solicita validacion visual.
+El usuario no introduce los vertices del poligono.
 
 ### establecimientos_salud
 
@@ -720,9 +763,12 @@ staging_geografia
 - tipo_entidad text
 - nombre text
 - codigo text null
+- codigo_padre text null
 - latitud numeric null
 - longitud numeric null
 - geojson jsonb null
+- fuente text null
+- version_fuente text null
 - estado_validacion text
 - errores jsonb null
 ```
@@ -852,8 +898,11 @@ idx_reporte_detalle_reporte
 ### Geografia
 
 ```sql
-gist_regiones_geom
-gist_municipios_geom
+gist_territorios_geograficos_geom
+idx_territorios_tipo_codigo
+idx_territorios_padre
+idx_region_territorios_region
+idx_municipios_territorio
 gist_establecimientos_geom
 gist_comunidades_geom
 ```
