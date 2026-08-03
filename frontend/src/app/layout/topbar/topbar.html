@@ -1,0 +1,8 @@
+<header class="topbar">
+  <div class="breadcrumb"><span>Honduras</span><b>›</b><span>Cortés</span><b>›</b><strong>Puerto Cortés</strong></div>
+  <div class="top-actions">
+    <button class="theme-toggle" type="button" (click)="themeToggle.emit()" [attr.aria-label]="darkMode() ? 'Activar modo claro' : 'Activar modo oscuro'" [title]="darkMode() ? 'Modo claro' : 'Modo oscuro'"><span>{{ darkMode() ? '☀' : '☾' }}</span></button>
+    <button class="notification" aria-label="Notificaciones">●<i></i></button>
+    <div class="user"><div class="avatar">{{ establishmentView() ? 'ML' : 'AM' }}</div><div><strong>{{ establishmentView() ? 'María López' : 'Dra. Ana Martínez' }}</strong><span>{{ establishmentView() ? 'Digitadora de coordinación' : 'Coordinadora Municipal' }}</span></div><b>⌄</b></div>
+  </div>
+</header>

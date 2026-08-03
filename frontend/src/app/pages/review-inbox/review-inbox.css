@@ -1,0 +1,4 @@
+:host { display: block; }
+.review-summary span { font-size: 0.78rem; }
+.review-summary strong { font-size: 1.65rem; }
+.search,.search input,select { font-size: 0.78rem; }

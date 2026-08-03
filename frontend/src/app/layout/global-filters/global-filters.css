@@ -1,0 +1,5 @@
+:host { display: block; }
+.filters { padding-block: 14px; }
+.filters label > span { font-size: 0.72rem; }
+.filters select { min-height: 40px; font-size: 0.82rem; }
+.sync { font-size: 0.7rem; }

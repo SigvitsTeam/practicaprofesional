@@ -1,0 +1,10 @@
+:host { display: block; }
+.drawer-head h2 { font-size: 1.4rem; }
+.drawer-head p { font-size: 0.78rem; }
+.drawer-metrics span { font-size: 0.68rem; }
+.drawer-metrics strong { font-size: 1.35rem; }
+.drawer-section h3 { font-size: 0.95rem; }
+.validation strong,.history strong { font-size: 0.78rem; }
+.validation small,.history small { font-size: 0.7rem; }
+.observations > span { font-size: 0.72rem; }
+.observations textarea { font-size: 0.8rem; }

@@ -1,0 +1,10 @@
+<aside class="sidebar">
+  <div class="brand"><div class="brand-mark">S+</div><div><strong>SIGVITS</strong><span>Vigilancia en salud</span></div></div>
+  <nav aria-label="Navegación principal">
+    <p class="nav-label">OPERACIÓN</p>
+    @for (item of items; track item.label) {@if (item.group === 'Operación') {<button class="nav-item" [class.active]="active() === item.label" (click)="navigate.emit(item.label)"><span class="nav-icon">{{ item.icon }}</span>{{ item.label }}@if (item.count) {<span class="nav-count">{{ item.count }}</span>}</button>}}
+    <p class="nav-label nav-second">GESTIÓN</p>
+    @for (item of items; track item.label) {@if (item.group === 'Gestión') {<button class="nav-item" [class.active]="active() === item.label" (click)="navigate.emit(item.label)"><span class="nav-icon">{{ item.icon }}</span>{{ item.label }}</button>}}
+  </nav>
+  <div class="privacy-card"><span>●</span><div><strong>Vista consolidada</strong><p>Sin acceso a datos individuales ITS 1.</p></div></div>
+</aside>

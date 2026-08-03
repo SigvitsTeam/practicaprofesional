@@ -1,0 +1,12 @@
+:host { display: block; }
+.section-heading h2 { font-size: 1rem; }
+.tree > button { font-size: 0.72rem; }
+.badge { font-size: 0.65rem; }
+.territory-title h2 { font-size: 1.35rem; }
+.territory-title p { font-size: 0.72rem; }
+.tabs button { font-size: 0.7rem; }
+.territory-form label > span { font-size: 0.74rem; }
+.territory-form input,.territory-form select { min-height: 40px; font-size: 0.78rem; }
+.coordinate-panel h3 { font-size: 0.8rem; }
+.coordinate-panel p,.readiness span,.readiness p,.territory-alerts button span { font-size: 0.7rem; }
+.validation-chip { font-size: 0.65rem; }

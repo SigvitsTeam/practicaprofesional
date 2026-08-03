@@ -1,0 +1,5 @@
+:host { display: contents; }
+.marker small b { margin-top: 2px; display: block; color: var(--green); font-size: .58rem; }
+.municipality small b { font-size: .63rem; }
+.ranking strong { font-size: .74rem; }.ranking small { font-size: .65rem; }
+:host-context([data-theme='dark']) .marker small b { color: #7be0c1; }

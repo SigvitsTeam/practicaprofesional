@@ -1,5 +1,7 @@
 # Lineamientos del Proyecto ITS
 
+> **Actualización vigente del frontend (3 de agosto de 2026):** las decisiones registradas en `docs/decisiones-frontend-2026-08-03.md` sustituyen las referencias anteriores a AGI, doble mapa y captura ITS 1 exclusiva por establecimiento. En caso de conflicto, aplicar primero ese documento.
+
 ## Vision general
 
 El proyecto busca automatizar la captura, consolidacion, revision, exportacion y analisis de informes del programa ITS, iniciando como piloto en Puerto Cortes, pero con una arquitectura preparada para escalar a otros municipios, regiones y nivel nacional.

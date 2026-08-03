@@ -1,0 +1,14 @@
+:host { display: block; }
+.its2-correction { min-height: 62px; margin-bottom: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 11px; border: 1px solid #e2a6aa; border-radius: 9px; background: #fff3f3; }.its2-correction i { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 50%; color: var(--red); background: #f9e0e2; font-style: normal; }.its2-correction div { flex: 1; }.its2-correction strong { font-size: .8rem; }.its2-correction p { margin: 4px 0 0; color: #8a5b60; font-size: .7rem; }.its2-actions { padding: 14px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
+.report-state strong { font-size: 1.25rem; }
+.report-state small,.flow small { font-size: 0.68rem; }
+.period-total span { font-size: 0.75rem; }
+.period-total strong { font-size: 1.9rem; }
+.period-total small { font-size: 0.7rem; }
+.section-heading h2 { font-size: 1rem; }
+.section-heading p { font-size: 0.72rem; }
+th { font-size: 0.68rem; }
+td { font-size: 0.78rem; }
+.validation strong { font-size: 0.78rem; }
+.validation small { font-size: 0.7rem; }
+:host-context([data-theme='dark']) .its2-correction { border-color: #63363a; background: #311f24; }:host-context([data-theme='dark']) .its2-correction p { color: #d4a8ac; }

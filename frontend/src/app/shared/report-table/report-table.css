@@ -1,0 +1,8 @@
+:host { display: block; }
+.panel-heading h2 { font-size: 1rem; }
+.panel-heading p { font-size: 0.72rem; }
+th { height: 44px; font-size: 0.68rem; }
+td { height: 60px; font-size: 0.78rem; }
+td strong { font-size: 0.78rem; }
+td small { font-size: 0.67rem; }
+.status { min-height: 26px; font-size: 0.68rem; }
