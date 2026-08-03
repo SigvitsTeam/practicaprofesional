@@ -1,0 +1,11 @@
+<article class="panel map-canvas">
+  <div class="water"><span>Mar Caribe</span></div><div class="land" [class.regional]="level() === 'regional'"></div><div class="road a"></div><div class="road b"></div>
+  <div class="map-toolbar"><div class="map-crumb">@if (level() === 'municipal') {<button (click)="levelChange.emit('regional')">← Región de Cortés</button><small>Puerto Cortés · 12 establecimientos</small>} @else {<small>Región Sanitaria de Cortés</small>}</div><div><button aria-label="Acercar">＋</button><button aria-label="Alejar">−</button></div></div>
+  @if (level() === 'municipal') {
+    @for (report of reports(); track report.code) {<button class="marker" [style.left.%]="markerLeft($index)" [style.top.%]="markerTop($index)" (click)="reportSelected.emit(report)"><span>{{ metricValue(report) }}</span><small>{{ report.name }}<b>{{ metricLabel() }}</b></small></button>}
+  } @else {
+    <button class="marker municipality" style="left:45%;top:42%" (click)="levelChange.emit('municipal')"><span>184</span><small>Puerto Cortés<b>Acercar a establecimientos →</b></small></button>
+  }
+  <div class="map-legend"><span><i class="low"></i>Bajo</span><span><i class="mid"></i>Medio</span><span><i class="high"></i>Alto · {{ metricLabel() }}</span></div>
+</article>
+<aside class="panel ranking"><div class="section-heading"><div><h2>Establecimientos</h2><p>KPI activo: {{ metricLabel() }}</p></div></div>@for (report of reports(); track report.code) {<button (click)="reportSelected.emit(report)"><i>{{ $index + 1 }}</i><span><strong>{{ report.name }}</strong><small>{{ report.code }} · {{ metricLabel() }}</small></span><b>{{ metricValue(report) }}</b></button>}</aside>

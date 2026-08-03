@@ -1,0 +1,8 @@
+:host { display: block; }
+.export-catalog strong { font-size: 0.82rem; }
+.export-catalog small { font-size: 0.7rem; }
+.table-toolbar h2 { font-size: 1rem; }
+.table-toolbar p { font-size: 0.72rem; }
+th { font-size: 0.68rem; }
+td { font-size: 0.77rem; }
+.file,.job,.footnote { font-size: 0.68rem; }

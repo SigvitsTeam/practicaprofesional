@@ -1,0 +1,20 @@
+:host { display: block; }
+.breadcrumb { font-size: 0.82rem; }
+.user strong { font-size: 0.8rem; }
+.user span { font-size: 0.7rem; }
+.avatar { font-size: 0.75rem; }
+.theme-toggle {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  color: var(--ink);
+  background: #f6f9fa;
+  font-size: 1.15rem;
+  transition: background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+.theme-toggle:hover { transform: translateY(-1px); background: #e8f3ef; }
+:host-context([data-theme='dark']) .theme-toggle { background: #172c35; }
+:host-context([data-theme='dark']) .theme-toggle:hover { background: #203b45; }

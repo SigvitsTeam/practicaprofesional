@@ -1,0 +1,10 @@
+:host { display: block; }
+.kpi { min-height: 145px; }
+.kpi header { font-size: 0.75rem; }
+.kpi > strong { font-size: 2rem; }
+.kpi p { font-size: 0.7rem; }
+.panel-heading h2 { font-size: 1rem; }
+.panel-heading p,.legend { font-size: 0.7rem; }
+.alerts strong { font-size: 0.78rem; }
+.alerts small { font-size: 0.7rem; }
+.bar::before,.bar-slot small,.y-axis { font-size: 0.65rem; }

@@ -1,5 +1,7 @@
 # Contexto para Stitch - Mockup del Sistema ITS
 
+> **Actualización vigente del frontend (3 de agosto de 2026):** usar `docs/decisiones-frontend-2026-08-03.md` como fuente prioritaria. Se elimina AGI, se reemplaza el doble mapa por un mapa interactivo único y se incorpora el digitador de coordinación con selector de establecimiento.
+
 ## Objetivo del mockup
 
 Crear un mockup de una plataforma web institucional para automatizar la captura, revision, consolidacion, exportacion y analisis de informes del programa ITS.

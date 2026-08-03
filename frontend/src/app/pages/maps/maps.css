@@ -1,0 +1,10 @@
+:host { display: block; }
+.map-kpis span { font-size: 0.74rem; }
+.map-kpis strong { font-size: 0.82rem; }
+.section-heading h2 { font-size: 1rem; }
+.section-heading p { font-size: 0.7rem; }
+.map-filters h3 { font-size: 0.68rem; }
+.layer,.filter-field span { font-size: 0.72rem; }
+.filter-field select { min-height: 40px; font-size: 0.78rem; }
+.ranking strong { font-size: 0.74rem; }
+.ranking small,.map-legend,.marker small { font-size: 0.65rem; }

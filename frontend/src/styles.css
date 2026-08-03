@@ -1,1 +1,5 @@
-/* You can add global styles to this file, and also import other style files */
+* { box-sizing: border-box; }
+html, body { min-height: 100%; margin: 0; }
+body { background: #f3f6f7; color: #18313d; font-family: Inter, "Segoe UI", Arial, sans-serif; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }

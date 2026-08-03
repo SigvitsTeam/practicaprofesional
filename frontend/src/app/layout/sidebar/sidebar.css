@@ -1,0 +1,11 @@
+:host { display: block; }
+.nav-item { min-height: 48px; font-size: 0.92rem; }
+.nav-label { font-size: 0.7rem; }
+.brand strong { font-size: 1.2rem; }
+.brand span { font-size: 0.75rem; }
+.privacy-card strong { font-size: 0.78rem; }
+.privacy-card p { font-size: 0.72rem; }
+@media (max-width: 780px) {
+  .nav-item { font-size: 0; }
+  .nav-icon { font-size: 1.1rem; }
+}

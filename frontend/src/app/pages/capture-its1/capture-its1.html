@@ -1,0 +1,47 @@
+<app-establishment-selector />
+
+@if (isCorrectionRequested) {
+  <section class="correction-banner"><i>↩</i><div><strong>Corrección solicitada por coordinación</strong><p>Verifique la procedencia y el segundo diagnóstico. Observación enviada el 29 jul, 09:18 por Dra. Ana Martínez.</p></div><span>DEVUELTO</span></section>
+}
+
+<form class="capture-layout" [formGroup]="form" (ngSubmit)="save()">
+  <div class="form-stack">
+    <article class="panel form-card">
+      <div class="section-heading"><div><h2>Datos de la atención</h2><p>Información correspondiente a {{ context.selected().name }}.</p></div><span class="secure">● Registro individual protegido</span></div>
+      <div class="form-grid">
+        <label><span>Fecha de atención *</span><input type="date" formControlName="attentionDate"><small>La semana mostrada es una vista previa.</small></label>
+        <label><span>Semana epidemiológica</span><input [value]="weekPreview" disabled></label>
+        <label><span>N.º expediente / ID paciente *</span><input formControlName="patientId" placeholder="Ej. EXP-2026-01842"><small class="field-error">@if (potentialDuplicate) {Posible duplicado en la fecha seleccionada.}</small></label>
+        <label><span>Sexo *</span><select formControlName="sex"><option value="">Seleccione</option><option>Hombre</option><option>Mujer</option></select></label>
+        <label><span>Edad *</span><input type="number" formControlName="age" min="0" max="120" placeholder="Años"></label>
+        <label><span>Tipo de población *</span><select formControlName="populationType"><option>General</option><option>Trabajador(a) sexual</option></select></label>
+        <label><span>Contacto *</span><select formControlName="contact"><option value="">Seleccione</option><option>Sí</option><option>No</option></select></label>
+        <label><span>Embarazada *</span><select formControlName="pregnant"><option>Sí</option><option>No</option></select><small>Disponible únicamente para sexo Mujer.</small></label>
+      </div>
+    </article>
+
+    <article class="panel form-card">
+      <div class="section-heading"><div><h2>Procedencia</h2><p>Escriba manualmente la comunidad, barrio, colonia o dirección proporcionada.</p></div></div>
+      <div class="form-grid single-field"><label class="wide"><span>Procedencia *</span><input formControlName="procedence" placeholder="Ej. Barrio El Centro, 2 cuadras al norte del parque"><small>Registre manualmente la referencia proporcionada por la persona.</small></label></div>
+    </article>
+
+    <article class="panel form-card">
+      <div class="section-heading"><div><h2>Diagnósticos</h2><p>Una atención puede incluir uno o varios diagnósticos.</p></div><button type="button" class="text-button" (click)="addDiagnostic()">＋ Agregar diagnóstico</button></div>
+      <div class="diagnostic-list" formArrayName="diagnostics">
+        @for (diagnostic of diagnostics.controls; track $index) {
+          <div class="diagnostic-row" [formGroupName]="$index"><span class="diagnostic-number">{{ $index + 1 }}</span><label><span>Clasificación *</span><select formControlName="classification"><option>Sindrómico</option><option>Clínico</option><option>C/E</option><option>Etiológico</option></select></label><label><span>Enfermedad *</span><select formControlName="disease"><option value="">Seleccione</option>@for (disease of availableDiseases(); track disease) {<option>{{ disease }}</option>}</select></label><label><span>Tipo de caso *</span><select formControlName="caseType"><option>Nuevo</option><option>Control</option></select></label><button type="button" class="remove-diagnostic" [disabled]="diagnostics.length === 1" (click)="removeDiagnostic($index)" aria-label="Eliminar diagnóstico">×</button></div>
+        }
+      </div>
+      <div class="form-grid observations-grid"><label class="wide"><span>Observaciones de la atención</span><textarea formControlName="observations" placeholder="Información relevante para la captura o corrección"></textarea></label></div>
+    </article>
+
+    @if (submitted && form.invalid) {<div class="form-alert"><b>!</b><span>Hay campos obligatorios pendientes. Revise la información resaltada.</span></div>}
+    <div class="form-actions"><button type="button" class="btn secondary">Limpiar</button><button type="submit" class="btn primary">{{ isCorrectionRequested ? 'Guardar corrección' : 'Guardar atención ITS 1' }}</button></div>
+  </div>
+
+  <aside class="side-stack">
+    <article class="panel context-card"><div class="section-heading"><div><h2>Contexto automático</h2></div></div><dl><div><dt>Región</dt><dd>Región Sanitaria de Cortés</dd></div><div><dt>Municipio</dt><dd>Puerto Cortés</dd></div><div><dt>Establecimiento</dt><dd>{{ context.selected().name }}</dd></div><div><dt>Código</dt><dd>{{ context.selected().code }}</dd></div><div><dt>Usuario que registra</dt><dd>María López · Digitadora de coordinación</dd></div><div><dt>Período</dt><dd>Julio 2026</dd></div></dl></article>
+    <article class="panel recent"><div class="section-heading"><div><h2>Registros recientes</h2><p>{{ context.selected().name }} · Julio 2026</p></div></div><div class="recent-table">@for (record of recentRecords; track record.id) {<button type="button"><span><strong>{{ record.id }}</strong><small>{{ record.date }} · {{ record.diagnosis }}</small></span><em>{{ record.status }}</em></button>}</div></article>
+    <article class="panel workflow-card"><div class="section-heading"><div><h2>Flujo de corrección</h2></div></div><ol><li class="done"><i>✓</i><span>Observación recibida</span></li><li [class.active]="isCorrectionRequested"><i>2</i><span>Corrección por digitador</span></li><li><i>3</i><span>Reenvío a coordinación</span></li></ol></article>
+  </aside>
+</form>

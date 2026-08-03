@@ -1,0 +1,11 @@
+:host { display: block; }
+.section-heading h2 { font-size: 1rem; }
+.section-heading p { font-size: 0.72rem; }
+.completion-stats span { font-size: 0.76rem; }
+.completion-stats strong { font-size: 1.05rem; }
+.blocking strong { font-size: 0.78rem; }
+.blocking small { font-size: 0.7rem; }
+.summary-card > span,.mini-row span { font-size: 0.75rem; }
+.summary-card > small,.mini-row strong { font-size: 0.7rem; }
+.timeline-horizontal strong { font-size: 0.72rem; }
+.timeline-horizontal span { font-size: 0.65rem; }
