@@ -47,8 +47,7 @@ No se recomienda que Angular opere directamente sobre Supabase para procesos cri
 - Revision de nivel central.
 - Consolidado nacional.
 - Exportacion Excel y PDF en formatos oficiales.
-- Mapas por establecimiento segun captacion.
-- Mapas por procedencia real del paciente.
+- Mapa interactivo unico con navegacion territorial y KPIs dinamicos.
 - Identificacion de casos de fuera del municipio.
 - Reportes mensuales, por semana epidemiologica, trimestrales, semestrales y anuales.
 - Evaluacion anual ITS en formato general y comparativo.
@@ -69,6 +68,17 @@ Establecimiento -> Coordinacion Municipal -> Region -> Nivel Central -> Reporte 
 - Genera ITS 2 del establecimiento.
 - Registra o carga mensualmente el total de atenciones por rangos de edad requerido para indicadores comparativos.
 - Envia ITS 2 a coordinacion municipal.
+
+### Digitador de Coordinacion
+
+- Tiene alcance operativo sobre los establecimientos que la coordinacion le asigne; en el piloto puede seleccionar cualquiera de los 12 establecimientos de Puerto Cortes.
+- Debe seleccionar un establecimiento antes de consultar, registrar o corregir informacion. Toda operacion se ejecuta en el contexto del establecimiento seleccionado.
+- Captura ITS 1 en nombre del establecimiento seleccionado.
+- Consulta y corrige los registros ITS 1 de ese establecimiento mientras el periodo o reporte se encuentre editable.
+- Genera, recalcula y consolida el ITS 2 del establecimiento seleccionado.
+- Atiende las observaciones y correcciones solicitadas por coordinacion o supervision y reenvia el ITS 2 a coordinacion.
+- No revisa, aprueba ni cierra el mismo reporte como coordinacion; estas acciones corresponden a un usuario revisor autorizado.
+- Toda captura, correccion, cambio de establecimiento, generacion y envio queda vinculada al usuario digitador y al establecimiento en la auditoria.
 
 ### Coordinacion Municipal
 
@@ -106,7 +116,7 @@ Establecimiento -> Coordinacion Municipal -> Region -> Nivel Central -> Reporte 
 
 ITS 1 contiene datos individuales y sensibles. Solo debe estar disponible para el establecimiento que lo captura y para usuarios autorizados dentro del alcance del establecimiento.
 
-Los niveles municipal, regional y central solo deben acceder a informacion consolidada ITS 2 o agregada.
+Los roles de revision municipal, regional y central solo deben acceder a informacion consolidada ITS 2 o agregada. El digitador de coordinacion es una excepcion operativa controlada: accede a ITS 1 exclusivamente al actuar dentro de un establecimiento asignado y seleccionado.
 
 Restricciones clave:
 
@@ -123,6 +133,7 @@ Restricciones clave:
 - Coordinador Municipal.
 - Responsable de Establecimiento.
 - Digitador de Establecimiento.
+- Digitador de Coordinacion.
 - Supervisor o Consulta.
 
 Los permisos deben combinar:
@@ -137,6 +148,12 @@ Ejemplo:
 Digitador:
 - alcance: establecimiento.
 - dato permitido: ITS 1 propio e ITS 2 propio.
+
+Digitador de Coordinacion:
+- alcance: establecimientos asignados dentro del municipio (12 en el piloto de Puerto Cortes).
+- dato permitido: ITS 1 e ITS 2 unicamente del establecimiento seleccionado.
+- acciones: capturar y corregir ITS 1; generar, recalcular y enviar ITS 2.
+- restricciones: no revisar, aprobar ni cerrar reportes como coordinacion.
 
 Coordinador Municipal:
 - alcance: municipio.
@@ -190,12 +207,13 @@ Cada cambio de estado debe guardar usuario, fecha, estado anterior, estado nuevo
 ## Correcciones
 
 - Antes de enviar, el establecimiento puede corregir ITS 1.
-- Si municipio devuelve, el establecimiento corrige ITS 1 y reenvia ITS 2.
+- Antes de enviar, el digitador de coordinacion autorizado puede corregir ITS 1 dentro del establecimiento seleccionado.
+- Si municipio o supervision solicita una correccion, el establecimiento o el digitador de coordinacion autorizado corrige ITS 1, recalcula ITS 2 y lo reenvia.
 - Si region devuelve, el municipio revisa y puede devolver al establecimiento correspondiente.
 - Si central devuelve, region revisa y puede devolver a municipio.
 - Despues del cierre oficial, solo se permite reapertura autorizada con motivo obligatorio y auditoria.
 
-Los niveles superiores no corrigen ITS 1 individual.
+Los usuarios revisores de coordinacion, supervision y niveles superiores no corrigen ITS 1 individual. El acceso excepcional del digitador de coordinacion se deriva de una asignacion operativa explicita a establecimientos, no del permiso municipal de revision.
 
 ## Captura ITS 1
 
@@ -213,7 +231,7 @@ Campos de captura:
 
 - Fecha de atencion.
 - Numero de expediente o ID paciente.
-- Procedencia declarada.
+- Procedencia (campo abierto obligatorio para digitar manualmente la comunidad o direccion).
 - Sexo: Hombre o Mujer.
 - Edad.
 - Tipo de poblacion: General o Trabajador(a) sexual.
@@ -299,86 +317,37 @@ Establecimiento de atencion != procedencia real del paciente
 Cada atencion debe registrar:
 
 - Establecimiento que atendio.
-- Procedencia textual original.
-- Si la procedencia pertenece al AGI del establecimiento que atiende.
-- Clasificacion de procedencia externa cuando no pertenece al AGI.
-- Comunidad/barrio/colonia normalizada, si existe catalogo disponible.
-- Municipio de procedencia, si aplica.
-- Departamento de procedencia, si aplica.
-- Pais de procedencia, si aplica.
-- Establecimiento de cobertura asignado segun procedencia, cuando exista informacion territorial suficiente.
-- Si viene de fuera del municipio.
-- Si viene de otro departamento.
-- Si es extranjero.
+- Procedencia textual escrita manualmente por el usuario: comunidad o direccion indicada por el paciente.
 
-Mapas definidos:
+El sistema utiliza un solo mapa interactivo. La procedencia textual puede alimentar filtros o resumenes posteriores cuando la calidad y normalizacion del dato lo permitan, pero no genera un segundo mapa.
 
-1. Mapa por establecimiento segun captacion.
-2. Mapa por procedencia real del paciente.
-3. Panel o mapa de procedencias externas al municipio.
+La captura de procedencia no usa listas de comunidades, clasificaciones territoriales ni campos condicionales. Debe ser un campo de texto abierto y obligatorio que conserve exactamente el valor digitado.
 
-La procedencia debe usar autocompletado, alias y una bandeja de procedencias no reconocidas.
+### Procedencia manual
 
-### AGI del establecimiento
-
-Para evitar depender desde el inicio de un listado completo y validado de comunidades por establecimiento, el Form. ITS 1 debe incluir una validacion directa junto al campo de procedencia:
+El Form. ITS 1 debe mostrar un unico campo:
 
 ```text
-¿Pertenece al AGI de este establecimiento?
-Si / No
+Procedencia (comunidad o direccion): ____________________
 ```
 
-Si la respuesta es "Si":
+- El usuario escribe manualmente la comunidad, barrio, colonia o direccion informada.
+- El valor se guarda como texto original, sin clasificacion territorial adicional.
+- No se obliga al usuario a seleccionar una comunidad de un catalogo.
+- No se solicitan municipio, departamento, pais ni clasificacion externa como campos condicionales.
+- La validacion de captura solo comprueba que el campo obligatorio no este vacio y que respete la longitud permitida.
+- Una futura limpieza o normalizacion para analisis debe conservar siempre el texto original y ejecutarse fuera del flujo de digitacion.
 
-- El caso forma parte de la produccion total del establecimiento.
-- El caso tambien forma parte de la cobertura real/AGI del establecimiento.
+### Indicadores de procedencia
 
-Si la respuesta es "No":
-
-- El caso forma parte de la produccion total del establecimiento.
-- El caso no forma parte de la cobertura real/AGI del establecimiento.
-- El usuario debe clasificar la procedencia externa.
-
-Clasificaciones sugeridas cuando no pertenece al AGI:
-
-```text
-Otro establecimiento del mismo municipio
-Otro municipio del mismo departamento/region
-Otro departamento
-Extranjero
-Desconocido / no especificado
-```
-
-Campos condicionales sugeridos:
-
-- Municipio de procedencia.
-- Departamento de procedencia.
-- Pais de procedencia.
-- Observacion de procedencia.
-
-Regla conceptual:
-
-```text
-Produccion total = todos los pacientes atendidos por el establecimiento.
-Cobertura real/AGI = pacientes que el establecimiento marca como pertenecientes a su AGI.
-```
-
-El catalogo de comunidades, barrios y colonias puede seguir existiendo como mejora futura o como apoyo de normalizacion, pero no debe ser requisito bloqueante para iniciar el piloto.
-
-### Tarjetas de procedencia y AGI
-
-La clasificacion de AGI/procedencia externa debe mostrarse tambien como tarjetas o KPIs, no solo en tablas o mapas.
+La interfaz puede mostrar indicadores de calidad y frecuencia basados en el texto registrado, sin presentar clasificaciones territoriales adicionales.
 
 Tarjetas sugeridas a nivel de establecimiento:
 
 - Produccion total atendida.
-- Casos pertenecientes al AGI.
-- Casos no pertenecientes al AGI.
-- Casos de otro establecimiento del mismo municipio.
-- Casos de otro municipio del mismo departamento/region.
-- Casos de otro departamento.
-- Casos extranjeros.
-- Casos con procedencia desconocida/no especificada.
+- Atenciones con procedencia completa.
+- Atenciones con procedencia pendiente o vacia en datos historicos.
+- Procedencias textuales mas frecuentes, si existe una normalizacion posterior confiable.
 
 Cada tarjeta debe responder a los filtros activos:
 
@@ -394,30 +363,18 @@ Cada tarjeta debe responder a los filtros activos:
 - Contacto.
 - Embarazada.
 
-Ejemplo:
-
-```text
-Filtro: Sexo = Hombre, periodo = Julio 2027
-Tarjeta "Casos no AGI" muestra solo hombres atendidos en el establecimiento que no pertenecen a su AGI.
-```
-
 Para niveles superiores, las tarjetas deben mostrarse agregadas:
 
 Municipio:
 
 - Produccion total de establecimientos.
-- Casos AGI.
-- Casos no AGI.
-- Casos captados de otros municipios.
-- Casos externos al departamento.
-- Casos extranjeros.
+- Cantidad de registros con procedencia completa.
+- Procedencias mas frecuentes, cuando exista normalizacion confiable.
 
 Region:
 
 - Totales por municipio.
-- Municipios con mayor proporcion de casos no AGI.
-- Casos provenientes de otros departamentos.
-- Casos extranjeros.
+- Calidad de completitud del campo procedencia por municipio.
 
 Nivel Central:
 
@@ -430,7 +387,7 @@ Estas tarjetas deben respetar la regla de privacidad: niveles superiores consume
 
 ### Mapas por nivel institucional
 
-Los mapas deben respetar el alcance territorial y el rol del usuario.
+El mapa debe respetar el alcance territorial y el rol del usuario.
 
 ```text
 Establecimiento -> silueta de su municipio, con datos propios y area de cobertura asignada.
@@ -538,7 +495,7 @@ Se debe validar institucionalmente si "Region Sanitaria Departamental de Cortes"
 
 ### Capas y objetos del mapa
 
-Los mapas deben manejar capas activables segun nivel:
+El mapa unico debe manejar capas activables segun nivel:
 
 - Limites nacionales.
 - Limites regionales/departamentales.
@@ -547,8 +504,6 @@ Los mapas deben manejar capas activables segun nivel:
 - Establecimientos de salud.
 - Casos por captacion.
 - Casos por procedencia.
-- Procedencias externas.
-- Areas de cobertura.
 
 Los establecimientos deben mostrarse como objetos del mapa, por ejemplo marcadores, iconos o simbolos, con informacion dinamica segun filtros.
 
@@ -566,7 +521,7 @@ Cada objeto de establecimiento debe poder mostrar:
 
 ### Filtros geograficos dinamicos
 
-Los mapas deben actualizar sus indicadores segun filtros seleccionados.
+El mapa debe actualizar sus indicadores segun filtros seleccionados.
 
 Filtros sugeridos:
 
@@ -587,7 +542,6 @@ Filtros sugeridos:
 - Establecimiento.
 - Municipio.
 - Region.
-- Procedencia interna/externa.
 
 Ejemplo:
 
@@ -610,9 +564,9 @@ Establecimiento:
 - Casos por enfermedad.
 - Total de atenciones cargadas.
 
-### Mapas a nivel de establecimiento
+### Mapa interactivo unico y navegacion jerarquica
 
-Cada establecimiento debe contar con al menos dos vistas de mapa.
+El sistema debe ofrecer un solo mapa operativo. No se crean mapas separados por produccion, procedencia o nivel territorial. El mismo componente cambia alcance, marcadores y KPIs mediante filtros y navegacion tipo zoom.
 
 Ejemplo:
 
@@ -623,82 +577,25 @@ Region: Cortes.
 Pais: Honduras.
 ```
 
-#### 1. Mapa de produccion total del mes
+Comportamiento requerido:
 
-Muestra toda la produccion captada por el establecimiento durante el periodo seleccionado, independientemente de si los pacientes pertenecen o no a su area de cobertura.
-
-Este mapa responde:
-
-```text
-¿Cuanto atendio este establecimiento?
-```
-
-Debe incluir:
-
-- Total de casos atendidos por el establecimiento.
-- Casos por procedencia real.
-- Casos de comunidades propias.
-- Casos de comunidades de otros establecimientos.
-- Casos fuera del municipio, si existen.
-- Filtros por mes, semana epidemiologica, sexo, edad, enfermedad, poblacion y tipo de caso.
-
-#### 2. Mapa de cobertura real del establecimiento
-
-Muestra los casos cuya procedencia fue marcada como perteneciente al AGI del establecimiento.
-
-Este mapa responde:
-
-```text
-¿Que esta ocurriendo en el territorio que le corresponde cubrir a este establecimiento?
-```
-
-Debe incluir:
-
-- Casos marcados como pertenecientes al AGI.
-- Procedencias textuales declaradas dentro del AGI.
-- Casos atendidos por el propio establecimiento.
-- Total por procedencia declarada o comunidad normalizada, si existe.
-- Filtros dinamicos.
-
-Regla conceptual:
-
-```text
-Produccion total = lo que el establecimiento atendio.
-Cobertura real = lo que ocurre en las comunidades que le corresponden.
-```
-
-Esto permite diferenciar productividad operativa de situacion epidemiologica del area asignada.
-
-Municipio:
-
-- Total municipal.
-- Totales por establecimiento.
-- Establecimientos con mayor captacion.
-- Procedencias principales.
-- Casos fuera de area.
-
-Region:
-
-- Totales por municipio.
-- Ranking de municipios.
-- Municipios pendientes de reporte.
-- Tendencias por semana o mes.
-
-Nivel Central:
-
-- Totales por region/departamento.
-- Ranking regional.
-- Consolidado nacional.
-- Regiones pendientes de cierre.
+- En el nivel municipal de Puerto Cortes, mostrar los establecimientos como iconos geolocalizados segun sus coordenadas registradas.
+- Cada icono contiene el valor del KPI seleccionado y muestra nombre/codigo del establecimiento.
+- El valor del icono cambia al modificar periodo, semana, sexo, edad, enfermedad, clasificacion, tipo de caso, poblacion u otros filtros autorizados.
+- Los controles de acercar, alejar y la ruta territorial permiten navegar `Region Cortes -> Puerto Cortes -> establecimientos` sin abandonar el mapa.
+- En vista regional se muestran los municipios como unidades agregadas. Al seleccionar Puerto Cortes, el mapa hace acercamiento y despliega sus establecimientos.
+- Region y Nivel Central pueden acercarse a municipios y establecimientos de su alcance, pero reciben solamente datos agregados.
+- El ranking y los KPIs laterales se actualizan junto con los marcadores para mantener una unica lectura del filtro activo.
+- La procedencia manual puede usarse en analisis posteriores si existe normalizacion confiable, pero no crea otra vista cartografica.
 
 ### Agregacion y privacidad en mapas
 
-Los mapas de niveles superiores deben trabajar con datos agregados.
+El mapa en niveles superiores debe trabajar con datos agregados.
 
 Regla:
 
 ```text
-Municipio, region y nivel central no acceden a ITS 1 individual desde los mapas.
+Municipio, region y nivel central no acceden a ITS 1 individual desde el mapa.
 ```
 
 Las consultas del mapa deben consumir endpoints agregados, por ejemplo:
@@ -720,9 +617,9 @@ Se incorporan las siguientes mejoras para robustecer el modulo geografico:
    - Precargar codigo oficial, nombre, jerarquia, geometria, centroide, zoom recomendado, fuente y version.
    - La configuracion municipal asocia y valida una silueta; no solicita introducir manualmente sus vertices.
 
-2. Separacion entre mapa base y mapa operativo.
-   - Mapa base: referencia territorial.
-   - Mapa operativo: territorios activos con usuarios, reportes y KPIs.
+2. Un solo mapa con capas de datos separadas.
+   - Capa base: referencia territorial.
+   - Capas operativas: territorios activos, establecimientos, reportes y KPIs dentro del mismo mapa interactivo.
 
 3. Estados operativos por territorio.
    - Estados sugeridos: PRECONFIGURADO, CREADO, EN_PILOTAJE, ACTIVO, INACTIVO, SUSPENDIDO.
