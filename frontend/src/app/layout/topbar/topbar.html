@@ -1,8 +1,9 @@
 <header class="topbar">
-  <div class="breadcrumb"><span>Honduras</span><b>›</b><span>Cortés</span><b>›</b><strong>Puerto Cortés</strong></div>
+  <div class="breadcrumb"><span>Honduras</span><b>›</b><strong>{{ role().scopeLabel }}</strong></div>
   <div class="top-actions">
+    <label class="role-switcher"><span>Vista</span><select aria-label="Vista de usuario" (change)="changeRole($event)">@for (item of roles; track item.id) {<option [value]="item.id" [selected]="item.id === role().id">{{ item.roleName }}</option>}</select></label>
     <button class="theme-toggle" type="button" (click)="themeToggle.emit()" [attr.aria-label]="darkMode() ? 'Activar modo claro' : 'Activar modo oscuro'" [title]="darkMode() ? 'Modo claro' : 'Modo oscuro'"><span>{{ darkMode() ? '☀' : '☾' }}</span></button>
     <button class="notification" aria-label="Notificaciones">●<i></i></button>
-    <div class="user"><div class="avatar">{{ establishmentView() ? 'ML' : 'AM' }}</div><div><strong>{{ establishmentView() ? 'María López' : 'Dra. Ana Martínez' }}</strong><span>{{ establishmentView() ? 'Digitadora de coordinación' : 'Coordinadora Municipal' }}</span></div><b>⌄</b></div>
+    <div class="user"><div class="avatar">{{ role().initials }}</div><div><strong>{{ role().userName }}</strong><span>{{ role().roleName }}</span></div><b>⌄</b></div>
   </div>
 </header>

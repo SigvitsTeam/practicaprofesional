@@ -1,4 +1,101 @@
-<section class="territory-layout"><aside class="panel tree"><div class="section-heading"><div><h2>Estructura territorial</h2></div></div><label class="tree-search">⌕<input placeholder="Buscar territorio…"></label><button>⌄ <i>HN</i><strong>Honduras</strong><span class="badge neutral">Preconfigurado</span></button><button class="level-1">⌄ <i>05</i><strong>Cortés</strong><span class="badge active">Activo</span></button><button class="level-2 selected">⌄ <i>06</i><strong>Puerto Cortés</strong><span class="badge pilot">Pilotaje</span></button>@for (name of ['CIS Cornelio Moncada','CIS Medina','UAPS Cieneguita','UAPS Baracoa']; track name) {<button class="level-3"><span>•</span><strong>{{ name }}</strong>@if ($last) {<b class="warning-text">!</b>}</button>}</aside>
-  <article class="panel territory-detail"><div class="territory-title"><div><span class="eyebrow">COORDINACIÓN MUNICIPAL</span><h2>Puerto Cortés</h2><p>Código oficial 0506 · Región Sanitaria Departamental de Cortés</p></div><span class="badge pilot">EN PILOTAJE</span></div><div class="tabs"><button class="selected">Información general</button><button>Geografía</button><button>Responsables</button><button>Historial</button></div><div class="territory-form"><label class="wide"><span>Nombre oficial</span><input value="Coordinación Municipal de Salud de Puerto Cortés"></label><label><span>Código oficial</span><input value="0506"></label><label><span>Estado operativo</span><select><option>En pilotaje</option><option>Activo</option></select></label><label class="wide"><span>Región sanitaria</span><select><option>Región Sanitaria Departamental de Cortés</option></select></label></div><div class="coordinate-panel"><div class="mini-map"><i>＋</i><span>Puerto Cortés</span></div><div><h3>Territorio geográfico asociado</h3><p>Silueta municipal vinculada al código oficial 0506. La geometría fue validada para el piloto.</p><span class="validation-chip">✓ GEOMETRÍA VALIDADA</span></div></div><div class="save-row"><button class="btn secondary">Cancelar</button><button class="btn primary" (click)="notify.emit('Configuración territorial guardada.')">Guardar cambios</button></div></article>
-  <aside class="side-stack"><article class="panel readiness"><div class="section-heading"><div><h2>Preparación operativa</h2></div></div><div><strong>83%</strong><span>10 de 12 criterios</span></div><div class="progress"><span style="width:83%"></span></div><p>Faltan coordenadas y un responsable.</p></article><article class="panel territory-alerts"><div class="section-heading"><div><h2>Requiere atención</h2></div></div><button><i>!</i><span>1 establecimiento sin coordenadas</span><b>›</b></button><button><i>i</i><span>1 usuario sin alcance asignado</span><b>›</b></button></article></aside>
+<section class="admin-scope-banner">
+  <i>✓</i>
+  <div>
+    <strong>{{ regionalScope ? 'Administración limitada a la Región de Cortés' : 'Administración global del sistema' }}</strong>
+    <span>{{ regionalScope ? 'Puede gestionar Cortés, sus municipios, establecimientos y usuarios. Honduras y otras regiones permanecen en solo lectura.' : 'Puede gestionar regiones y todos sus niveles dependientes.' }}</span>
+  </div>
+</section>
+
+@if (globalScope) {
+  <section class="global-territory-management" aria-label="Gestión nacional de regiones y municipios">
+    <div class="global-management-heading">
+      <div><span class="eyebrow">ESTRUCTURA NACIONAL</span><h2>Regiones y municipios</h2><p>El SuperAdmin puede crear, configurar, activar o desactivar territorios de Honduras.</p></div>
+      <div><button class="btn secondary" type="button" (click)="notify.emit('Formulario para crear municipio abierto.')">＋ Nuevo municipio</button><button class="btn primary" type="button" (click)="notify.emit('Formulario para crear región abierto.')">＋ Nueva región</button></div>
+    </div>
+    <div class="global-territory-kpis"><div><span>Regiones registradas</span><strong>18</strong><small>1 activa en el piloto</small></div><div><span>Municipios registrados</span><strong>298</strong><small>1 operativo</small></div><div><span>Establecimientos activos</span><strong>12</strong><small>Puerto Cortés</small></div><div><span>Configuración pendiente</span><strong>17</strong><small>Regiones preconfiguradas</small></div></div>
+    <div class="global-territory-table"><div class="global-table-toolbar"><div><h3>Catálogo regional</h3><p>Regiones sanitarias y estado de sus municipios dependientes</p></div><label>⌕<input placeholder="Buscar región o código"></label></div><div class="table-wrap"><table><thead><tr><th>Región</th><th>Municipios</th><th>Municipios activos</th><th>Establecimientos</th><th>Estado</th><th></th></tr></thead><tbody>@for (region of regions; track region.code) {<tr><td><strong>{{ region.name }}</strong><small>Código {{ region.code }}</small></td><td>{{ region.municipalities }}</td><td>{{ region.activeMunicipalities }}</td><td>{{ region.establishments }}</td><td><span class="region-status" [class.preconfigured]="region.status === 'Preconfigurada'">{{ region.status }}</span></td><td><button type="button" [attr.aria-label]="'Gestionar ' + region.name" (click)="notify.emit('Gestión territorial abierta para ' + region.name + '.')">Gestionar →</button></td></tr>}</tbody></table></div></div>
+    <div class="global-territory-table municipality-catalog"><div class="global-table-toolbar"><div><h3>Catálogo municipal</h3><p>Municipios de la región seleccionada: Cortés</p></div><label>⌕<input placeholder="Buscar municipio o código"></label></div><div class="table-wrap"><table><thead><tr><th>Municipio</th><th>Región</th><th>Establecimientos</th><th>Responsable</th><th>Estado</th><th></th></tr></thead><tbody>@for (municipality of municipalities; track municipality.code) {<tr><td><strong>{{ municipality.name }}</strong><small>Código {{ municipality.code }}</small></td><td>{{ municipality.region }}</td><td>{{ municipality.establishments }}</td><td>{{ municipality.responsible }}</td><td><span class="region-status" [class.preconfigured]="municipality.status === 'Preconfigurado'">{{ municipality.status }}</span></td><td><button type="button" [attr.aria-label]="'Gestionar municipio ' + municipality.name" (click)="notify.emit('Gestión municipal abierta para ' + municipality.name + '.')">Gestionar →</button></td></tr>}</tbody></table></div></div>
+  </section>
+}
+
+<section class="territory-layout">
+  <aside class="panel tree">
+    <div class="section-heading"><div><h2>Estructura territorial</h2></div></div>
+    <label class="tree-search">⌕<input placeholder="Buscar territorio…"></label>
+    <button [class.scope-locked]="regionalScope">⌄ <i>HN</i><strong>Honduras</strong><span class="badge neutral">{{ regionalScope ? 'Solo lectura' : 'Preconfigurado' }}</span></button>
+    <button class="level-1">⌄ <i>05</i><strong>Cortés</strong><span class="badge active">Activo</span></button>
+    <button class="level-2 selected">⌄ <i>06</i><strong>Puerto Cortés</strong><span class="badge pilot">Pilotaje</span></button>
+    @for (name of ['Policlínico Cornelio Moncada','CIS Linda Coello','UAPS La Pita','CIS Bajamar']; track name) {
+      <button class="level-3"><span>•</span><strong>{{ name }}</strong>@if ($last) {<b class="warning-text">!</b>}</button>
+    }
+  </aside>
+
+  <article class="panel territory-detail">
+    <div class="territory-title">
+      <div><span class="eyebrow">COORDINACIÓN MUNICIPAL</span><h2>Puerto Cortés</h2><p>Código oficial 0506 · Región Sanitaria Departamental de Cortés</p></div>
+      <span class="badge pilot">EN PILOTAJE</span>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Secciones de la coordinación municipal">
+      @for (tab of tabs; track tab.id) {
+        <button type="button" role="tab" [class.selected]="activeTab === tab.id" [attr.aria-selected]="activeTab === tab.id" (click)="selectTab(tab.id)">{{ tab.label }}</button>
+      }
+    </div>
+
+    <div class="tab-content">
+      @switch (activeTab) {
+        @case ('general') {
+          <div class="territory-form">
+            <label class="wide"><span>Nombre oficial</span><input value="Coordinación Municipal de Salud de Puerto Cortés"></label>
+            <label><span>Código oficial</span><input value="0506"></label>
+            <label><span>Estado operativo</span><select><option>En pilotaje</option><option>Activo</option></select></label>
+            <label class="wide"><span>Región sanitaria</span><select><option>Región Sanitaria Departamental de Cortés</option></select></label>
+          </div>
+          <div class="coordinate-panel"><div class="mini-map"><i>＋</i><span>Puerto Cortés</span></div><div><h3>Territorio geográfico asociado</h3><p>Silueta municipal vinculada al código oficial 0506. La geometría fue validada para el piloto.</p><span class="validation-chip">✓ GEOMETRÍA VALIDADA</span></div></div>
+        }
+        @case ('geography') {
+          <section class="geography-view" aria-label="Geografía de Puerto Cortés">
+            <div class="geo-map-large"><div class="geo-water">Mar Caribe</div><div class="geo-shape"><span>Puerto Cortés</span><i></i></div><div class="geo-points">@for (point of [1,2,3,4,5,6]; track point) {<b [style.--point]="point">+</b>}</div><div class="geo-map-label">0506 · Límite municipal validado</div></div>
+            <div class="geo-details">
+              <div class="section-heading"><div><h2>Geografía asociada</h2><p>Información territorial utilizada por mapas y filtros</p></div><span class="validation-chip">✓ VIGENTE</span></div>
+              <dl><div><dt>Centro aproximado</dt><dd>15.8256, -87.9297</dd></div><div><dt>Fuente</dt><dd>Catálogo geográfico institucional</dd></div><div><dt>Versión</dt><dd>PC-0506 · v1.0</dd></div><div><dt>Validada</dt><dd>01 ago 2026</dd></div></dl>
+              <div class="geo-readiness"><span><strong>11 de 12</strong> establecimientos con coordenadas validadas</span><div class="progress"><i style="width:91.6%"></i></div></div>
+              <button class="btn secondary full" type="button" (click)="notify.emit('Abriendo validación de los 12 establecimientos en el mapa.')">Revisar establecimientos en el mapa</button>
+            </div>
+          </section>
+        }
+        @case ('responsibles') {
+          <section class="responsibles-view" aria-label="Responsables de Puerto Cortés">
+            <div class="tab-section-title"><div><h2>Responsables asignados</h2><p>Usuarios con responsabilidad directa o supervisión territorial.</p></div><button class="btn primary" type="button" (click)="notify.emit('Formulario de asignación de responsable abierto.')">＋ Asignar responsable</button></div>
+            <div class="responsible-list">
+              @for (person of responsibles; track person.name) {
+                <article><span class="responsible-avatar">{{ person.initials }}</span><div><strong>{{ person.name }}</strong><small>{{ person.role }}</small></div><dl><div><dt>Alcance</dt><dd>{{ person.scope }}</dd></div><div><dt>Asignado desde</dt><dd>{{ person.since }}</dd></div></dl><span class="assignment-status" [class.supervision]="person.status === 'Supervisión'">{{ person.status }}</span><button type="button" aria-label="Opciones de {{ person.name }}" (click)="notify.emit('Opciones de ' + person.name + ' abiertas.')">⋮</button></article>
+              }
+            </div>
+            <div class="responsible-note"><i>i</i><span><strong>Separación de responsabilidades</strong><small>El SuperAdmin Regional administra asignaciones dentro de Cortés, pero no obtiene acceso automático a registros individuales ITS 1.</small></span></div>
+          </section>
+        }
+        @case ('history') {
+          <section class="history-view" aria-label="Historial de Puerto Cortés">
+            <div class="tab-section-title"><div><h2>Historial de cambios</h2><p>Eventos administrativos registrados para esta coordinación.</p></div><label>Mostrar <select><option>Todos los eventos</option><option>Configuración</option><option>Responsables</option><option>Geografía</option></select></label></div>
+            <div class="history-timeline">
+              @for (event of history; track event.date) {
+                <article><i [class]="'history-dot ' + event.tone"></i><div class="history-date">{{ event.date }}</div><div><strong>{{ event.action }}</strong><p>{{ event.detail }}</p><small>{{ event.user }}</small></div></article>
+              }
+            </div>
+            <button class="btn secondary history-export" type="button" (click)="notify.emit('Historial territorial preparado para exportación.')">↓ Exportar historial</button>
+          </section>
+        }
+      }
+    </div>
+
+    @if (activeTab !== 'history') {
+      <div class="save-row"><button class="btn secondary" type="button">Cancelar</button><button class="btn primary" type="button" (click)="notify.emit(activeTab === 'responsibles' ? 'Asignaciones guardadas.' : activeTab === 'geography' ? 'Geografía territorial guardada.' : 'Configuración territorial guardada.')">Guardar cambios</button></div>
+    }
+  </article>
+
+  <aside class="side-stack">
+    <article class="panel readiness"><div class="section-heading"><div><h2>Preparación operativa</h2></div></div><div><strong>83%</strong><span>10 de 12 criterios</span></div><div class="progress"><span style="width:83%"></span></div><p>Faltan coordenadas y un responsable.</p></article>
+    <article class="panel territory-alerts"><div class="section-heading"><div><h2>Requiere atención</h2></div></div><button><i>!</i><span>1 establecimiento sin coordenadas</span><b>›</b></button><button><i>i</i><span>1 usuario sin alcance asignado</span><b>›</b></button></article>
+  </aside>
 </section>

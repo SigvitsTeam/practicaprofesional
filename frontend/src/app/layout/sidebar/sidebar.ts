@@ -1,5 +1,6 @@
 import { Component, input, output } from '@angular/core';
 import { NAV_ITEMS } from '../../core/mock-data';
+import { RoleProfile } from '../../core/models';
 
 @Component({
   selector: 'app-sidebar',
@@ -8,6 +9,10 @@ import { NAV_ITEMS } from '../../core/mock-data';
 })
 export class Sidebar {
   readonly active = input.required<string>();
+  readonly role = input.required<RoleProfile>();
   readonly navigate = output<string>();
-  protected readonly items = NAV_ITEMS;
+
+  protected items(group: 'Operación' | 'Gestión') {
+    return NAV_ITEMS.filter(item => item.group === group && this.role().navItems.includes(item.label));
+  }
 }

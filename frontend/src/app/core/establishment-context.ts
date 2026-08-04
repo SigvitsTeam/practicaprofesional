@@ -4,21 +4,21 @@ import { Establishment } from './models';
 @Injectable({ providedIn: 'root' })
 export class EstablishmentContext {
   readonly establishments: Establishment[] = [
-    { code: 'CIS-001', name: 'CIS Cornelio Moncada Córdova', type: 'CIS' },
-    { code: 'CIS-002', name: 'CIS Medina', type: 'CIS' },
-    { code: 'UAPS-003', name: 'UAPS Bajamar', type: 'UAPS' },
-    { code: 'UAPS-004', name: 'UAPS Cieneguita', type: 'UAPS' },
-    { code: 'UAPS-005', name: 'UAPS Chameleconcito', type: 'UAPS' },
-    { code: 'UAPS-006', name: 'UAPS Baracoa', type: 'UAPS' },
-    { code: 'UAPS-007', name: 'UAPS Campana', type: 'UAPS' },
-    { code: 'UAPS-008', name: 'UAPS Río Mar', type: 'UAPS' },
-    { code: 'UAPS-009', name: 'UAPS Garífuna', type: 'UAPS' },
-    { code: 'UAPS-010', name: 'UAPS Travesía', type: 'UAPS' },
-    { code: 'UAPS-011', name: 'UAPS El Chile', type: 'UAPS' },
-    { code: 'UAPS-012', name: 'UAPS Puente Alto', type: 'UAPS' },
+    { code: '2721', name: 'Policlínico Cornelio Moncada Puerto Cortés', type: 'Policlínico' },
+    { code: '85481', name: 'CIS Linda Coello', type: 'CIS' },
+    { code: '2771', name: 'UAPS La Pita', type: 'UAPS' },
+    { code: '2739', name: 'CIS Bajamar', type: 'CIS' },
+    { code: '82899', name: 'UAPS Travesia', type: 'UAPS' },
+    { code: '82881', name: 'UAPS Saraguayna', type: 'UAPS' },
+    { code: '83453', name: 'CIS Fraternidad', type: 'CIS' },
+    { code: '2747', name: 'CIS Baracoa', type: 'CIS' },
+    { code: '9563', name: 'UAPS Calan', type: 'UAPS' },
+    { code: '2780', name: 'UAPS Puente Alto', type: 'UAPS' },
+    { code: '2755', name: 'UAPS Caoba', type: 'UAPS' },
+    { code: '2763', name: 'UAPS Kele Kele', type: 'UAPS' },
   ];
 
-  readonly selectedCode = signal('CIS-002');
+  readonly selectedCode = signal('2721');
   readonly selected = computed(() => this.establishments.find(item => item.code === this.selectedCode()) ?? this.establishments[0]);
 
   select(code: string) {

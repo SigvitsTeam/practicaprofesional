@@ -32,6 +32,12 @@ En el piloto de Puerto Cortés este usuario podrá:
 - Las acciones de corrección deben mostrar estado, observaciones de supervisión e historial visible.
 - El frontend puede simular estos cambios de contexto, pero el backend será posteriormente la autoridad de permisos, alcance y flujo.
 
+## Catálogo real de establecimientos — actualización del 4 de agosto de 2026
+
+Los 12 establecimientos reales pertenecientes a la Coordinación de Puerto Cortés están registrados en [catalogo-establecimientos-puerto-cortes.md](./catalogo-establecimientos-puerto-cortes.md).
+
+Este catálogo sustituye los nombres y códigos provisionales utilizados anteriormente. El selector de establecimiento, la captura ITS 1, el reporte ITS 2, las bandejas, los consolidados y el mapa deben construirse utilizando exclusivamente dicho catálogo.
+
 ## Procedencia en ITS 1
 
 Se elimina del alcance vigente:

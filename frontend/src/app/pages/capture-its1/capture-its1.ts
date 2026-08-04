@@ -2,6 +2,7 @@ import { Component, DestroyRef, inject, output } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EstablishmentContext } from '../../core/establishment-context';
+import { RoleContext } from '../../core/role-context';
 import { EstablishmentSelector } from '../../shared/establishment-selector/establishment-selector';
 
 @Component({
@@ -13,6 +14,7 @@ import { EstablishmentSelector } from '../../shared/establishment-selector/estab
 export class CaptureIts1 {
   readonly notify = output<string>();
   protected readonly context = inject(EstablishmentContext);
+  protected readonly roleContext = inject(RoleContext);
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
   submitted = false;
@@ -47,7 +49,9 @@ export class CaptureIts1 {
   }
 
   get diagnostics() { return this.form.controls.diagnostics as FormArray; }
-  get isCorrectionRequested() { return this.context.selectedCode() === 'UAPS-004'; }
+  get canSelectEstablishment() { return this.roleContext.activeRoleId() === 'coordination-digitizer'; }
+  get activeUser() { return this.roleContext.activeRole(); }
+  get isCorrectionRequested() { return this.context.selectedCode() === '2771'; }
   get potentialDuplicate() { return (this.form.controls.patientId.value ?? '').trim().toUpperCase() === 'EXP-2026-01841'; }
   get weekPreview() { return this.calculateWeek(this.form.controls.attentionDate.value); }
 

@@ -42,13 +42,16 @@ Establecimiento -> Coordinacion Municipal -> Region -> Nivel Central -> Reporte 
 
 El mockup debe representar una aplicacion con acceso por rol:
 
-- SuperAdmin: administra catalogos, territorios, usuarios, permisos y configuraciones.
+- SuperAdmin: administra catalogos, regiones, redes, municipios, usuarios, permisos y configuraciones.
 - Nivel Central: revisa consolidados regionales, analiza mapa nacional y genera consolidado nacional.
+- SuperAdmin Regional: realiza todas las funciones del Admin Regional y administra redes, municipios, establecimientos, usuarios, roles y configuraciones únicamente dentro de su región y sus niveles dependientes.
 - Admin Regional: revisa municipios de su region y genera consolidado regional.
 - Coordinador Municipal: revisa reportes de establecimientos y genera consolidado municipal.
+- Digitador de Coordinación: selecciona un establecimiento de la coordinación, captura o corrige ITS 1 y prepara ITS 2 para revisión.
 - Responsable de Establecimiento: captura ITS 1, genera ITS 2 y envia reporte mensual.
-- Digitador de Establecimiento: registra atenciones ITS 1.
 - Supervisor o Consulta: visualiza reportes segun permisos.
+
+El rol Digitador de Establecimiento fue eliminado. No debe crearse una vista independiente para ese perfil.
 
 ## Alcance del piloto
 
@@ -67,15 +70,23 @@ Municipio piloto:
 Establecimientos:
 
 - 12 establecimientos de salud de Puerto Cortes.
+- El catálogo real y vigente está definido en `catalogo-establecimientos-puerto-cortes.md`.
+- No deben utilizarse nombres provisionales o inventados.
 
-El mockup puede usar nombres de ejemplo como:
+Lista vigente:
 
-- CIS Cornelio Moncada Cordova.
-- CIS Medina.
-- UAPS Cieneguita.
-- UAPS Baracoa.
-- UAPS Rio Mar.
-- UAPS Travesia.
+- Policlínico Cornelio Moncada Puerto Cortés (`2721`).
+- CIS Linda Coello (`85481`).
+- UAPS La Pita (`2771`).
+- CIS Bajamar (`2739`).
+- UAPS Travesia (`82899`).
+- UAPS Saraguayna (`82881`).
+- CIS Fraternidad (`83453`).
+- CIS Baracoa (`2747`).
+- UAPS Calan (`9563`).
+- UAPS Puente Alto (`2780`).
+- UAPS Caoba (`2755`).
+- UAPS Kele Kele (`2763`).
 
 ## Modulos principales de la aplicacion
 
@@ -111,7 +122,7 @@ Crear una pantalla principal con:
 
 - Barra superior con nombre del sistema, usuario activo, rol y periodo seleccionado.
 - Menu lateral con modulos.
-- Filtros superiores: anio, mes, semana epidemiologica, region, municipio, establecimiento.
+- Filtros superiores: anio, mes, semana epidemiologica, region, red, municipio, establecimiento.
 - Tarjetas KPI.
 - Grafica de tendencia mensual.
 - Tabla de estado de reportes.
@@ -446,21 +457,27 @@ Periodo:
 
 Establecimientos:
 
-- CIS Cornelio Moncada Cordova.
-- CIS Medina.
-- UAPS Cieneguita.
-- UAPS Baracoa.
-- UAPS Rio Mar.
-- UAPS Travesia.
+- Policlínico Cornelio Moncada Puerto Cortés (`2721`).
+- CIS Linda Coello (`85481`).
+- UAPS La Pita (`2771`).
+- CIS Bajamar (`2739`).
+- UAPS Travesia (`82899`).
+- UAPS Saraguayna (`82881`).
+- CIS Fraternidad (`83453`).
+- CIS Baracoa (`2747`).
+- UAPS Calan (`9563`).
+- UAPS Puente Alto (`2780`).
+- UAPS Caoba (`2755`).
+- UAPS Kele Kele (`2763`).
 
 Estados de reportes:
 
-- CIS Cornelio Moncada Cordova: Aprobado.
-- CIS Medina: En revision.
-- UAPS Cieneguita: Devuelto.
-- UAPS Baracoa: Pendiente de envio.
-- UAPS Rio Mar: Aprobado.
-- UAPS Travesia: En revision.
+- Policlínico Cornelio Moncada Puerto Cortés: Aprobado.
+- CIS Linda Coello: En revision.
+- UAPS La Pita: Devuelto.
+- CIS Bajamar: Pendiente de envio.
+- UAPS Travesia: Aprobado.
+- UAPS Saraguayna: En revision.
 
 Enfermedades o categorias de ejemplo:
 
