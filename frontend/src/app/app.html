@@ -4,7 +4,7 @@
     <app-topbar [role]="role" [darkMode]="darkMode" (roleChange)="changeRole($event)" (themeToggle)="toggleTheme()" />
     <div class="content">
       <div class="page-heading"><div><p class="eyebrow">{{ meta.eyebrow }}</p><h1>{{ meta.title }}</h1><p>{{ meta.description }}</p></div>@if (showPrimaryAction) {<button class="btn primary" (click)="primaryAction()">＋ {{ primaryLabel() }}</button>}</div>
-      <app-global-filters [role]="role" />
+      <div class="global-filter-slot" [hidden]="!showGlobalFilters" [attr.aria-hidden]="!showGlobalFilters"><app-global-filters [role]="role" /></div>
 
       @switch (active) {
         @case ('Inicio') { <app-role-dashboard [role]="role" (navigate)="navigate($event)" (notify)="showNotice($event)" /> }

@@ -116,8 +116,7 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Nueva región');
     expect(compiled.textContent).toContain('Nuevo municipio');
     expect(compiled.querySelector('.page-heading .primary')?.textContent).toContain('Nueva región');
-    const scopeFilter = Array.from(compiled.querySelectorAll('.filters label')).find(label => label.querySelector('span')?.textContent?.trim() === 'Alcance');
-    expect(scopeFilter?.querySelector('select')?.value).toBe('Honduras');
+    expect(compiled.querySelector<HTMLElement>('.global-filter-slot')?.hidden).toBe(true);
     expect(compiled.querySelectorAll('.global-territory-table')).toHaveLength(2);
     expect(compiled.querySelectorAll('.municipality-catalog tbody tr')).toHaveLength(3);
 
@@ -154,6 +153,8 @@ describe('App', () => {
     fixture.componentInstance.navigate('Redes');
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
+    compiled.querySelector<HTMLButtonElement>('.scope-toggle')!.click();
+    fixture.detectChanges();
 
     expect(compiled.textContent).toContain('SOLO CONSULTA');
     expect(compiled.querySelector('h1')?.textContent).toContain('Consolidado por Redes');
@@ -194,5 +195,129 @@ describe('App', () => {
     expect(compiled.querySelectorAll('app-interactive-map')).toHaveLength(1);
     expect(compiled.querySelectorAll('.marker')).toHaveLength(12);
     expect(compiled.textContent).toContain('Métrica activa');
+  });
+
+  it('should configure annual evaluations with comparison dimensions and two time ranges', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.componentInstance.changeRole('regional-admin');
+    fixture.componentInstance.navigate('Reportes y exportaciones');
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    const annualButton = Array.from(compiled.querySelectorAll<HTMLButtonElement>('.export-catalog button'))
+      .find(button => button.textContent?.includes('Evaluación anual'))!;
+    annualButton.click();
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.annual-dialog')).toBeTruthy();
+    expect(compiled.querySelectorAll('.dimension-options button')).toHaveLength(3);
+    expect(compiled.querySelectorAll('input[type="month"]')).toHaveLength(4);
+    expect(compiled.textContent).toContain('Región de Cortés');
+    expect(compiled.textContent).toContain('Solo se muestran territorios y datos agregados permitidos');
+
+    compiled.querySelector<HTMLButtonElement>('.annual-dialog button[type="submit"]')!.click();
+    fixture.detectChanges();
+    expect(compiled.querySelector('.annual-dialog')).toBeNull();
+    expect(compiled.querySelector('.annual-preview')).toBeTruthy();
+    expect(compiled.textContent).toContain('ene 2025 – dic 2025');
+  });
+
+  it('should prevent an establishment user from comparing unauthorized territories', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.componentInstance.changeRole('establishment-manager');
+    fixture.componentInstance.navigate('Reportes y exportaciones');
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    Array.from(compiled.querySelectorAll<HTMLButtonElement>('.export-catalog button'))
+      .find(button => button.textContent?.includes('Evaluación anual'))!.click();
+    fixture.detectChanges();
+
+    const territoryDimension = Array.from(compiled.querySelectorAll<HTMLButtonElement>('.dimension-options button'))
+      .find(button => button.textContent?.includes('Territorios'))!;
+    expect(territoryDimension.disabled).toBe(true);
+    expect(territoryDimension.textContent).toContain('No disponible para su alcance');
+  });
+
+  it('should provide hierarchical global filters according to each role level', () => {
+    const fixture = TestBed.createComponent(App);
+    const compiled = fixture.nativeElement as HTMLElement;
+    const filter = (label: string) => Array.from(compiled.querySelectorAll<HTMLLabelElement>('.filters label'))
+      .find(item => item.querySelector('span')?.textContent?.trim() === label)?.querySelector('select');
+
+    fixture.componentInstance.changeRole('superadmin');
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.scope-toggle')!.click();
+    fixture.detectChanges();
+    expect(filter('Región')?.value).toBe('Todas las regiones');
+    expect(filter('Red')?.options).toHaveLength(1);
+    expect(filter('Municipio')?.value).toBe('Todos los municipios');
+
+    fixture.componentInstance.changeRole('regional-admin');
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.scope-toggle')!.click();
+    fixture.detectChanges();
+    expect(filter('Región')?.value).toBe('Región de Cortés');
+    expect(filter('Región')?.disabled).toBe(true);
+    expect(filter('Red')?.options).toHaveLength(2);
+
+    fixture.componentInstance.changeRole('municipal-coordinator');
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.scope-toggle')!.click();
+    fixture.detectChanges();
+    expect(filter('Región')).toBeUndefined();
+    expect(filter('Municipio')?.value).toBe('Puerto Cortés');
+    expect(filter('Municipio')?.disabled).toBe(true);
+    expect(filter('Establecimiento')?.options).toHaveLength(13);
+
+    fixture.componentInstance.changeRole('establishment-manager');
+    fixture.detectChanges();
+    compiled.querySelector<HTMLButtonElement>('.scope-toggle')!.click();
+    fixture.detectChanges();
+    expect(filter('Municipio')).toBeUndefined();
+    expect(filter('Establecimiento')?.value).toBe('CIS Linda Coello');
+    expect(filter('Establecimiento')?.disabled).toBe(true);
+  });
+
+  it('should provide valid start and end ranges for periods and epidemiological weeks', () => {
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+    const select = (label: string) => compiled.querySelector<HTMLSelectElement>(`.filters select[aria-label="${label}"]`)!;
+
+    expect(select('Período inicial').value).toBe('Julio 2026');
+    expect(select('Período final').value).toBe('Julio 2026');
+    expect(select('Período final').options).toHaveLength(1);
+    expect(select('Semana inicial').value).toBe('SE 27');
+    expect(select('Semana final').value).toBe('SE 29');
+    expect(select('Semana final').options).toHaveLength(3);
+
+    select('Semana inicial').value = 'SE 29';
+    select('Semana inicial').dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(select('Semana final').value).toBe('SE 29');
+    expect(select('Semana final').options).toHaveLength(1);
+  });
+
+  it('should show global filters only on aggregated and analytical views', () => {
+    const expectFilters = (page: string, visible: boolean) => {
+      const pageFixture = TestBed.createComponent(App);
+      pageFixture.componentInstance.navigate(page);
+      pageFixture.detectChanges();
+      const pageElement = pageFixture.nativeElement as HTMLElement;
+      expect(pageFixture.componentInstance.active).toBe(page);
+      expect(pageElement.querySelector<HTMLElement>('.global-filter-slot')?.hidden).toBe(!visible);
+      pageFixture.destroy();
+    };
+
+    expectFilters('Inicio', true);
+    expectFilters('Bandeja de revisión', true);
+    expectFilters('Consolidados', true);
+    expectFilters('Mapas', true);
+    expectFilters('Redes', true);
+    expectFilters('Reportes y exportaciones', true);
+    expectFilters('Captura ITS 1', false);
+    expectFilters('Reporte ITS 2', false);
+    expectFilters('Administración', false);
   });
 });

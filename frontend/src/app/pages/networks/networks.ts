@@ -1,10 +1,12 @@
 import { Component, inject, output } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RoleContext } from '../../core/role-context';
 
 type NetworkTab = 'summary' | 'municipalities' | 'consolidated' | 'history';
 
 @Component({
   selector: 'app-networks',
+  imports: [FormsModule],
   templateUrl: './networks.html',
   styleUrl: './networks.css'
 })
@@ -22,7 +24,7 @@ export class Networks {
     { id: 'history', label: 'Historial' },
   ];
 
-  protected readonly networks = [
+  protected networks = [
     { id: 'red-puerto-cortes-omoa', code: 'RCO-01', name: 'Red Puerto Cortés–Omoa', municipalities: 2, reports: '15 / 18', total: 280, status: 'En pilotaje', configured: true },
     { id: 'pending-02', code: 'POR VALIDAR', name: 'Red pendiente de validación 2', municipalities: 0, reports: '—', total: 0, status: 'Sin configurar', configured: false },
     { id: 'pending-03', code: 'POR VALIDAR', name: 'Red pendiente de validación 3', municipalities: 0, reports: '—', total: 0, status: 'Sin configurar', configured: false },
@@ -55,6 +57,40 @@ export class Networks {
   get isGlobal() { return this.roleContext.activeRoleId() === 'superadmin'; }
   get selectedNetwork() { return this.networks.find(network => network.id === this.selectedNetworkId) ?? this.networks[0]; }
   get associatedMunicipalities() { return this.municipalities.filter(municipality => municipality.associated); }
+
+  protected showCreateForm = false;
+  protected formSubmitted = false;
+  protected networkForm = this.emptyNetworkForm();
+
+  protected openCreate() {
+    this.formSubmitted = false;
+    this.networkForm = this.emptyNetworkForm();
+    this.showCreateForm = true;
+  }
+
+  protected closeCreate() { this.showCreateForm = false; }
+
+  protected saveNetwork() {
+    this.formSubmitted = true;
+    const form = this.networkForm;
+    if (!form.name.trim() || !form.code.trim() || !form.region) return;
+    const selected = this.municipalities.filter(municipality => form.municipalityCodes.includes(municipality.code));
+    const id = `${form.code.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
+    this.networks = [...this.networks, { id, code: form.code.trim(), name: form.name.trim(), municipalities: selected.length, reports: '—', total: 0, status: form.status, configured: true }];
+    this.selectedNetworkId = id;
+    this.showCreateForm = false;
+    this.notify.emit(`Red “${form.name.trim()}” creada correctamente.`);
+  }
+
+  protected toggleMunicipality(code: string, checked: boolean) {
+    this.networkForm.municipalityCodes = checked
+      ? [...this.networkForm.municipalityCodes, code]
+      : this.networkForm.municipalityCodes.filter(item => item !== code);
+  }
+
+  private emptyNetworkForm() {
+    return { name: '', code: '', region: 'Región de Cortés', status: 'Preconfigurada', startDate: '2026-08-01', municipalityCodes: [] as string[] };
+  }
 
   selectNetwork(id: string) {
     this.selectedNetworkId = id;

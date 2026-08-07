@@ -1,4 +1,4 @@
-<section class="network-notice"><i>⌘</i><div><strong>{{ isGlobal ? 'Redes configurables por región sanitaria' : 'Redes configurables dentro de la Región de Cortés' }}</strong><span>La referencia de cinco redes en Cortés permanece pendiente de validación institucional. Solo Puerto Cortés–Omoa está configurada para el prototipo.</span></div>@if (canManage) {<button class="btn primary" type="button" (click)="notify.emit('Formulario para crear una nueva Red abierto.')">＋ Nueva Red</button>}@else {<span class="read-only-chip">SOLO CONSULTA</span>}</section>
+<section class="network-notice"><i>⌘</i><div><strong>{{ isGlobal ? 'Redes configurables por región sanitaria' : 'Redes configurables dentro de la Región de Cortés' }}</strong><span>La referencia de cinco redes en Cortés permanece pendiente de validación institucional. Solo Puerto Cortés–Omoa está configurada para el prototipo.</span></div>@if (canManage) {<button class="btn primary" type="button" (click)="openCreate()">＋ Nueva Red</button>}@else {<span class="read-only-chip">SOLO CONSULTA</span>}</section>
 
 <section class="network-kpis" aria-label="Resumen de Redes"><article><span>Redes esperadas</span><strong>5</strong><small>Pendiente confirmación oficial</small><i class="green"></i></article><article><span>Redes configuradas</span><strong>1</strong><small>Puerto Cortés–Omoa</small><i class="blue"></i></article><article><span>Municipios asociados</span><strong>2</strong><small>De 12 municipios en Cortés</small><i class="purple"></i></article><article><span>Producción consolidada</span><strong>280</strong><small>Julio 2026</small><i class="amber"></i></article></section>
 
@@ -33,3 +33,22 @@
     }
   </article>
 </section>
+
+@if (showCreateForm) {
+  <div class="network-modal-backdrop" (click)="closeCreate()">
+    <section class="network-modal" role="dialog" aria-modal="true" aria-label="Nueva Red" (click)="$event.stopPropagation()">
+      <header><div><span class="eyebrow">ADMINISTRACIÓN DE REDES</span><h2>Nueva Red</h2><p>Defina su identidad, región y composición municipal inicial.</p></div><button type="button" aria-label="Cerrar formulario" (click)="closeCreate()">×</button></header>
+      <form (ngSubmit)="saveNetwork()" novalidate>
+        <div class="network-creation-form">
+          <label class="wide"><span>Nombre de la Red *</span><input name="networkName" [(ngModel)]="networkForm.name" [class.invalid]="formSubmitted && !networkForm.name.trim()" autocomplete="off"><small>@if (formSubmitted && !networkForm.name.trim()) {Ingrese el nombre de la Red.}</small></label>
+          <label><span>Código *</span><input name="networkCode" [(ngModel)]="networkForm.code" [class.invalid]="formSubmitted && !networkForm.code.trim()" autocomplete="off"><small>@if (formSubmitted && !networkForm.code.trim()) {Ingrese un código.}</small></label>
+          <label><span>Región sanitaria *</span><select name="networkRegion" [(ngModel)]="networkForm.region" [disabled]="!isGlobal"><option>Región de Cortés</option><option>Región de Atlántida</option><option>Región de Francisco Morazán</option></select><small></small></label>
+          <label><span>Estado inicial</span><select name="networkStatus" [(ngModel)]="networkForm.status"><option>Preconfigurada</option><option>En pilotaje</option><option>Activa</option></select></label>
+          <label><span>Inicio de vigencia</span><input type="date" name="networkStart" [(ngModel)]="networkForm.startDate"></label>
+          <fieldset class="wide"><legend>Municipios asociados</legend><p>Puede ajustar la composición después de crear la Red.</p><div>@for (municipality of municipalities; track municipality.code) {<label><input type="checkbox" [checked]="networkForm.municipalityCodes.includes(municipality.code)" (change)="toggleMunicipality(municipality.code, $any($event.target).checked)"><span><strong>{{ municipality.name }}</strong><small>Código {{ municipality.code }} · {{ municipality.establishments }} establecimientos</small></span></label>}</div></fieldset>
+        </div>
+        <footer><button class="btn secondary" type="button" (click)="closeCreate()">Cancelar</button><button class="btn primary" type="submit">Guardar Red</button></footer>
+      </form>
+    </section>
+  </div>
+}

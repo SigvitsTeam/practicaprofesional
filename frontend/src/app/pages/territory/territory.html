@@ -10,7 +10,7 @@
   <section class="global-territory-management" aria-label="Gestión nacional de regiones y municipios">
     <div class="global-management-heading">
       <div><span class="eyebrow">ESTRUCTURA NACIONAL</span><h2>Regiones y municipios</h2><p>El SuperAdmin puede crear, configurar, activar o desactivar territorios de Honduras.</p></div>
-      <div><button class="btn secondary" type="button" (click)="notify.emit('Formulario para crear municipio abierto.')">＋ Nuevo municipio</button><button class="btn primary" type="button" (click)="notify.emit('Formulario para crear región abierto.')">＋ Nueva región</button></div>
+      <div><button class="btn secondary" type="button" (click)="openCreate('municipality')">＋ Nuevo municipio</button><button class="btn primary" type="button" (click)="openCreate('region')">＋ Nueva región</button></div>
     </div>
     <div class="global-territory-kpis"><div><span>Regiones registradas</span><strong>18</strong><small>1 activa en el piloto</small></div><div><span>Municipios registrados</span><strong>298</strong><small>1 operativo</small></div><div><span>Establecimientos activos</span><strong>12</strong><small>Puerto Cortés</small></div><div><span>Configuración pendiente</span><strong>17</strong><small>Regiones preconfiguradas</small></div></div>
     <div class="global-territory-table"><div class="global-table-toolbar"><div><h3>Catálogo regional</h3><p>Regiones sanitarias y estado de sus municipios dependientes</p></div><label>⌕<input placeholder="Buscar región o código"></label></div><div class="table-wrap"><table><thead><tr><th>Región</th><th>Municipios</th><th>Municipios activos</th><th>Establecimientos</th><th>Estado</th><th></th></tr></thead><tbody>@for (region of regions; track region.code) {<tr><td><strong>{{ region.name }}</strong><small>Código {{ region.code }}</small></td><td>{{ region.municipalities }}</td><td>{{ region.activeMunicipalities }}</td><td>{{ region.establishments }}</td><td><span class="region-status" [class.preconfigured]="region.status === 'Preconfigurada'">{{ region.status }}</span></td><td><button type="button" [attr.aria-label]="'Gestionar ' + region.name" (click)="notify.emit('Gestión territorial abierta para ' + region.name + '.')">Gestionar →</button></td></tr>}</tbody></table></div></div>
@@ -25,7 +25,7 @@
     <button [class.scope-locked]="regionalScope">⌄ <i>HN</i><strong>Honduras</strong><span class="badge neutral">{{ regionalScope ? 'Solo lectura' : 'Preconfigurado' }}</span></button>
     <button class="level-1">⌄ <i>05</i><strong>Cortés</strong><span class="badge active">Activo</span></button>
     <button class="level-2 selected">⌄ <i>06</i><strong>Puerto Cortés</strong><span class="badge pilot">Pilotaje</span></button>
-    @for (name of ['Policlínico Cornelio Moncada','CIS Linda Coello','UAPS La Pita','CIS Bajamar']; track name) {
+    @for (name of establishmentNames; track name) {
       <button class="level-3"><span>•</span><strong>{{ name }}</strong>@if ($last) {<b class="warning-text">!</b>}</button>
     }
   </aside>
@@ -33,7 +33,7 @@
   <article class="panel territory-detail">
     <div class="territory-title">
       <div><span class="eyebrow">COORDINACIÓN MUNICIPAL</span><h2>Puerto Cortés</h2><p>Código oficial 0506 · Región Sanitaria Departamental de Cortés</p></div>
-      <span class="badge pilot">EN PILOTAJE</span>
+      <div class="territory-title-actions"><span class="badge pilot">EN PILOTAJE</span><button class="btn primary" type="button" (click)="openCreate('establishment')">＋ Nuevo establecimiento</button></div>
     </div>
 
     <div class="tabs" role="tablist" aria-label="Secciones de la coordinación municipal">
@@ -99,3 +99,26 @@
     <article class="panel territory-alerts"><div class="section-heading"><div><h2>Requiere atención</h2></div></div><button><i>!</i><span>1 establecimiento sin coordenadas</span><b>›</b></button><button><i>i</i><span>1 usuario sin alcance asignado</span><b>›</b></button></article>
   </aside>
 </section>
+
+@if (createKind) {
+  <div class="form-modal-backdrop" (click)="closeCreate()">
+    <section class="form-modal" role="dialog" aria-modal="true" [attr.aria-label]="createTitle" (click)="$event.stopPropagation()">
+      <header><div><span class="eyebrow">ADMINISTRACIÓN TERRITORIAL</span><h2>{{ createTitle }}</h2><p>Complete los datos requeridos para agregarlo al catálogo.</p></div><button type="button" aria-label="Cerrar formulario" (click)="closeCreate()">×</button></header>
+      <form (ngSubmit)="saveTerritory()" novalidate>
+        <div class="creation-form">
+          <label class="wide"><span>Nombre oficial *</span><input name="territoryName" [(ngModel)]="territoryForm.name" [class.invalid]="formSubmitted && !territoryForm.name.trim()" autocomplete="off"><small>@if (formSubmitted && !territoryForm.name.trim()) {Ingrese el nombre oficial.}</small></label>
+          <label><span>Código oficial *</span><input name="territoryCode" [(ngModel)]="territoryForm.code" [class.invalid]="formSubmitted && !territoryForm.code.trim()" autocomplete="off"><small>@if (formSubmitted && !territoryForm.code.trim()) {Ingrese un código.}</small></label>
+          @if (createKind !== 'region') {<label><span>Región sanitaria *</span><select name="territoryRegion" [(ngModel)]="territoryForm.region"><option>Cortés</option><option>Atlántida</option><option>Francisco Morazán</option></select></label>}
+          @if (createKind === 'establishment') {
+            <label><span>Municipio *</span><select name="territoryMunicipality" [(ngModel)]="territoryForm.municipality"><option>Puerto Cortés</option><option>San Pedro Sula</option><option>Choloma</option></select></label>
+            <label><span>Tipo de establecimiento *</span><select name="establishmentType" [(ngModel)]="territoryForm.type"><option>CIS</option><option>UAPS</option><option>Policlínico</option><option>Hospital</option></select></label>
+            <label class="wide"><span>Dirección</span><input name="territoryAddress" [(ngModel)]="territoryForm.address" autocomplete="off"></label>
+          }
+          @if (createKind === 'municipality') {<label class="wide"><span>Responsable</span><input name="territoryResponsible" [(ngModel)]="territoryForm.responsible" placeholder="Se puede asignar posteriormente" autocomplete="off"></label>}
+          <label><span>Estado inicial</span><select name="territoryStatus" [(ngModel)]="territoryForm.status">@if (createKind === 'region') {<option>Preconfigurada</option><option>Activa</option>} @else {<option>Preconfigurado</option><option>Activo</option>}<option>En pilotaje</option></select></label>
+        </div>
+        <footer><button class="btn secondary" type="button" (click)="closeCreate()">Cancelar</button><button class="btn primary" type="submit">Guardar {{ createKind === 'region' ? 'región' : createKind === 'municipality' ? 'municipio' : 'establecimiento' }}</button></footer>
+      </form>
+    </section>
+  </div>
+}

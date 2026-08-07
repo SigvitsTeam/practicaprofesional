@@ -1,4 +1,4 @@
-import { Component, inject, ViewEncapsulation } from '@angular/core';
+import { Component, inject, ViewChild, ViewEncapsulation } from '@angular/core';
 import { SCREEN_META } from './core/mock-data';
 import { Report, RoleId } from './core/models';
 import { RoleContext } from './core/role-context';
@@ -25,6 +25,7 @@ import { ReportDrawer } from './shared/report-drawer/report-drawer';
   encapsulation: ViewEncapsulation.None
 })
 export class App {
+  @ViewChild(Territory) private territory?: Territory;
   protected readonly roleContext = inject(RoleContext);
   private readonly establishmentContext = inject(EstablishmentContext);
   active = 'Inicio';
@@ -69,6 +70,9 @@ export class App {
     return SCREEN_META[this.active];
   }
   get showPrimaryAction() { return this.active === 'Inicio' || ['Consolidados', 'Reportes y exportaciones', 'Administración'].includes(this.active); }
+  get showGlobalFilters() {
+    return ['Inicio', 'Bandeja de revisión', 'Consolidados', 'Mapas', 'Redes', 'Reportes y exportaciones'].includes(this.active);
+  }
 
   navigate(page: string) {
     this.active = page;
@@ -105,7 +109,7 @@ export class App {
       return;
     }
     if (this.active === 'Administración') {
-      this.showNotice(this.role.id === 'superadmin' ? 'Formulario para crear región abierto.' : 'Formulario para crear municipio abierto.');
+      this.territory?.openCreate(this.role.id === 'superadmin' ? 'region' : 'municipality');
       return;
     }
     const messages: Record<string, string> = {
