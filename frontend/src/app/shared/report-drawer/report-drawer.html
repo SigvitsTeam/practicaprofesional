@@ -1,9 +1,13 @@
 <div class="drawer-backdrop" (click)="close.emit()"><aside class="drawer" (click)="$event.stopPropagation()">
-  <div class="drawer-head"><div><span class="eyebrow">REPORTE ITS 2 · JULIO 2026</span><h2>{{ report().name }}</h2><p>{{ report().code }} · Versión 1</p></div><button (click)="close.emit()">×</button></div>
+  <div class="drawer-head"><div><span class="eyebrow">{{ entityLabel }} · JULIO 2026</span><h2>{{ report().name }}</h2><p>{{ report().code }} · Versión 1 · Datos agregados</p></div><button (click)="close.emit()">×</button></div>
   <span class="status" [ngClass]="statusClass(report().status)">{{ report().status }}</span>
   <div class="drawer-metrics"><div><span>Total ITS</span><strong>{{ report().total }}</strong></div><div><span>Casos nuevos</span><strong>{{ report().newCases }}</strong></div><div><span>Controles</span><strong>{{ report().controls }}</strong></div><div><span>Alertas</span><strong>{{ report().alerts }}</strong></div></div>
   <section class="drawer-section"><h3>Validaciones de calidad</h3><div class="validation ok"><i>✓</i><span><strong>Totales por sexo conciliados</strong><small>Correcto</small></span></div><div class="validation warning"><i>!</i><span><strong>Procedencias no reconocidas</strong><small>{{ report().alerts }} alertas</small></span></div><div class="validation ok"><i>✓</i><span><strong>Denominador de atenciones</strong><small>Completo</small></span></div></section>
-  <section class="drawer-section"><h3>Historial</h3><div class="history"><i></i><span><strong>Reporte enviado a coordinación</strong><small>{{ report().sent }} · Responsable del establecimiento</small></span></div><div class="history"><i></i><span><strong>ITS 2 recalculado</strong><small>22 jul, 15:20 · Sistema</small></span></div></section>
-  <label class="observations"><span>Observación de revisión</span><textarea placeholder="Escriba una indicación para el establecimiento…"></textarea></label>
-  <div class="drawer-actions"><button class="btn secondary" (click)="action.emit('Reporte devuelto con observación.')">Devolver</button><button class="btn primary" (click)="action.emit('Reporte aprobado y registrado en auditoría.')">Aprobar reporte</button></div>
+  <section class="drawer-section"><h3>Historial</h3><div class="history"><i></i><span><strong>Información enviada al siguiente nivel</strong><small>{{ report().sent }} · {{ senderLabel }}</small></span></div><div class="history"><i></i><span><strong>Consolidado recalculado</strong><small>22 jul, 15:20 · Sistema</small></span></div></section>
+  @if (canReview) {
+    <label class="observations"><span>Observación de revisión</span><textarea placeholder="Escriba una indicación para el nivel remitente…"></textarea></label>
+    <div class="drawer-actions"><button class="btn secondary" (click)="action.emit('Reporte devuelto con observación.')">Devolver</button><button class="btn primary" (click)="action.emit('Reporte aprobado y registrado en auditoría.')">Aprobar reporte</button></div>
+  } @else {
+    <div class="drawer-actions"><button class="btn secondary" (click)="close.emit()">Cerrar consulta</button><button class="btn primary" (click)="action.emit('Resumen agregado preparado para exportación.')">Exportar resumen</button></div>
+  }
 </aside></div>

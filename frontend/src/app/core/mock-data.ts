@@ -38,3 +38,20 @@ export const REPORTS: Report[] = [
   { name: 'UAPS Caoba', code: '2755', status: 'Pendiente', total: 9, newCases: 7, controls: 2, alerts: 0, sent: 'Sin envío' },
   { name: 'UAPS Kele Kele', code: '2763', status: 'Aprobado', total: 10, newCases: 8, controls: 2, alerts: 0, sent: '23 jul, 15:05' },
 ];
+
+/** Aggregated reports used above the municipal level. They intentionally keep
+ * the same shape as ITS 2 reports so tables and review drawers cannot expose
+ * individual ITS 1 records. */
+export const MUNICIPAL_REPORTS: Report[] = [
+  { name: 'Puerto Cortés', code: '0506', status: 'En revisión', total: 184, newCases: 139, controls: 45, alerts: 3, sent: '30 jul, 15:20' },
+  { name: 'Omoa', code: '0503', status: 'Aprobado', total: 96, newCases: 72, controls: 24, alerts: 0, sent: '29 jul, 11:10' },
+  { name: 'San Pedro Sula', code: '0501', status: 'Pendiente', total: 0, newCases: 0, controls: 0, alerts: 0, sent: 'Sin envío' },
+  { name: 'Choloma', code: '0502', status: 'Pendiente', total: 0, newCases: 0, controls: 0, alerts: 0, sent: 'Sin envío' },
+];
+
+export const REGIONAL_REPORTS: Report[] = [
+  { name: 'Región Sanitaria de Cortés', code: '05', status: 'En revisión', total: 280, newCases: 211, controls: 69, alerts: 2, sent: '02 ago, 09:35' },
+  { name: 'Región Sanitaria de Atlántida', code: '01', status: 'Pendiente', total: 0, newCases: 0, controls: 0, alerts: 0, sent: 'Sin envío' },
+  { name: 'Región Sanitaria de Francisco Morazán', code: '08', status: 'Pendiente', total: 0, newCases: 0, controls: 0, alerts: 0, sent: 'Sin envío' },
+  { name: 'Región Sanitaria de Colón', code: '02', status: 'Pendiente', total: 0, newCases: 0, controls: 0, alerts: 0, sent: 'Sin envío' },
+];

@@ -15,4 +15,14 @@ export class Sidebar {
   protected items(group: 'Operación' | 'Gestión') {
     return NAV_ITEMS.filter(item => item.group === group && this.role().navItems.includes(item.label));
   }
+
+  protected countFor(label: string) {
+    if (label !== 'Bandeja de revisión') return undefined;
+    return ({
+      'central-validator': 1,
+      'regional-superadmin': 2,
+      'regional-admin': 2,
+      'municipal-coordinator': 5,
+    } as Partial<Record<RoleProfile['id'], number>>)[this.role().id];
+  }
 }

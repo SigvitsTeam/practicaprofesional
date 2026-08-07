@@ -10,6 +10,19 @@ export class Topbar {
   readonly roleChange = output<RoleId>();
   protected readonly roles = ROLE_PROFILES;
 
+  protected get notificationCount() {
+    return ({
+      superadmin: 3,
+      'central-validator': 2,
+      'regional-superadmin': 4,
+      'regional-admin': 3,
+      'municipal-coordinator': 6,
+      'coordination-digitizer': 3,
+      'establishment-manager': 2,
+      supervisor: 1,
+    } as Record<RoleId, number>)[this.role().id];
+  }
+
   changeRole(event: Event) {
     this.roleChange.emit((event.target as HTMLSelectElement).value as RoleId);
   }

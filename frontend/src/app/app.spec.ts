@@ -320,4 +320,76 @@ describe('App', () => {
     expectFilters('Reporte ITS 2', false);
     expectFilters('Administración', false);
   });
+
+  it('should adapt review entities and totals to each approval level', () => {
+    const fixture = TestBed.createComponent(App);
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    fixture.componentInstance.changeRole('central-validator');
+    fixture.componentInstance.navigate('Bandeja de revisión');
+    fixture.detectChanges();
+    expect(compiled.querySelector('h1')?.textContent).toContain('Revisión de regiones');
+    expect(compiled.querySelector('app-report-table th')?.textContent).toContain('Región sanitaria');
+    expect(compiled.textContent).toContain('Región Sanitaria de Cortés');
+
+    fixture.componentInstance.changeRole('regional-admin');
+    fixture.componentInstance.navigate('Bandeja de revisión');
+    fixture.detectChanges();
+    expect(compiled.querySelector('h1')?.textContent).toContain('Revisión de municipios');
+    expect(compiled.querySelector('app-report-table th')?.textContent).toContain('Municipio');
+    expect(compiled.textContent).toContain('Puerto Cortés');
+  });
+
+  it('should adapt consolidation coverage and workflow to the active level', () => {
+    const fixture = TestBed.createComponent(App);
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    fixture.componentInstance.changeRole('central-validator');
+    fixture.componentInstance.navigate('Consolidados');
+    fixture.detectChanges();
+    expect(compiled.textContent).toContain('1 de 18 regiones');
+    expect(compiled.textContent).toContain('Publicación nacional');
+
+    fixture.componentInstance.changeRole('regional-admin');
+    fixture.componentInstance.navigate('Consolidados');
+    fixture.detectChanges();
+    expect(compiled.textContent).toContain('2 de 12 municipios');
+    expect(compiled.textContent).toContain('Envío a Nivel Central');
+  });
+
+  it('should start maps at the authorized geographic level', () => {
+    const fixture = TestBed.createComponent(App);
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    fixture.componentInstance.changeRole('central-validator');
+    fixture.componentInstance.navigate('Mapas');
+    fixture.detectChanges();
+    expect(compiled.querySelector('h1')?.textContent).toContain('Mapa nacional');
+    expect(compiled.textContent).toContain('Regiones sanitarias visibles');
+    expect(compiled.textContent).toContain('Honduras · información agregada por región');
+
+    fixture.componentInstance.changeRole('establishment-manager');
+    fixture.componentInstance.navigate('Mapas');
+    fixture.detectChanges();
+    expect(compiled.querySelectorAll('.marker')).toHaveLength(1);
+    expect(compiled.textContent).not.toContain('← Región de Cortés');
+  });
+
+  it('should expose only role-appropriate exports and authors', () => {
+    const fixture = TestBed.createComponent(App);
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    fixture.componentInstance.changeRole('central-validator');
+    fixture.componentInstance.navigate('Reportes y exportaciones');
+    fixture.detectChanges();
+    expect(compiled.textContent).toContain('Consolidado nacional');
+    expect(compiled.textContent).toContain('Dra. Elena Pineda');
+
+    fixture.componentInstance.changeRole('establishment-manager');
+    fixture.componentInstance.navigate('Reportes y exportaciones');
+    fixture.detectChanges();
+    expect(compiled.textContent).toContain('ITS 1 del establecimiento');
+    expect(compiled.textContent).toContain('CIS Linda Coello');
+    expect(compiled.textContent).not.toContain('Consolidado nacional');
+  });
 });

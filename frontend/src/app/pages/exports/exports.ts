@@ -8,6 +8,8 @@ interface AnnualEvaluationConfig {
   rangeAStart: string; rangeAEnd: string; rangeBStart: string; rangeBEnd: string;
   territoryA: string; territoryB: string; indicatorA: string; indicatorB: string; format: string;
 }
+interface ExportOption { icon: string; title: string; detail: string; action: 'annual' | 'generate'; }
+interface ExportJob { report: string; period: string; format: 'XLSX' | 'PDF'; template: string; status: 'Generado' | 'Generando' | 'Error'; user: string; }
 
 @Component({ selector: 'app-exports', imports: [FormsModule], templateUrl: './exports.html', styleUrl: './exports.css' })
 export class Exports {
@@ -24,6 +26,49 @@ export class Exports {
   protected readonly indicators = ['Total de casos ITS', 'Casos nuevos', 'Controles', 'Tasa ITS por 1,000 atenciones', 'Casos en menores de 15 años', 'Casos en mayores de 15 años'];
   protected annualForm = this.emptyAnnualForm();
   protected annualPreview: AnnualEvaluationConfig | null = null;
+
+  protected get exportOptions(): ExportOption[] {
+    const role = this.roleContext.activeRoleId();
+    if (role === 'establishment-manager') return [
+      { icon: '▦', title: 'ITS 1 del establecimiento', detail: 'Excel protegido · CIS Linda Coello', action: 'generate' },
+      { icon: '◇', title: 'ITS 2 mensual', detail: 'Excel y PDF oficial', action: 'generate' },
+      { icon: '↗', title: 'Evaluación anual propia', detail: 'General y comparativa', action: 'annual' },
+      { icon: '⌖', title: 'Resumen territorial propio', detail: 'Procedencias agregadas', action: 'generate' },
+    ];
+    if (role === 'central-validator' || role === 'superadmin') return [
+      { icon: '▣', title: 'Consolidado nacional', detail: 'Excel y PDF · por región', action: 'generate' },
+      { icon: '◇', title: 'Consolidados regionales', detail: 'Paquete de revisión', action: 'generate' },
+      { icon: '↗', title: 'Evaluación anual nacional', detail: 'General y comparativa', action: 'annual' },
+      { icon: '⌖', title: 'Reporte territorial nacional', detail: 'Indicadores agregados', action: 'generate' },
+    ];
+    if (role === 'municipal-coordinator') return [
+      { icon: '◇', title: 'ITS 2 por establecimiento', detail: 'Excel oficial · datos agregados', action: 'generate' },
+      { icon: '▣', title: 'Consolidado municipal', detail: 'Excel y PDF', action: 'generate' },
+      { icon: '↗', title: 'Evaluación anual municipal', detail: 'General y comparativa', action: 'annual' },
+      { icon: '⌖', title: 'Reporte territorial municipal', detail: 'Establecimientos y procedencias', action: 'generate' },
+    ];
+    return [
+      { icon: '◇', title: 'Consolidados municipales', detail: 'Excel oficial · datos agregados', action: 'generate' },
+      { icon: '▣', title: 'Consolidado regional', detail: 'Excel y PDF', action: 'generate' },
+      { icon: '↗', title: 'Evaluación anual regional', detail: 'General y comparativa', action: 'annual' },
+      { icon: '⌖', title: 'Reporte territorial regional', detail: 'Municipios y Redes', action: 'generate' },
+    ];
+  }
+
+  protected get recentJobs(): ExportJob[] {
+    const role = this.roleContext.activeRole();
+    const level = this.roleContext.activeRoleId() === 'establishment-manager' ? 'CIS Linda Coello' : this.roleContext.activeRoleId() === 'municipal-coordinator' ? 'Puerto Cortés' : ['superadmin', 'central-validator'].includes(this.roleContext.activeRoleId()) ? 'Honduras' : 'Región de Cortés';
+    return [
+      { report: `Consolidado · ${level}`, period: 'Julio 2026', format: 'XLSX', template: 'v3.2', status: 'Generado', user: role.userName },
+      { report: 'Evaluación anual comparativa', period: '2025 vs 2026', format: 'PDF', template: 'v1.4', status: 'Generando', user: role.userName },
+      { report: `Reporte territorial · ${level}`, period: 'Julio 2026', format: 'PDF', template: 'v1.0', status: 'Generado', user: role.userName },
+    ];
+  }
+
+  protected selectExport(option: ExportOption) {
+    if (option.action === 'annual') this.openAnnualEvaluation();
+    else this.notify.emit(`${option.title} agregado a la cola de generación.`);
+  }
 
   protected get territoryOptions() {
     switch (this.roleContext.activeRoleId()) {

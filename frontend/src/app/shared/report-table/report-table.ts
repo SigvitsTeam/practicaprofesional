@@ -12,6 +12,7 @@ export class ReportTable {
   readonly reports = input.required<Report[]>();
   readonly title = input<string>();
   readonly subtitle = input('Julio 2026 · información consolidada ITS 2');
+  readonly entityLabel = input('Establecimiento');
   readonly reportSelected = output<Report>();
   readonly viewAll = output<void>();
 

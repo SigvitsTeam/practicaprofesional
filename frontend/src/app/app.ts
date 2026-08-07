@@ -67,6 +67,25 @@ export class App {
     if (this.active === 'Redes') {
       return { eyebrow: 'ANÁLISIS AGREGADO · REDES', title: 'Consolidado por Redes', description: 'Consulta, filtros, comparativos y exportaciones de producción municipal agregada.' };
     }
+    if (this.active === 'Bandeja de revisión') {
+      if (this.role.id === 'central-validator') return { eyebrow: 'NIVEL CENTRAL · HONDURAS', title: 'Revisión de regiones', description: 'Validación de consolidados regionales antes del cierre nacional.' };
+      if (['regional-superadmin', 'regional-admin'].includes(this.role.id)) return { eyebrow: 'REGIÓN SANITARIA · CORTÉS', title: 'Revisión de municipios', description: 'Validación de consolidados municipales antes del cierre regional.' };
+      return { eyebrow: 'COORDINACIÓN MUNICIPAL · PUERTO CORTÉS', title: 'Revisión de establecimientos', description: 'Validación de reportes ITS 2 antes del consolidado municipal.' };
+    }
+    if (this.active === 'Consolidados') {
+      if (this.role.id === 'central-validator') return { eyebrow: 'NIVEL CENTRAL · HONDURAS', title: 'Consolidado nacional', description: 'Cobertura regional, calidad y preparación del cierre nacional ITS.' };
+      if (['regional-superadmin', 'regional-admin'].includes(this.role.id)) return { eyebrow: 'REGIÓN SANITARIA · CORTÉS', title: 'Consolidado regional', description: 'Cobertura municipal y preparación del envío a Nivel Central.' };
+      return { eyebrow: 'COORDINACIÓN MUNICIPAL · PUERTO CORTÉS', title: 'Consolidado municipal', description: 'Cobertura de establecimientos y preparación del envío regional.' };
+    }
+    if (this.active === 'Mapas') {
+      if (['superadmin', 'central-validator'].includes(this.role.id)) return { eyebrow: 'ANÁLISIS TERRITORIAL · HONDURAS', title: 'Mapa nacional ITS', description: 'Comparación agregada por región, sin exposición de registros individuales.' };
+      if (['regional-superadmin', 'regional-admin', 'supervisor'].includes(this.role.id)) return { eyebrow: 'ANÁLISIS TERRITORIAL · CORTÉS', title: 'Mapa regional ITS', description: 'Indicadores agregados por municipio dentro del alcance autorizado.' };
+      if (this.role.id === 'establishment-manager') return { eyebrow: 'ESTABLECIMIENTO · CIS LINDA COELLO', title: 'Mapa del establecimiento', description: 'Producción propia y referencia territorial de procedencias.' };
+    }
+    if (this.active === 'Reportes y exportaciones') {
+      const scope = this.role.id === 'central-validator' || this.role.id === 'superadmin' ? 'nacionales' : this.role.id.startsWith('regional-') || this.role.id === 'supervisor' ? 'regionales' : this.role.id === 'establishment-manager' ? 'del establecimiento' : 'municipales';
+      return { eyebrow: `GESTIÓN DOCUMENTAL · ${this.role.scopeLabel.toUpperCase()}`, title: 'Reportes y exportaciones', description: `Informes ${scope} disponibles según alcance y nivel de datos autorizado.` };
+    }
     return SCREEN_META[this.active];
   }
   get showPrimaryAction() { return this.active === 'Inicio' || ['Consolidados', 'Reportes y exportaciones', 'Administración'].includes(this.active); }

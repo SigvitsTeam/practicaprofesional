@@ -2,13 +2,18 @@ import { Component, input, output } from '@angular/core';
 import { Report } from '../../core/models';
 
 export type MapMetric = 'total' | 'newCases' | 'controls' | 'alerts';
+export type MapLevel = 'municipal' | 'regional' | 'national';
 
 @Component({ selector: 'app-interactive-map', templateUrl: './interactive-map.html', styleUrl: './interactive-map.css' })
 export class InteractiveMap {
   readonly reports = input.required<Report[]>();
-  readonly level = input.required<'municipal' | 'regional'>();
+  readonly level = input.required<MapLevel>();
   readonly metric = input.required<MapMetric>();
-  readonly levelChange = output<'municipal' | 'regional'>();
+  readonly allowNational = input(false);
+  readonly allowRegional = input(true);
+  readonly allowMunicipal = input(true);
+  readonly entityLabel = input('Establecimientos');
+  readonly levelChange = output<MapLevel>();
   readonly reportSelected = output<Report>();
 
   metricValue(report: Report) { return report[this.metric()]; }
