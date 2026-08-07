@@ -1,18 +1,19 @@
 <main class="app-shell">
-  <app-sidebar [active]="active" (navigate)="navigate($event)" />
+  <app-sidebar [active]="active" [role]="role" (navigate)="navigate($event)" />
   <section class="workspace">
-    <app-topbar [establishmentView]="isEstablishment" [darkMode]="darkMode" (themeToggle)="toggleTheme()" />
+    <app-topbar [role]="role" [darkMode]="darkMode" (roleChange)="changeRole($event)" (themeToggle)="toggleTheme()" />
     <div class="content">
-      <div class="page-heading"><div><p class="eyebrow">{{ meta.eyebrow }}</p><h1>{{ meta.title }}</h1><p>{{ meta.description }}</p></div>@if (active === 'Inicio' || active === 'Consolidados' || active === 'Reportes y exportaciones' || active === 'Administración') {<button class="btn primary" (click)="primaryAction()">＋ {{ primaryLabel() }}</button>}</div>
-      <app-global-filters />
+      <div class="page-heading"><div><p class="eyebrow">{{ meta.eyebrow }}</p><h1>{{ meta.title }}</h1><p>{{ meta.description }}</p></div>@if (showPrimaryAction) {<button class="btn primary" (click)="primaryAction()">＋ {{ primaryLabel() }}</button>}</div>
+      <div class="global-filter-slot" [hidden]="!showGlobalFilters" [attr.aria-hidden]="!showGlobalFilters"><app-global-filters [role]="role" /></div>
 
       @switch (active) {
-        @case ('Inicio') { <app-dashboard (navigate)="navigate($event)" (reportSelected)="selectReport($event)" (notify)="showNotice($event)" /> }
+        @case ('Inicio') { <app-role-dashboard [role]="role" (navigate)="navigate($event)" (notify)="showNotice($event)" /> }
         @case ('Captura ITS 1') { <app-capture-its1 (notify)="showNotice($event)" /> }
         @case ('Reporte ITS 2') { <app-report-its2 (notify)="showNotice($event)" /> }
         @case ('Bandeja de revisión') { <app-review-inbox (reportSelected)="selectReport($event)" (notify)="showNotice($event)" /> }
         @case ('Consolidados') { <app-consolidated (navigate)="navigate($event)" /> }
         @case ('Mapas') { <app-maps (reportSelected)="selectReport($event)" (notify)="showNotice($event)" /> }
+        @case ('Redes') { <app-networks (notify)="showNotice($event)" /> }
         @case ('Reportes y exportaciones') { <app-exports (notify)="showNotice($event)" /> }
         @case ('Administración') { <app-territory (notify)="showNotice($event)" /> }
       }

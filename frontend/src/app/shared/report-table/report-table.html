@@ -1,6 +1,6 @@
 <article class="panel table-panel" [class.embedded]="!title()">
   @if (title()) {<div class="panel-heading"><div><h2>{{ title() }}</h2><p>{{ subtitle() }}</p></div><button (click)="viewAll.emit()">Ver bandeja completa →</button></div>}
-  <div class="table-wrap"><table><thead><tr><th>Establecimiento</th><th>Estado</th><th>Nuevos</th><th>Controles</th><th>Total ITS</th><th>Alertas</th><th>Último envío</th><th></th></tr></thead><tbody>
+  <div class="table-wrap"><table><thead><tr><th>{{ entityLabel() }}</th><th>Estado</th><th>Nuevos</th><th>Controles</th><th>Total ITS</th><th>Alertas</th><th>Último envío</th><th></th></tr></thead><tbody>
     @for (report of reports(); track report.code) {<tr (click)="reportSelected.emit(report)"><td><strong>{{ report.name }}</strong><small>{{ report.code }}</small></td><td><span class="status" [ngClass]="statusClass(report.status)">{{ report.status }}</span></td><td>{{ report.newCases || '—' }}</td><td>{{ report.controls || '—' }}</td><td><strong>{{ report.total || '—' }}</strong></td><td><span [class.alert-count]="report.alerts">{{ report.alerts ? '⚠ ' + report.alerts : '✓' }}</span></td><td>{{ report.sent }}</td><td><button class="row-action" (click)="$event.stopPropagation()">⋮</button></td></tr>}
   </tbody></table></div>
 </article>

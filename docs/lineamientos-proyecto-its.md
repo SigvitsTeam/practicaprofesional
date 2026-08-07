@@ -38,12 +38,13 @@ No se recomienda que Angular opere directamente sobre Supabase para procesos cri
 
 ## Alcance funcional completo
 
-- Administracion de regiones, municipios y establecimientos.
+- Administracion de regiones, redes, municipios y establecimientos.
 - Administracion de usuarios, roles y permisos.
 - Captura del Form. ITS 1 por establecimiento de salud.
 - Generacion automatica del Form. ITS 2 por establecimiento.
 - Revision municipal de consolidados ITS 2.
 - Consolidado municipal.
+- Consolidado y consulta por Red.
 - Revision regional.
 - Consolidado regional.
 - Revision de nivel central.
@@ -61,6 +62,12 @@ No se recomienda que Angular opere directamente sobre Supabase para procesos cri
 
 ```text
 Establecimiento -> Coordinacion Municipal -> Region -> Nivel Central -> Reporte Nacional
+```
+
+Las Redes funcionan como agrupaciones configurables de municipios dentro de una región. Permiten consolidar, filtrar, mapear y exportar información agregada, pero no agregan por defecto una nueva etapa de aprobación al flujo institucional:
+
+```text
+Región -> Red -> Municipios asociados -> Establecimientos
 ```
 
 ### Establecimiento
@@ -112,7 +119,19 @@ Establecimiento -> Coordinacion Municipal -> Region -> Nivel Central -> Reporte 
 
 - Administra estructura del sistema, no sustituye al nivel central.
 - Gestiona regiones, municipios, establecimientos, usuarios, roles, permisos, catálogos, plantillas, semanas epidemiologicas y configuraciones.
+- Gestiona redes y asociaciones de municipios en cualquier región.
 - Puede realizar reaperturas o acciones excepcionales con motivo obligatorio y auditoria.
+
+### SuperAdmin Regional
+
+- Reúne todas las funciones operativas del Admin Regional.
+- Incorpora las capacidades administrativas del SuperAdmin, limitadas a su región asignada y a sus municipios, coordinaciones y establecimientos.
+- Puede gestionar estructura territorial, establecimientos, usuarios, asignaciones de roles, permisos y configuraciones regionales dentro de ese alcance.
+- Puede crear y gestionar redes, y asociar municipios, únicamente dentro de su región asignada.
+- No puede administrar otras regiones ni configuraciones o usuarios de alcance nacional.
+- No obtiene acceso a ITS 1 individual únicamente por poseer este rol.
+- Toda acción excepcional o administrativa sensible requiere motivo y auditoría.
+- La definición detallada y vigente está en `decisiones-roles-2026-08-04.md`.
 
 ## Privacidad por diseno
 
@@ -131,12 +150,14 @@ Restricciones clave:
 
 - SuperAdmin.
 - Admin Central o Validador Central.
+- SuperAdmin Regional.
 - Admin Regional.
 - Coordinador Municipal.
+- Digitador de Coordinación.
 - Responsable de Establecimiento.
-- Digitador de Establecimiento.
-- Digitador de Coordinacion.
 - Supervisor o Consulta.
+
+El rol Digitador de Establecimiento fue eliminado el 4 de agosto de 2026. Sus funciones no deben originar una vista independiente. Se mantienen el Responsable de Establecimiento, limitado a su establecimiento, y el Digitador de Coordinación, con selector de establecimiento dentro de su coordinación.
 
 Los permisos deben combinar:
 
@@ -147,15 +168,13 @@ Rol + alcance territorial + nivel de dato permitido
 Ejemplo:
 
 ```text
-Digitador:
+Responsable de Establecimiento:
 - alcance: establecimiento.
 - dato permitido: ITS 1 propio e ITS 2 propio.
 
-Digitador de Coordinacion:
-- alcance: establecimientos asignados dentro del municipio (12 en el piloto de Puerto Cortes).
-- dato permitido: ITS 1 e ITS 2 unicamente del establecimiento seleccionado.
-- acciones: capturar y corregir ITS 1; generar, recalcular y enviar ITS 2.
-- restricciones: no revisar, aprobar ni cerrar reportes como coordinacion.
+Digitador de Coordinación:
+- alcance: coordinación municipal y establecimiento seleccionado.
+- dato permitido: ITS 1 e ITS 2 del establecimiento seleccionado, sujeto al flujo autorizado.
 
 Coordinador Municipal:
 - alcance: municipio.
@@ -165,6 +184,12 @@ Admin Regional:
 - alcance: region.
 - dato permitido: ITS 2 agregado.
 
+SuperAdmin Regional:
+- alcance: su región y todos sus territorios dependientes.
+- dato permitido: ITS 2 agregado y administración regional.
+- administración permitida: redes, municipios, establecimientos, usuarios, roles y configuraciones dentro de su región.
+- administración prohibida: otras regiones y objetos de alcance nacional.
+
 Nivel Central:
 - alcance: nacional.
 - dato permitido: consolidados regionales y nacional.
@@ -173,6 +198,47 @@ SuperAdmin:
 - alcance: sistema.
 - dato permitido: configuracion, catálogos y acciones excepcionales auditadas.
 ```
+
+## Redes de salud
+
+Se incorpora **Red** como una agrupación operativa configurable entre la región y sus municipios. La definición completa y vigente está en `decisiones-redes-2026-08-04.md`.
+
+Ejemplo funcional inicial:
+
+```text
+Red Puerto Cortés–Omoa
+- Puerto Cortés.
+- Omoa.
+```
+
+La producción agregada de ambos municipios debe poder consolidarse, filtrarse, visualizarse en KPIs y mapas, compararse y exportarse como unidad de Red, conservando también el desglose municipal.
+
+Se ha indicado como referencia que la Región de Cortés tendría cinco redes. Este número, sus nombres, códigos y municipios miembros deben validarse institucionalmente antes de convertirlos en catálogo oficial. La aplicación debe soportar una cantidad configurable y no codificar permanentemente el número cinco.
+
+### Administración
+
+- SuperAdmin: administra redes de cualquier región y su composición municipal.
+- SuperAdmin Regional: administra únicamente las redes de su región y solo puede asociar municipios pertenecientes a ella.
+- Admin Regional: consume consolidados, filtros, comparativos y exportaciones por Red, sin modificar su composición salvo permiso administrativo explícito.
+
+### Datos y vigencia
+
+- Cada Red pertenece a una región.
+- La relación Red–Municipio debe registrar fecha de inicio, fecha de fin y estado.
+- Por defecto, cada municipio pertenece a una sola Red activa por programa y período para evitar doble conteo.
+- Los cambios de composición no deben alterar consolidaciones históricas cerradas.
+- La Red no reemplaza al municipio ni elimina el consolidado municipal.
+- La Red consume información ITS 2 agregada y no permite acceder a ITS 1 individual.
+
+### Funciones obligatorias
+
+- Selector y filtro por Red en dashboards, mapas, reportes y exportaciones regionales.
+- Consolidado de Red por período.
+- Desglose por municipio y establecimiento según permisos.
+- Comparación entre redes de una región.
+- Exportación Excel y PDF por Red.
+- Indicadores de cumplimiento y municipios pendientes dentro de la Red.
+- Auditoría de creación, edición, activación y cambios de municipios asociados.
 
 ## Estados de reportes
 
@@ -397,6 +463,7 @@ Coordinacion Municipal -> mapa de su municipio.
 Region -> mapa del departamento/region bajo su responsabilidad.
 Nivel Central -> mapa nacional.
 SuperAdmin -> puede administrar y visualizar todos los niveles segun necesidad tecnica.
+SuperAdmin Regional -> administra y visualiza únicamente su región y sus niveles dependientes.
 ```
 
 Ejemplo:
@@ -493,6 +560,23 @@ Municipio/coordinacion activa inicial: Puerto Cortes.
 Establecimientos activos iniciales: 12 establecimientos de Puerto Cortes.
 ```
 
+Los nombres y códigos reales de esos 12 establecimientos están definidos en `catalogo-establecimientos-puerto-cortes.md`. Ese documento es la fuente canónica para el piloto y sustituye cualquier establecimiento provisional mencionado en versiones anteriores.
+
+| Establecimiento | Código |
+|---|---:|
+| Policlínico Cornelio Moncada Puerto Cortés | `2721` |
+| CIS Linda Coello | `85481` |
+| UAPS La Pita | `2771` |
+| CIS Bajamar | `2739` |
+| UAPS Travesia | `82899` |
+| UAPS Saraguayna | `82881` |
+| CIS Fraternidad | `83453` |
+| CIS Baracoa | `2747` |
+| UAPS Calan | `9563` |
+| UAPS Puente Alto | `2780` |
+| UAPS Caoba | `2755` |
+| UAPS Kele Kele | `2763` |
+
 Se debe validar institucionalmente si "Region Sanitaria Departamental de Cortes" corresponde oficialmente a la Region No. 5 antes de fijar ese codigo en catalogos.
 
 ### Capas y objetos del mapa
@@ -573,7 +657,7 @@ El sistema debe ofrecer un solo mapa operativo. No se crean mapas separados por 
 Ejemplo:
 
 ```text
-Establecimiento: CIS Cornelio Moncada Cordova.
+Establecimiento: Policlínico Cornelio Moncada Puerto Cortés (código 2721).
 Municipio: Puerto Cortes.
 Region: Cortes.
 Pais: Honduras.
@@ -718,6 +802,7 @@ El sistema debe permitir:
 - Exportar ITS 1 en Excel para el establecimiento.
 - Exportar ITS 2 en Excel.
 - Exportar ITS 2 en PDF.
+- Exportar consolidados y comparativos por Red en Excel y PDF.
 - Guardar historial de reportes generados.
 - Guardar version de plantilla utilizada.
 
@@ -747,6 +832,7 @@ Este informe debe generarse desde los consolidados del sistema, respetando el ni
 ```text
 Establecimiento -> su propio informe.
 Municipio -> establecimientos de su municipio y total municipal.
+Red -> municipios asociados, total de Red y desglose permitido.
 Region -> municipios/establecimientos segun consolidado regional permitido.
 Nivel Central -> consolidados regionales y nacional.
 ```
@@ -947,6 +1033,7 @@ Los reportes anuales deben poder:
 - Agregar indicadores de calidad antes de enviar.
 - Agregar alertas de posibles duplicados.
 - Separar SuperAdmin tecnico de Nivel Central institucional.
+- Separar SuperAdmin del sistema, SuperAdmin Regional y Admin Regional mediante alcance territorial y permisos explícitos.
 - Mantener el sistema preparado para nuevos programas de salud, no solo ITS.
 - Diseñar exportaciones con estrategia intercambiable: Excel y PDF.
 - Preparar pruebas unitarias para consolidacion, permisos, validaciones clinicas y flujo de estados.

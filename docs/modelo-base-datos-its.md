@@ -48,7 +48,7 @@ Para ordenar permisos y sensibilidad, se recomienda separar logicamente:
 
 ```text
 auth_app       usuarios, roles, permisos.
-territorial    paises, regiones, municipios, establecimientos, geografia.
+territorial    paises, regiones, redes, municipios, establecimientos, geografia.
 its            atenciones ITS 1 y diagnosticos.
 reports        reportes, consolidados, versiones y flujo.
 imports        importaciones, staging y validaciones.
@@ -121,6 +121,7 @@ usuarios
 - rol_id uuid fk roles
 - pais_id uuid null
 - region_id uuid null
+- red_id uuid null
 - municipio_id uuid null
 - establecimiento_id uuid null
 - activo boolean
@@ -132,7 +133,7 @@ usuarios
 Regla:
 
 ```text
-El alcance territorial del usuario se interpreta por rol + region_id + municipio_id + establecimiento_id.
+El alcance territorial del usuario se interpreta por rol + region_id + red_id + municipio_id + establecimiento_id.
 ```
 
 Para `DIGITADOR_COORDINACION`, `municipio_id` identifica la coordinacion a la que pertenece, pero no concede acceso automatico a todos los datos individuales. Los establecimientos operables deben resolverse desde `usuario_asignaciones`, y cada solicitud sobre ITS 1 debe incluir y validar el establecimiento activo.
@@ -232,6 +233,48 @@ region_territorios
 - fecha_fin date null
 - activo boolean
 ```
+
+Antes de los municipios se incorpora la agrupación configurable de redes.
+
+### redes_salud
+
+```sql
+redes_salud
+- id uuid pk
+- region_id uuid fk regiones
+- nombre text
+- codigo text null
+- descripcion text null
+- estado_operativo text
+- fecha_inicio date
+- fecha_fin date null
+- activo boolean
+- created_at timestamptz
+- updated_at timestamptz
+```
+
+### red_municipios
+
+La composición debe conservar vigencia para reconstruir consolidados históricos.
+
+```sql
+red_municipios
+- id uuid pk
+- red_id uuid fk redes_salud
+- municipio_id uuid fk municipios
+- programa_id uuid null fk programas_salud
+- fecha_inicio date
+- fecha_fin date null
+- activo boolean
+- created_at timestamptz
+- updated_at timestamptz
+```
+
+Restricciones recomendadas:
+
+- La Red y el municipio deben pertenecer a la misma región.
+- Evitar más de una asociación activa para el mismo municipio, programa y período, salvo excepción institucional explícita.
+- Los cambios de composición no modifican reportes ni consolidados cerrados.
 
 ### municipios
 
@@ -543,8 +586,9 @@ atenciones_produccion
 - periodo_id uuid fk periodos
 - anio int
 - mes int null
-- nivel text -- establecimiento, municipal, regional, nacional
+- nivel text -- establecimiento, municipal, red, regional, nacional
 - region_id uuid null fk regiones
+- red_id uuid null fk redes_salud
 - municipio_id uuid null fk municipios
 - establecimiento_id uuid null fk establecimientos_salud
 - grupo_edad_comparativo_id uuid fk grupos_edad_comparativo

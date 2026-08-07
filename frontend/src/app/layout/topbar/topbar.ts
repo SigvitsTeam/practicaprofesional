@@ -1,8 +1,29 @@
 import { Component, input, output } from '@angular/core';
+import { RoleId, RoleProfile } from '../../core/models';
+import { ROLE_PROFILES } from '../../core/role-data';
 
 @Component({ selector: 'app-topbar', templateUrl: './topbar.html', styleUrl: './topbar.css' })
 export class Topbar {
-  readonly establishmentView = input(false);
+  readonly role = input.required<RoleProfile>();
   readonly darkMode = input(false);
   readonly themeToggle = output<void>();
+  readonly roleChange = output<RoleId>();
+  protected readonly roles = ROLE_PROFILES;
+
+  protected get notificationCount() {
+    return ({
+      superadmin: 3,
+      'central-validator': 2,
+      'regional-superadmin': 4,
+      'regional-admin': 3,
+      'municipal-coordinator': 6,
+      'coordination-digitizer': 3,
+      'establishment-manager': 2,
+      supervisor: 1,
+    } as Record<RoleId, number>)[this.role().id];
+  }
+
+  changeRole(event: Event) {
+    this.roleChange.emit((event.target as HTMLSelectElement).value as RoleId);
+  }
 }
