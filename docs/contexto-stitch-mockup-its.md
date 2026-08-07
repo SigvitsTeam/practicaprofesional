@@ -121,6 +121,7 @@ Para el mockup inicial, priorizar estas pantallas:
 Crear una pantalla principal con:
 
 - Barra superior con nombre del sistema, usuario activo, rol y periodo seleccionado.
+- Para el Digitador de Coordinacion, selector obligatorio de establecimiento activo con los 12 establecimientos asignados; el nombre y codigo seleccionados deben permanecer visibles en Captura ITS 1 y Reporte ITS 2.
 - Menu lateral con modulos.
 - Filtros superiores: anio, mes, semana epidemiologica, region, red, municipio, establecimiento.
 - Tarjetas KPI.
@@ -137,7 +138,7 @@ KPIs sugeridos:
 - Reportes recibidos.
 - Reportes pendientes.
 - Reportes devueltos.
-- Casos no AGI.
+- Registros con procedencia pendiente.
 - Atenciones cargadas.
 - Tasa ITS x 1000 atenciones.
 
@@ -151,7 +152,7 @@ Ejemplo de datos:
 - Controles: 45.
 - Reportes recibidos: 9 de 12.
 - Pendientes: 3.
-- Casos no AGI: 27.
+- Procedencias pendientes: 4.
 - Tasa ITS x 1000: 4.8.
 
 ## Pantalla 2: Captura ITS 1
@@ -164,7 +165,7 @@ Secciones del formulario:
 
 - Datos automaticos del establecimiento.
 - Datos de la atencion.
-- Procedencia y AGI.
+- Procedencia.
 - Datos del paciente.
 - Diagnosticos.
 - Validaciones y alertas.
@@ -174,10 +175,7 @@ Campos visibles:
 - Fecha de atencion.
 - Semana epidemiologica calculada.
 - Numero de expediente o ID paciente.
-- Procedencia declarada.
-- Pertenece al AGI: Si / No.
-- Clasificacion de procedencia externa.
-- Municipio/departamento/pais de procedencia, segun aplique.
+- Procedencia: campo de texto abierto y obligatorio para escribir manualmente la comunidad o direccion.
 - Sexo: Hombre / Mujer.
 - Edad.
 - Tipo de poblacion: General / Trabajador(a) sexual.
@@ -195,7 +193,7 @@ Alertas sugeridas:
 - Posible duplicado por expediente y fecha.
 - Enfermedad no aplicable al sexo.
 - Embarazada solo aplica para sexo mujer.
-- Procedencia externa incompleta.
+- Procedencia incompleta.
 
 ## Pantalla 3: Reporte ITS 2 del establecimiento
 
@@ -245,7 +243,7 @@ Columnas sugeridas:
 - Casos nuevos.
 - Controles.
 - Total ITS.
-- Casos no AGI.
+- Registros con procedencia pendiente.
 - Atenciones cargadas.
 - Alertas.
 - Fecha de envio.
@@ -276,23 +274,23 @@ Estados visuales:
 
 ## Pantalla 5: Mapa operativo de Puerto Cortes
 
-Crear una pantalla de mapa institucional.
+Crear una pantalla con un unico mapa institucional interactivo y jerarquico.
 
 Debe incluir:
 
-- Mapa de Puerto Cortes con marcadores de establecimientos.
+- Mapa de Puerto Cortes con iconos de establecimientos ubicados segun sus coordenadas.
 - Panel de filtros.
 - Capas activables.
-- Tarjetas KPI de procedencia y AGI.
+- KPI dinamico dentro de cada icono de establecimiento.
 - Tabla o panel con ranking de establecimientos.
+- Navegacion territorial tipo zoom: Region Cortes -> Puerto Cortes -> establecimientos.
 
 Capas:
 
 - Limite municipal.
 - Establecimientos de salud.
 - Produccion total.
-- Cobertura real / AGI.
-- Procedencias externas.
+- Procedencias registradas.
 - Comunidades o barrios.
 
 Filtros:
@@ -305,23 +303,22 @@ Filtros:
 - Clasificacion.
 - Tipo de caso.
 - Tipo de poblacion.
-- Procedencia interna / externa.
+- Texto de procedencia, cuando exista agrupacion posterior confiable.
 
 KPIs de mapa:
 
 - Produccion total atendida.
-- Casos pertenecientes al AGI.
-- Casos no pertenecientes al AGI.
-- Casos de otro establecimiento del mismo municipio.
-- Casos de otro municipio.
-- Casos de otro departamento.
-- Casos extranjeros.
-- Casos con procedencia desconocida.
+- Atenciones con procedencia completa.
+- Atenciones con procedencia pendiente.
+- Procedencias textuales mas frecuentes, cuando exista normalizacion posterior confiable.
 
-El mapa debe diferenciar dos vistas:
+Reglas de interaccion:
 
-- Produccion total: cuanto atendio el establecimiento.
-- Cobertura real / AGI: que ocurre en el territorio que le corresponde cubrir.
+- Solo existe un mapa; no debe haber selector entre dos mapas o vistas cartograficas.
+- El usuario selecciona el indicador que desea ver en los iconos: Total ITS, Casos nuevos, Controles u otro KPI autorizado.
+- El KPI de cada icono cambia inmediatamente con los filtros activos.
+- Al seleccionar Puerto Cortes desde la vista regional, el mapa se acerca y muestra sus establecimientos.
+- Region y Nivel Central disponen de la misma navegacion jerarquica dentro de su alcance, siempre con informacion agregada.
 
 ## Pantalla 6: Reportes y exportaciones
 
@@ -498,8 +495,8 @@ Enfermedades o categorias de ejemplo:
 - Los reportes enviados quedan congelados por version.
 - Las correcciones se hacen mediante devolucion o reapertura autorizada.
 - Las tasas solo se calculan si existen denominadores validos de atenciones.
-- Los mapas respetan el rol y alcance territorial del usuario.
-- El sistema debe diferenciar produccion total y cobertura real/AGI.
+- El mapa unico respeta el rol y alcance territorial del usuario.
+- La procedencia se captura como texto abierto manual; no se muestran ni calculan clasificaciones territoriales adicionales.
 
 ## Prompt corto para pegar en Stitch
 
@@ -507,6 +504,6 @@ Disena un mockup de una aplicacion web institucional llamada "Sistema de Gestion
 
 La app debe tener sidebar, topbar con filtros de periodo y alcance, dashboard con KPIs, formulario de captura ITS 1, pantalla de reporte ITS 2, bandeja de revision municipal, mapa operativo con capas y filtros, reportes/exportaciones y administracion territorial. El estilo debe ser serio, profesional, institucional, claro y operativo; no debe parecer landing page ni app comercial.
 
-Regla critica: el ITS 1 individual solo lo ve el establecimiento. Municipio, region y nivel central solo ven informacion consolidada. Mostrar estados de reporte como Borrador, En revision, Devuelto, Aprobado y Cerrado. Incluir mapas de Puerto Cortes, KPIs de produccion total, AGI, no AGI, procedencias externas, reportes pendientes y tasa ITS por 1000 atenciones.
+Regla critica: el ITS 1 individual solo lo ve el establecimiento. Municipio, region y nivel central solo ven informacion consolidada. La procedencia se digita manualmente como comunidad o direccion en un unico campo abierto, sin clasificaciones adicionales. Mostrar estados de reporte como Borrador, En revision, Devuelto, Aprobado y Cerrado. Incluir mapas de Puerto Cortes, KPIs de produccion total, calidad de procedencias, reportes pendientes y tasa ITS por 1000 atenciones.
 
 Crear pantallas densas pero limpias, con tablas, tarjetas KPI compactas, badges de estado, filtros, graficas, paneles laterales, timeline de auditoria y acciones como Aprobar, Devolver, Exportar Excel, Exportar PDF y Enviar a coordinacion municipal.

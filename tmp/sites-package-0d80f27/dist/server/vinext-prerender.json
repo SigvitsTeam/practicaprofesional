@@ -1,0 +1,18 @@
+{
+  "buildId": "ac3a5b89-3903-4163-8e10-d6624426f1c9",
+  "trailingSlash": false,
+  "routes": [
+    {
+      "route": "/",
+      "status": "rendered",
+      "revalidate": false,
+      "router": "app"
+    },
+    {
+      "route": "/404",
+      "status": "rendered",
+      "revalidate": false,
+      "router": "app"
+    }
+  ]
+}

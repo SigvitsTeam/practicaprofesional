@@ -12,7 +12,7 @@ La propuesta es implementar una plataforma que conecte todo el flujo institucion
 
 El principio más importante es la privacidad por diseño. El dato individual permanece en el establecimiento que lo genera. Los niveles superiores reciben únicamente información consolidada. Así se protege al paciente sin perder la capacidad de gestión y vigilancia epidemiológica.
 
-La plataforma también permitirá diferenciar dos preguntas que hoy suelen mezclarse: cuánto atendió un establecimiento y qué está ocurriendo en su área de cobertura. Los mapas de producción, procedencia y AGI ayudarán a entender la captación de pacientes y la situación real del territorio.
+La plataforma permitirá conocer cuánto atendió cada establecimiento y registrar la procedencia indicada por el paciente. Los mapas de producción y los análisis posteriores de procedencias ayudarán a entender la captación sin añadir carga de clasificación durante la digitación.
 
 Se propone iniciar con un piloto en Puerto Cortés y sus 12 establecimientos. Este alcance permite validar formularios, reglas, permisos, flujo de aprobación, reportes y mapas antes de ampliar a otros municipios, a la Región de Cortés y posteriormente al nivel nacional.
 
@@ -27,7 +27,7 @@ La decisión que solicitamos es autorizar el piloto, designar las contrapartes i
 3. **Flujo.** Mostrar que la solución respeta la jerarquía institucional existente; no sustituye funciones, las conecta.
 4. **Plataforma.** Recorrer el ciclo completo: capturar, validar, consolidar, aprobar, analizar y exportar.
 5. **Privacidad.** Recalcar que los niveles municipal, regional y central no acceden al ITS 1 individual.
-6. **Inteligencia territorial.** Diferenciar producción del establecimiento y cobertura real/AGI.
+6. **Inteligencia territorial.** Analizar producción del establecimiento y procedencias registradas, respetando la calidad disponible del texto manual.
 7. **Piloto.** Explicar que Puerto Cortés reduce el riesgo y permite aprender antes de expandir.
 8. **Valor público.** Enfatizar oportunidad, calidad, lectura territorial y rendición de cuentas.
 9. **Arquitectura.** Mantener el mensaje simple: tecnología conocida, portable y preparada para escalar.

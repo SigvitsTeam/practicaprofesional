@@ -345,22 +345,22 @@ Los limites, centroides, establecimientos y areas de cobertura no deben vivir co
 - Tabla de establecimientos con punto.
 - Tabla de coberturas con relaciones y, si existe, geometria.
 
-Para el piloto, la cobertura real del establecimiento puede determinarse inicialmente desde la declaracion del usuario en ITS 1:
+Para el piloto, ITS 1 registrara la procedencia en un campo abierto:
 
 ```text
-¿Pertenece al AGI del establecimiento? Si/No
+Procedencia (comunidad o direccion): ____________________
 ```
 
-Esto reduce la dependencia inicial de contar con un catalogo completo de comunidades asignadas a cada establecimiento.
+El texto se captura manualmente y se conserva tal como fue digitado. No se solicita ninguna clasificacion territorial ni seleccion obligatoria desde un catalogo comunitario.
 
 Implicacion:
 
 - PostGIS sigue siendo importante para mapas y expansion.
 - El catalogo comunitario deja de ser bloqueante para iniciar captura.
-- La normalizacion de barrios/colonias puede implementarse progresivamente.
-- El mapa de cobertura real puede calcularse por el indicador AGI mientras se construye una base geografica mas precisa.
+- La normalizacion de barrios/colonias puede implementarse progresivamente como proceso posterior, sin reemplazar el texto original.
+- El mapa solo debe agrupar o ubicar procedencias cuando la normalizacion sea confiable; no debe inferir cobertura o pertenencia territorial desde el texto libre.
 
-Los mapas no deben consultar ITS 1 individual en niveles superiores. Deben consultar endpoints agregados por alcance.
+El mapa no debe consultar ITS 1 individual en niveles superiores. Debe consultar endpoints agregados por alcance.
 
 Ejemplos:
 
@@ -466,7 +466,7 @@ Implicaciones tecnicas:
 
 - Cargar una base geografica nacional inicial, al menos departamentos.
 - Manejar estados de territorios: preconfigurado, creado, activo, inactivo, en pilotaje.
-- Separar endpoints de mapa base y mapa operativo.
+- Separar los endpoints de geometria base y datos operativos, aunque ambos se representen en un solo mapa interactivo.
 - Los KPIs deben calcularse solo sobre territorios activos.
 - Los usuarios solo deben operar sobre territorios asignados.
 

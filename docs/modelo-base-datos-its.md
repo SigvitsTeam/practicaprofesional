@@ -9,7 +9,7 @@ Definir un modelo de base de datos preparado para:
 - Flujo establecimiento -> municipio -> region -> central -> nacional.
 - Privacidad por diseno.
 - Mapas por alcance territorial.
-- AGI / no AGI.
+- Procedencia textual manual.
 - Reportes mensuales, semanales, trimestrales, semestrales y anuales.
 - Evaluacion anual general y comparativa.
 - Historicos y linea base.
@@ -38,7 +38,7 @@ Supabase PostgreSQL
 5. Los reportes enviados se congelan por version.
 6. Todo cambio relevante se audita.
 7. Los territorios son administrables, no quemados en codigo.
-8. La geografia tiene mapa base y mapa operativo.
+8. La interfaz utiliza un mapa unico que combina geografia base y capas operativas.
 9. El sistema debe soportar datos historicos/importados.
 10. El modelo debe poder crecer a otros programas sin redisenar todo.
 
@@ -82,6 +82,7 @@ SUPERADMIN
 NIVEL_CENTRAL
 ADMIN_REGIONAL
 COORDINADOR_MUNICIPAL
+DIGITADOR_COORDINACION
 RESPONSABLE_ESTABLECIMIENTO
 DIGITADOR_ESTABLECIMIENTO
 SUPERVISOR_CONSULTA
@@ -135,6 +136,8 @@ Regla:
 El alcance territorial del usuario se interpreta por rol + region_id + red_id + municipio_id + establecimiento_id.
 ```
 
+Para `DIGITADOR_COORDINACION`, `municipio_id` identifica la coordinacion a la que pertenece, pero no concede acceso automatico a todos los datos individuales. Los establecimientos operables deben resolverse desde `usuario_asignaciones`, y cada solicitud sobre ITS 1 debe incluir y validar el establecimiento activo.
+
 ### usuario_asignaciones
 
 Para permitir multiples asignaciones futuras:
@@ -151,6 +154,17 @@ usuario_asignaciones
 - fecha_fin date null
 - activo boolean
 - created_at timestamptz
+```
+
+Reglas para el digitador de coordinacion:
+
+```text
+- Una asignacion activa por cada establecimiento que puede operar (12 en el piloto).
+- El establecimiento de cada registro ITS 1 se toma del contexto seleccionado y validado por backend, nunca solo de un valor enviado por la interfaz.
+- Captura y correccion requieren asignacion activa y periodo/reporte editable o devuelto.
+- Generacion y envio de ITS 2 requieren la misma asignacion activa.
+- Revision, aprobacion y cierre requieren otro permiso y no se conceden a este rol.
+- La auditoria registra usuario, establecimiento activo, accion, reporte/version, motivo y fecha.
 ```
 
 ## Territorio y geografia
@@ -510,19 +524,7 @@ atenciones_its
 - establecimiento_atencion_id uuid fk establecimientos_salud
 - usuario_registro_id uuid fk usuarios
 - numero_expediente text
-- procedencia_texto_original text
-- pertenece_agi boolean
-- clasificacion_procedencia_externa text null
-  -- OTRO_ESTABLECIMIENTO_MISMO_MUNICIPIO
-  -- OTRO_MUNICIPIO_MISMO_DEPARTAMENTO
-  -- OTRO_DEPARTAMENTO
-  -- EXTRANJERO
-  -- DESCONOCIDO
-- comunidad_procedencia_id uuid null fk comunidades
-- municipio_procedencia_id uuid null fk municipios
-- departamento_procedencia_texto text null
-- pais_procedencia_texto text null
-- observacion_procedencia text null
+- procedencia_texto text
 - sexo text -- H, M
 - edad int
 - grupo_edad_id uuid fk grupos_edad
@@ -543,9 +545,10 @@ Restricciones recomendadas:
 sexo in ('H', 'M')
 edad >= 0
 si sexo = H, esta_embarazada debe ser false
-si pertenece_agi = true, clasificacion_procedencia_externa debe ser null
-si pertenece_agi = false, clasificacion_procedencia_externa debe ser obligatoria
+procedencia_texto no debe estar vacio y debe conservar el valor digitado por el usuario
 ```
+
+`procedencia_texto` es un campo abierto y obligatorio para comunidad o direccion. La captura no utiliza clasificaciones territoriales ni relaciones obligatorias con catalogos. Si posteriormente se normaliza el texto para analisis, el resultado derivado debe almacenarse por separado sin reemplazar el valor original.
 
 ### diagnosticos_atencion
 
@@ -673,8 +676,6 @@ reporte_its_detalle
 - tipo_caso text null
 - es_contacto boolean null
 - esta_embarazada boolean null
-- pertenece_agi boolean null
-- clasificacion_procedencia_externa text null
 - total int
 ```
 
@@ -903,8 +904,7 @@ v_its2_nacional
 v_mapa_establecimientos_resumen
 v_mapa_municipios_resumen
 v_mapa_regiones_resumen
-v_indicadores_agi
-v_indicadores_procedencia_externa
+v_indicadores_calidad_procedencia
 ```
 
 Regla:
@@ -922,8 +922,6 @@ idx_atenciones_establecimiento_periodo
 idx_atenciones_fecha
 idx_atenciones_semana
 idx_atenciones_sexo
-idx_atenciones_agi
-idx_atenciones_procedencia_externa
 idx_diagnosticos_enfermedad
 idx_diagnosticos_atencion
 ```
@@ -962,15 +960,17 @@ idx_staging_importacion
 ## Reglas criticas a probar
 
 - Usuario de establecimiento puede ver ITS 1 propio.
-- Municipio no puede ver ITS 1.
+- Coordinador municipal y supervisor no pueden ver ITS 1 individual.
+- Digitador de coordinacion solo puede ver y modificar ITS 1 del establecimiento activo cuando tiene una asignacion vigente y el reporte esta editable o devuelto.
+- Cambiar el establecimiento activo debe volver a validar la asignacion y no puede mezclar registros entre establecimientos.
 - Region no puede ver ITS 1.
 - Central no puede ver ITS 1.
 - SuperAdmin no debe acceder a ITS 1 salvo accion excepcional autorizada.
 - ITS 2 se calcula desde ITS 1.
 - Reporte enviado queda congelado por version.
 - Devolucion permite correccion segun nivel.
-- AGI alimenta cobertura real.
-- No AGI alimenta procedencia externa.
+- Procedencia es obligatoria y conserva el texto manual original.
+- La captura no exige clasificacion territorial ni seleccion de comunidad desde catalogo.
 - Tasas no se calculan sin denominador.
 - Semanas epidemiologicas se calculan desde fecha_atencion.
 - Enfermedad debe aplicar al sexo.
