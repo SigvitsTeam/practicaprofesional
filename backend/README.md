@@ -14,10 +14,12 @@ el proveedor inicial.
 ```bash
 copy .env.example .env
 npm install
+npm run db:generate
 npm run start:dev
 ```
 
 - Salud: `GET http://localhost:3000/api/health`
+- Disponibilidad de dependencias: `GET http://localhost:3000/api/health/ready`
 `CORS_ORIGINS` debe contener una lista explícita separada por comas; no se admite el comodín
 como configuración recomendada.
 
@@ -28,6 +30,31 @@ npm run check
 ```
 
 El comando valida formato, reglas estáticas, pruebas unitarias, pruebas HTTP y compilación.
+
+## Base de datos
+
+Prisma 7 usa el adaptador oficial `pg`, pero permanece detrás de repositorios del dominio. La
+migración inicial crea PostgreSQL + PostGIS, regiones, redes, municipios, establecimientos,
+vigencias y auditoría. También incorpora restricciones que Prisma no expresa por sí solo:
+
+- Red y municipio deben pertenecer a la misma región.
+- Solo puede existir una asociación vigente por municipio y programa.
+- Las fechas de fin no pueden preceder a las fechas de inicio.
+- Latitud y longitud deben ser válidas y aparecer juntas.
+- La geometría PostGIS del establecimiento se deriva en base de datos.
+
+Comandos:
+
+```bash
+npm run db:validate
+npm run db:migrate:dev -- --name cambio_descriptivo
+npm run db:migrate:deploy
+```
+
+`DATABASE_URL` es obligatorio en producción. En desarrollo puede omitirse para ejecutar pruebas y
+health checks, pero cualquier operación persistente fallará de forma explícita hasta configurarla.
+El comando de generación usa una URL local no operativa cuando no existe la variable; esta URL solo
+permite compilar tipos y nunca sustituye la configuración necesaria para migrar o ejecutar consultas.
 
 ## Arquitectura
 
@@ -52,9 +79,9 @@ HTTP/Controller -> Aplicación/Caso de uso -> Dominio <- Puertos
 - Las redes son agrupaciones configurables y no agregan una etapa al flujo de aprobación.
 - Un SuperAdmin o SuperAdmin Regional no obtiene acceso implícito a ITS 1.
 
-El documento `docs/modelo-base-datos-its.md` todavía contiene referencias anteriores a AGI y al
-rol eliminado. No deben trasladarse a migraciones sin armonizar primero ese documento con las
-decisiones del 3 y 4 de agosto de 2026.
+El documento `docs/modelo-base-datos-its.md` fue armonizado con las decisiones del 3 y 4 de agosto
+de 2026 antes de iniciar las migraciones. Los lineamientos históricos conservan contexto, pero sus
+secciones sustituidas no deben convertirse en reglas de negocio.
 
 ## Controles presentes desde el arranque
 
@@ -65,6 +92,35 @@ decisiones del 3 y 4 de agosto de 2026.
 - Identificador de correlación por petición.
 - Errores RFC 7807 sin filtrar stack traces al cliente.
 - Política de autorización con denegación por defecto y pruebas de privacidad.
+- Verificación JWT asimétrica por JWKS, emisor, audiencia, expiración y algoritmo permitido.
+- Identidad externa separada del usuario institucional; el JWT no concede roles ni territorios.
+
+## Autenticación y autorización
+
+El backend acepta únicamente access tokens asimétricos `ES256` o `RS256`. Configure
+`AUTH_ISSUER`, `AUTH_AUDIENCE` y `AUTH_JWKS_URL`; no se admite el secreto JWT legado dentro de la
+aplicación. Los endpoints administrativos niegan por defecto cualquier ruta sin política explícita.
+
+```text
+JWT verificado -> identidad externa -> usuario activo -> roles vigentes
+               -> permisos activos -> asignaciones territoriales vigentes -> caso de uso
+```
+
+Endpoints territoriales iniciales:
+
+- `GET /api/v1/regions`: exige `territorial:regions:read` y filtra por alcance.
+- `POST /api/v1/regions`: exige `territorial:regions:create`, alcance nacional y motivo de auditoría.
+
+Después de aplicar las migraciones, vincule una única vez la primera identidad autenticada:
+
+```bash
+npm run db:bootstrap-admin
+```
+
+Requiere `BOOTSTRAP_ADMIN_ISSUER`, `BOOTSTRAP_ADMIN_SUBJECT`, `BOOTSTRAP_ADMIN_EMAIL` y
+`BOOTSTRAP_ADMIN_NAME`. El proceso se niega a ejecutar si ya existe cualquier usuario, asigna el rol
+`SUPERADMIN`, crea alcance nacional y registra el evento de auditoría. No crea ni almacena
+contraseñas; el usuario debe existir previamente en el proveedor de identidad.
 
 Autenticación real, persistencia, auditoría inmutable, Redis/BullMQ y almacenamiento se añadirán en
 incrementos verticales. La existencia de esta base no debe interpretarse como preparación completa

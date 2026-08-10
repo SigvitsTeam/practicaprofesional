@@ -5,10 +5,13 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { GlobalHttpExceptionFilter } from './common/http/http-exception.filter';
 import { RequestIdMiddleware } from './common/http/request-id.middleware';
 import { RequestLoggingInterceptor } from './common/http/request-logging.interceptor';
-import { appConfig } from './config/app.config';
+import { appConfig, authConfig, databaseConfig } from './config/app.config';
 import { environmentSchema } from './config/environment.validation';
 import { AuthorizationModule } from './modules/authorization/authorization.module';
+import { AuthenticationGuard } from './modules/authorization/http/authentication.guard';
+import { AuthorizationGuard } from './modules/authorization/http/authorization.guard';
 import { HealthModule } from './modules/health/health.module';
+import { TerritorialModule } from './modules/territorial/territorial.module';
 
 @Module({
   imports: [
@@ -16,7 +19,7 @@ import { HealthModule } from './modules/health/health.module';
       isGlobal: true,
       cache: true,
       expandVariables: false,
-      load: [appConfig],
+      load: [appConfig, databaseConfig, authConfig],
       validationSchema: environmentSchema,
       validationOptions: { abortEarly: false },
     }),
@@ -31,9 +34,12 @@ import { HealthModule } from './modules/health/health.module';
     }),
     HealthModule,
     AuthorizationModule,
+    TerritorialModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useExisting: AuthenticationGuard },
+    { provide: APP_GUARD, useExisting: AuthorizationGuard },
     { provide: APP_FILTER, useClass: GlobalHttpExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: RequestLoggingInterceptor },
   ],

@@ -8,6 +8,7 @@ describe('Application (e2e)', () => {
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
+    delete process.env.DATABASE_URL;
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');
@@ -36,5 +37,33 @@ describe('Application (e2e)', () => {
       instance: '/api/does-not-exist',
       requestId: expect.any(String),
     });
+  });
+
+  it('separates liveness from database readiness', async () => {
+    const response = await request(app.getHttpServer()).get('/api/health/ready').expect(503);
+
+    expect(response.body).toMatchObject({
+      status: 503,
+      title: 'Servicio no disponible',
+      detail: 'Las dependencias del servicio no están disponibles.',
+      requestId: expect.any(String),
+    });
+  });
+
+  it('denies territorial endpoints without credentials', async () => {
+    const response = await request(app.getHttpServer()).get('/api/v1/regions').expect(401);
+
+    expect(response.body).toMatchObject({
+      status: 401,
+      title: 'No autenticado',
+      detail: 'Credenciales no válidas.',
+    });
+  });
+
+  it('rejects malformed bearer credentials without contacting identity services', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/regions')
+      .set('Authorization', 'Basic invalid')
+      .expect(401);
   });
 });
