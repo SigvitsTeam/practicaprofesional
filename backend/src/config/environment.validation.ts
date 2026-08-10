@@ -15,6 +15,9 @@ export const environmentSchema = Joi.object({
       .uri({ scheme: ['postgresql', 'postgres'] })
       .optional(),
   }),
+  DIRECT_URL: Joi.string()
+    .uri({ scheme: ['postgresql', 'postgres'] })
+    .optional(),
   DATABASE_POOL_MAX: Joi.number().integer().min(1).max(100).default(10),
   DATABASE_CONNECTION_TIMEOUT_MS: Joi.number().integer().min(100).max(60_000).default(5_000),
   DATABASE_IDLE_TIMEOUT_MS: Joi.number().integer().min(1_000).max(600_000).default(30_000),

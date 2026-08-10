@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
 
@@ -8,7 +9,7 @@ function requiredEnvironment(name: string): string {
 }
 
 async function bootstrap(): Promise<void> {
-  const databaseUrl = requiredEnvironment('DATABASE_URL');
+  const databaseUrl = process.env.DIRECT_URL?.trim() || requiredEnvironment('DATABASE_URL');
   const issuer = requiredEnvironment('BOOTSTRAP_ADMIN_ISSUER');
   const subject = requiredEnvironment('BOOTSTRAP_ADMIN_SUBJECT');
   const email = requiredEnvironment('BOOTSTRAP_ADMIN_EMAIL').toLowerCase();

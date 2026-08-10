@@ -42,6 +42,8 @@ vigencias y auditoría. También incorpora restricciones que Prisma no expresa p
 - Las fechas de fin no pueden preceder a las fechas de inicio.
 - Latitud y longitud deben ser válidas y aparecer juntas.
 - La geometría PostGIS del establecimiento se deriva en base de datos.
+- Todas las tablas operativas tienen RLS forzado y no conceden acceso directo a `anon` ni
+  `authenticated`; NestJS es la autoridad de negocio.
 
 Comandos:
 
@@ -49,12 +51,15 @@ Comandos:
 npm run db:validate
 npm run db:migrate:dev -- --name cambio_descriptivo
 npm run db:migrate:deploy
+npm run db:verify-deployment
 ```
 
 `DATABASE_URL` es obligatorio en producción. En desarrollo puede omitirse para ejecutar pruebas y
 health checks, pero cualquier operación persistente fallará de forma explícita hasta configurarla.
 El comando de generación usa una URL local no operativa cuando no existe la variable; esta URL solo
 permite compilar tipos y nunca sustituye la configuración necesaria para migrar o ejecutar consultas.
+En Supabase, `DATABASE_URL` usa el pooler de transacciones para la API y `DIRECT_URL` usa el pooler
+de sesión para migraciones. Prisma Config prioriza `DIRECT_URL` al ejecutar migraciones.
 
 ## Arquitectura
 
