@@ -38,7 +38,7 @@ Supabase PostgreSQL
 5. Los reportes enviados se congelan por version.
 6. Todo cambio relevante se audita.
 7. Los territorios son administrables, no quemados en codigo.
-8. La geografia tiene mapa base y mapa operativo.
+8. La interfaz utiliza un mapa unico que combina geografia base y capas operativas.
 9. El sistema debe soportar datos historicos/importados.
 10. El modelo debe poder crecer a otros programas sin redisenar todo.
 
@@ -160,6 +160,8 @@ usuario_roles
 - activo boolean
 - created_at timestamptz
 ```
+
+Para `DIGITADOR_COORDINACION`, `municipio_id` identifica la coordinacion a la que pertenece, pero no concede acceso automatico a todos los datos individuales. Los establecimientos operables deben resolverse desde `usuario_asignaciones`, y cada solicitud sobre ITS 1 debe incluir y validar el establecimiento activo.
 
 ### usuario_asignaciones
 
@@ -569,6 +571,8 @@ edad >= 0
 si sexo = H, esta_embarazada debe ser false
 procedencia_texto debe conservar la referencia declarada sin inferir AGI, comunidad ni cobertura
 ```
+
+`procedencia_texto` es un campo abierto y obligatorio para comunidad o direccion. La captura no utiliza clasificaciones territoriales ni relaciones obligatorias con catalogos. Si posteriormente se normaliza el texto para analisis, el resultado derivado debe almacenarse por separado sin reemplazar el valor original.
 
 ### diagnosticos_atencion
 
@@ -981,7 +985,9 @@ idx_staging_importacion
 ## Reglas criticas a probar
 
 - Usuario de establecimiento puede ver ITS 1 propio.
-- Municipio no puede ver ITS 1.
+- Coordinador municipal y supervisor no pueden ver ITS 1 individual.
+- Digitador de coordinacion solo puede ver y modificar ITS 1 del establecimiento activo cuando tiene una asignacion vigente y el reporte esta editable o devuelto.
+- Cambiar el establecimiento activo debe volver a validar la asignacion y no puede mezclar registros entre establecimientos.
 - Region no puede ver ITS 1.
 - Central no puede ver ITS 1.
 - SuperAdmin no debe acceder a ITS 1 salvo accion excepcional autorizada.
