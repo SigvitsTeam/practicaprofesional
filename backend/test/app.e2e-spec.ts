@@ -76,4 +76,8 @@ describe('Application (e2e)', () => {
       })
       .expect(401);
   });
+
+  it('protects the ITS 1 capture context', async () => {
+    await request(app.getHttpServer()).get('/api/v1/its1/attentions/context').expect(401);
+  });
 });

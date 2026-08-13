@@ -16,6 +16,15 @@ const protectedTables = [
   'rol_permiso',
   'usuario_roles',
   'usuario_asignaciones',
+  'clasificaciones_its',
+  'enfermedades_its',
+  'grupos_edad',
+  'grupos_edad_comparativo',
+  'tipos_poblacion',
+  'semanas_epidemiologicas',
+  'periodos',
+  'atenciones_its',
+  'diagnosticos_atencion',
 ] as const;
 
 function requiredEnvironment(name: string): string {

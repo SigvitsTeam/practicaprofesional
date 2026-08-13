@@ -12,6 +12,7 @@ export interface Report {
 }
 
 export interface Establishment {
+  id?: string;
   code: string;
   name: string;
   type: 'Policlínico' | 'CIS' | 'UAPS';

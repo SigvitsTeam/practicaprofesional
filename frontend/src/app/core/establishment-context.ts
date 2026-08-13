@@ -24,4 +24,10 @@ export class EstablishmentContext {
   select(code: string) {
     if (this.establishments.some(item => item.code === code)) this.selectedCode.set(code);
   }
+
+  replace(establishments: Establishment[]) {
+    if (!establishments.length) return;
+    this.establishments.splice(0, this.establishments.length, ...establishments);
+    if (!establishments.some(item => item.code === this.selectedCode())) this.selectedCode.set(establishments[0].code);
+  }
 }

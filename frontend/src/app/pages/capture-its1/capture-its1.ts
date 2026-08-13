@@ -1,8 +1,11 @@
-import { Component, DestroyRef, inject, output } from '@angular/core';
+import { Component, DestroyRef, inject, OnInit, output, signal } from '@angular/core';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { finalize } from 'rxjs';
+import { AuthService } from '../../core/auth.service';
 import { EstablishmentContext } from '../../core/establishment-context';
 import { RoleContext } from '../../core/role-context';
+import { CaptureContextResponse, ItsCaptureApiService } from '../../core/its-capture-api.service';
 import { EstablishmentSelector } from '../../shared/establishment-selector/establishment-selector';
 
 @Component({
@@ -11,12 +14,17 @@ import { EstablishmentSelector } from '../../shared/establishment-selector/estab
   templateUrl: './capture-its1.html',
   styleUrl: './capture-its1.css'
 })
-export class CaptureIts1 {
+export class CaptureIts1 implements OnInit {
   readonly notify = output<string>();
   protected readonly context = inject(EstablishmentContext);
   protected readonly roleContext = inject(RoleContext);
   private readonly formBuilder = inject(FormBuilder);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly auth = inject(AuthService);
+  private readonly api = inject(ItsCaptureApiService);
+  readonly contextLoading = signal(false);
+  readonly saving = signal(false);
+  readonly captureContext = signal<CaptureContextResponse | null>(null);
   submitted = false;
 
   readonly form = this.formBuilder.group({
@@ -48,6 +56,23 @@ export class CaptureIts1 {
     });
   }
 
+  ngOnInit() {
+    if (this.auth.isDemo()) return;
+    this.contextLoading.set(true);
+    this.api.getContext().pipe(
+      takeUntilDestroyed(this.destroyRef), finalize(() => this.contextLoading.set(false)),
+    ).subscribe({
+      next: context => {
+        this.captureContext.set(context);
+        this.context.replace(context.facilities.map(item => ({
+          id: item.id, code: item.code, name: item.name,
+          type: item.type === 'POLICLINICO' ? 'Policlínico' : item.type as 'CIS' | 'UAPS',
+        })));
+      },
+      error: () => this.notify.emit('No fue posible cargar los catálogos autorizados.'),
+    });
+  }
+
   get diagnostics() { return this.form.controls.diagnostics as FormArray; }
   get canSelectEstablishment() { return this.roleContext.activeRoleId() === 'coordination-digitizer'; }
   get activeUser() { return this.roleContext.activeRole(); }
@@ -57,6 +82,8 @@ export class CaptureIts1 {
 
   availableDiseases() {
     const sex = this.form.controls.sex.value;
+    const configured = this.captureContext()?.classifications.flatMap(item => item.diseases) ?? [];
+    if (configured.length) return configured.filter(item => sex === 'Hombre' ? item.appliesToMale : sex === 'Mujer' ? item.appliesToFemale : true).map(item => item.name);
     const common = ['Úlcera genital', 'Condiloma acuminado', 'Sífilis', 'Herpes genital'];
     if (sex === 'Hombre') return ['Síndrome de secreción uretral', ...common];
     if (sex === 'Mujer') return ['Vaginitis', 'Flujo vaginal', ...common];
@@ -73,7 +100,32 @@ export class CaptureIts1 {
       this.notify.emit('Revise los campos obligatorios antes de guardar.');
       return;
     }
-    this.notify.emit(this.isCorrectionRequested ? 'Corrección ITS 1 guardada para revisión.' : 'Atención ITS 1 guardada en la demostración.');
+    if (this.auth.isDemo()) {
+      this.notify.emit(this.isCorrectionRequested ? 'Corrección ITS 1 guardada para revisión.' : 'Atención ITS 1 guardada en la demostración.');
+      return;
+    }
+    const value = this.form.getRawValue();
+    const context = this.captureContext();
+    const facility = this.context.selected();
+    const population = context?.populationTypes.find(item => item.name === value.populationType);
+    const diagnoses = value.diagnostics.map(item => {
+      const disease = context?.classifications.flatMap(group => group.diseases).find(candidate => candidate.name === item.disease);
+      return disease ? { diseaseId: disease.id, caseType: item.caseType === 'Control' ? 'CONTROL' as const : 'NUEVO' as const } : null;
+    });
+    if (!facility.id || !population || diagnoses.some(item => !item) || value.age === null) {
+      this.notify.emit('La configuración de captura está incompleta. Recargue los catálogos.');
+      return;
+    }
+    this.saving.set(true);
+    this.api.createAttention({
+      facilityId: facility.id, attentionDate: value.attentionDate!, patientRecordNumber: value.patientId!,
+      originText: value.procedence!, sex: value.sex === 'Mujer' ? 'M' : 'H', age: value.age,
+      populationTypeId: population.id, isContact: value.contact === 'Sí', isPregnant: value.pregnant === 'Sí',
+      observation: value.observations || undefined, diagnoses: diagnoses.filter(item => item !== null),
+    }).pipe(finalize(() => this.saving.set(false))).subscribe({
+      next: result => this.notify.emit(result.possibleDuplicate ? 'Atención guardada con alerta de posible duplicado.' : 'Atención ITS 1 guardada correctamente.'),
+      error: error => this.notify.emit(error?.error?.detail ?? 'No fue posible guardar la atención ITS 1.'),
+    });
   }
 
   private createDiagnostic() {

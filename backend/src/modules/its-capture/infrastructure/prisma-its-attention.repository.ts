@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { ItsAttentionRepository } from '../application/ports/its-attention.repository';
 import type {
+  CaptureContext,
   CaptureReferences,
   CreatedAttention,
   PersistAttentionInput,
@@ -11,6 +12,76 @@ import type {
 export class PrismaItsAttentionRepository extends ItsAttentionRepository {
   constructor(private readonly prisma: PrismaService) {
     super();
+  }
+
+  async getCaptureContext(facilityIds: readonly string[]): Promise<CaptureContext> {
+    const [facilities, populationTypes, classifications] = await Promise.all([
+      this.prisma.client.healthFacility.findMany({
+        where: { id: { in: [...facilityIds] }, active: true },
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          type: true,
+          municipality: {
+            select: {
+              id: true,
+              officialCode: true,
+              name: true,
+              region: { select: { id: true, code: true, name: true } },
+            },
+          },
+        },
+      }),
+      this.prisma.client.populationType.findMany({
+        where: { active: true },
+        orderBy: { name: 'asc' },
+        select: { id: true, code: true, name: true },
+      }),
+      this.prisma.client.itsClassification.findMany({
+        where: { active: true, program: { code: 'ITS', active: true } },
+        orderBy: { order: 'asc' },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          diseases: {
+            where: { active: true },
+            orderBy: { formatOrder: 'asc' },
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              appliesToMale: true,
+              appliesToFemale: true,
+            },
+          },
+        },
+      }),
+    ]);
+    return {
+      facilities: facilities.map((item) => ({
+        id: item.id,
+        code: item.code,
+        name: item.name,
+        type: item.type,
+        municipality: {
+          id: item.municipality.id,
+          code: item.municipality.officialCode,
+          name: item.municipality.name,
+        },
+        region: item.municipality.region,
+      })),
+      populationTypes,
+      classifications: classifications.map((item) => ({
+        ...item,
+        diseases: item.diseases.map((disease) => ({
+          ...disease,
+          code: disease.code ?? undefined,
+        })),
+      })),
+    };
   }
 
   async resolveReferences(input: {

@@ -174,9 +174,4 @@ export class App {
     this.showNotice(message);
   }
 
-  signOut() {
-    this.auth.signOut();
-    this.active = 'Inicio';
-    this.selectedReport = null;
-  }
 }

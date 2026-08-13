@@ -50,5 +50,29 @@ export interface CreatedAttention {
   createdAt: Date;
 }
 
+export interface CaptureContext {
+  facilities: readonly {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+    municipality: { id: string; code: string; name: string };
+    region: { id: string; code: string; name: string };
+  }[];
+  populationTypes: readonly { id: string; code: string; name: string }[];
+  classifications: readonly {
+    id: string;
+    code: string;
+    name: string;
+    diseases: readonly {
+      id: string;
+      code?: string;
+      name: string;
+      appliesToMale: boolean;
+      appliesToFemale: boolean;
+    }[];
+  }[];
+}
+
 export class InvalidAttentionError extends Error {}
 export class CaptureConfigurationError extends Error {}

@@ -36,7 +36,7 @@
     </article>
 
     @if (submitted && form.invalid) {<div class="form-alert"><b>!</b><span>Hay campos obligatorios pendientes. Revise la información resaltada.</span></div>}
-    <div class="form-actions"><button type="button" class="btn secondary">Limpiar</button><button type="submit" class="btn primary">{{ isCorrectionRequested ? 'Guardar corrección' : 'Guardar atención ITS 1' }}</button></div>
+    <div class="form-actions"><button type="button" class="btn secondary">Limpiar</button><button type="submit" class="btn primary" [disabled]="saving() || contextLoading()">{{ saving() ? 'Guardando…' : isCorrectionRequested ? 'Guardar corrección' : 'Guardar atención ITS 1' }}</button></div>
   </div>
 
   <aside class="side-stack">

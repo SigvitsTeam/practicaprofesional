@@ -110,6 +110,14 @@ en la misma transacción.
 La migración `202608130001_its_capture_core` incorpora los catálogos y tablas mínimas para
 atenciones y diagnósticos. Debe aplicarse junto con los catálogos institucionales validados.
 
+El comando `npm run db:seed:pilot` carga de forma idempotente únicamente los datos confirmados
+del piloto: programa ITS, Puerto Cortés, sus 12 establecimientos, clasificaciones, tipos de
+población y grupos menor/mayor de 15 años. No inventa enfermedades, semanas epidemiológicas
+ni períodos; esos catálogos deben cargarse después de su validación institucional.
+
+`GET /api/v1/its1/attentions/context` entrega los establecimientos y catálogos permitidos por
+el alcance del usuario autenticado. Angular utiliza este contexto antes de enviar una atención.
+
 El backend acepta únicamente access tokens asimétricos `ES256` o `RS256`. Configure
 `AUTH_ISSUER`, `AUTH_AUDIENCE` y `AUTH_JWKS_URL`; no se admite el secreto JWT legado dentro de la
 aplicación. Los endpoints administrativos niegan por defecto cualquier ruta sin política explícita.

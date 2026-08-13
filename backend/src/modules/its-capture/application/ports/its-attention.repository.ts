@@ -1,10 +1,12 @@
 import type {
+  CaptureContext,
   CaptureReferences,
   CreatedAttention,
   PersistAttentionInput,
 } from '../../domain/its-attention';
 
 export abstract class ItsAttentionRepository {
+  abstract getCaptureContext(facilityIds: readonly string[]): Promise<CaptureContext>;
   abstract resolveReferences(input: {
     facilityId: string;
     attentionDate: Date;

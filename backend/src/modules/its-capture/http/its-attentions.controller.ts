@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Post,
   Req,
   ServiceUnavailableException,
@@ -14,8 +15,10 @@ import {
   type AuthorizationSubject,
 } from '../../authorization/domain/authorization.types';
 import { CreateAttentionUseCase } from '../application/create-attention.use-case';
+import { GetCaptureContextUseCase } from '../application/get-capture-context.use-case';
 import {
   CaptureConfigurationError,
+  type CaptureContext,
   InvalidAttentionError,
   type CreatedAttention,
 } from '../domain/its-attention';
@@ -23,7 +26,20 @@ import { CreateAttentionDto } from './create-attention.dto';
 
 @Controller('its1/attentions')
 export class ItsAttentionsController {
-  constructor(private readonly createAttention: CreateAttentionUseCase) {}
+  constructor(
+    private readonly createAttention: CreateAttentionUseCase,
+    private readonly getCaptureContext: GetCaptureContextUseCase,
+  ) {}
+
+  @Get('context')
+  @RequireAccess({
+    permission: 'its1:attentions:read',
+    dataLevel: DataLevel.Configuration,
+    scope: 'OWN',
+  })
+  context(@CurrentSubject() subject: AuthorizationSubject): Promise<CaptureContext> {
+    return this.getCaptureContext.execute(subject.territory.facilityIds);
+  }
 
   @Post()
   @RequireAccess({

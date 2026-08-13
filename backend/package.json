@@ -14,6 +14,7 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:bootstrap-admin": "npm run db:generate && ts-node prisma/bootstrap-admin.ts",
+    "db:seed:pilot": "npm run db:generate && ts-node prisma/seed-pilot.ts",
     "db:verify-deployment": "ts-node prisma/verify-deployment.ts",
     "format": "prettier --write \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\"",
     "format:check": "prettier --check \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\"",
