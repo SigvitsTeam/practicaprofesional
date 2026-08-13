@@ -1,0 +1,20 @@
+[
+  { "classificationCode": "SINDROMICO", "code": "01", "name": "Flujo uretral", "appliesToMale": true, "appliesToFemale": false, "formatOrder": 1 },
+  { "classificationCode": "SINDROMICO", "code": "02", "name": "Cervicitis", "appliesToMale": false, "appliesToFemale": true, "formatOrder": 2 },
+  { "classificationCode": "SINDROMICO", "code": "03", "name": "Vaginitis", "appliesToMale": false, "appliesToFemale": true, "formatOrder": 3 },
+  { "classificationCode": "SINDROMICO", "code": "04", "name": "Úlcera genital", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 4 },
+  { "classificationCode": "SINDROMICO", "code": "05", "name": "EPI", "appliesToMale": false, "appliesToFemale": true, "formatOrder": 5 },
+  { "classificationCode": "SINDROMICO", "code": "06", "name": "Bubón inguinal", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 6 },
+  { "classificationCode": "CLINICO", "code": "07", "name": "Molusco contagioso", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 7 },
+  { "classificationCode": "CLINICO", "code": "08", "name": "Granuloma inguinal", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 8 },
+  { "classificationCode": "CLINICO", "code": "09", "name": "Condiloma acuminado", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 9 },
+  { "classificationCode": "CE", "code": "10", "name": "Vaginosis bacteriana", "appliesToMale": false, "appliesToFemale": true, "formatOrder": 10 },
+  { "classificationCode": "CE", "code": "11", "name": "Sífilis congénita", "appliesToMale": true, "appliesToFemale": true, "requiresAgeAlert": true, "formatOrder": 11 },
+  { "classificationCode": "ETIOLOGICO", "code": "12", "name": "Sífilis", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 12 },
+  { "classificationCode": "ETIOLOGICO", "code": "13", "name": "Chlamydia trachomatis", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 13 },
+  { "classificationCode": "ETIOLOGICO", "code": "14", "name": "Trichomonas", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 14 },
+  { "classificationCode": "ETIOLOGICO", "code": "15", "name": "Cándida albicans", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 15 },
+  { "classificationCode": "ETIOLOGICO", "code": "16", "name": "Neisseria gonorrhoeae", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 16 },
+  { "classificationCode": "ETIOLOGICO", "code": "17", "name": "Herpes genital", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 17 },
+  { "classificationCode": "ETIOLOGICO", "code": "18", "name": "Hepatitis B", "appliesToMale": true, "appliesToFemale": true, "formatOrder": 18 }
+]

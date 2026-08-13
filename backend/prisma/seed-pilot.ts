@@ -94,27 +94,50 @@ async function seed(): Promise<void> {
         });
       }
 
-      for (const group of [
+      const officialAgeGroups = [
         {
-          code: 'MENOR_15',
-          name: 'Menor de 15 años',
+          code: 'MENOR_1',
+          name: 'Menor de 1 año',
           minimumAge: 0,
-          maximumAge: 14,
+          maximumAge: 0,
           formatOrder: 1,
         },
         {
-          code: 'MAYOR_IGUAL_15',
-          name: 'Mayor o igual de 15 años',
-          minimumAge: 15,
-          maximumAge: 120,
+          code: '1_4',
+          name: '1 a 4 años',
+          minimumAge: 1,
+          maximumAge: 4,
           formatOrder: 2,
         },
-      ]) {
+        { code: '5_9', name: '5 a 9 años', minimumAge: 5, maximumAge: 9, formatOrder: 3 },
+        { code: '10_14', name: '10 a 14 años', minimumAge: 10, maximumAge: 14, formatOrder: 4 },
+        { code: '15_19', name: '15 a 19 años', minimumAge: 15, maximumAge: 19, formatOrder: 5 },
+        { code: '20_24', name: '20 a 24 años', minimumAge: 20, maximumAge: 24, formatOrder: 6 },
+        { code: '25_29', name: '25 a 29 años', minimumAge: 25, maximumAge: 29, formatOrder: 7 },
+        { code: '30_49', name: '30 a 49 años', minimumAge: 30, maximumAge: 49, formatOrder: 8 },
+        { code: '50_MAS', name: '50 años y más', minimumAge: 50, maximumAge: 120, formatOrder: 9 },
+      ];
+      await transaction.ageGroup.updateMany({
+        where: { code: { notIn: officialAgeGroups.map((group) => group.code) } },
+        data: { active: false },
+      });
+      for (const group of officialAgeGroups) {
         await transaction.ageGroup.upsert({
           where: { code: group.code },
           update: { ...group, active: true },
           create: group,
         });
+      }
+
+      for (const group of [
+        { code: 'MENOR_15', name: 'Menor de 15 años', minimumAge: 0, maximumAge: 14 },
+        {
+          code: 'MAYOR_IGUAL_15',
+          name: 'Mayor o igual de 15 años',
+          minimumAge: 15,
+          maximumAge: 120,
+        },
+      ]) {
         await transaction.comparativeAgeGroup.upsert({
           where: { code: group.code },
           update: {
@@ -128,7 +151,7 @@ async function seed(): Promise<void> {
             name: group.name,
             minimumAge: group.minimumAge,
             maximumAge: group.maximumAge,
-            definition: `${group.minimumAge} a ${group.maximumAge} años para el piloto.`,
+            definition: `${group.minimumAge} a ${group.maximumAge} años para comparación epidemiológica.`,
           },
         });
       }

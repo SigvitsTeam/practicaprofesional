@@ -110,13 +110,41 @@ en la misma transacción.
 La migración `202608130001_its_capture_core` incorpora los catálogos y tablas mínimas para
 atenciones y diagnósticos. Debe aplicarse junto con los catálogos institucionales validados.
 
-El comando `npm run db:seed:pilot` carga de forma idempotente únicamente los datos confirmados
-del piloto: programa ITS, Puerto Cortés, sus 12 establecimientos, clasificaciones, tipos de
-población y grupos menor/mayor de 15 años. No inventa enfermedades, semanas epidemiológicas
-ni períodos; esos catálogos deben cargarse después de su validación institucional.
+El comando `npm run db:seed:pilot` carga de forma idempotente el programa ITS, Puerto Cortés,
+sus 12 establecimientos, clasificaciones, tipos de población, los nueve grupos de edad del ITS-2
+y los dos grupos comparativos menor/mayor de 15 años.
 
 `GET /api/v1/its1/attentions/context` entrega los establecimientos y catálogos permitidos por
 el alcance del usuario autenticado. Angular utiliza este contexto antes de enviar una atención.
+
+`npm run db:seed:calendar:2026` carga las semanas epidemiológicas de domingo a sábado y crea
+los doce períodos mensuales en estado `BLOQUEADO`. La apertura de un período debe realizarse
+posteriormente mediante una decisión administrativa, no desde la carga inicial.
+
+El catálogo oficial versionado en `prisma/data/its-disease-catalog.json` contiene las 18
+patologías en el orden exacto de los formularios. Se importa con `npm run db:import:diseases`;
+opcionalmente `ITS_DISEASE_CATALOG_FILE` permite indicar otro JSON validado. Cada elemento contiene
+`classificationCode`, `code` opcional, `name`, `appliesToMale`, `appliesToFemale`,
+`requiresAgeAlert` opcional y `formatOrder`. El importador rechaza clasificaciones desconocidas,
+duplicados y enfermedades que no apliquen a ningún sexo.
+
+`npm run db:seed:its-catalog` carga en un solo paso el territorio piloto, los grupos de edad y
+el catálogo oficial.
+
+## Formularios oficiales imprimibles
+
+Las plantillas derivan de las imágenes oficiales entregadas para el proyecto y conservan su
+distribución para impresión A4 horizontal. Los endpoints requieren autenticación y aplican el
+alcance territorial:
+
+- `GET /api/v1/its1/attentions/register.pdf?facilityId=<uuid>&year=2026&month=8`: ITS-1
+  rellenado, con 28 atenciones por página y paginación automática.
+- `GET /api/v1/its1/attentions/monthly-report.pdf?facilityId=<uuid>&year=2026&month=8`:
+  ITS-2 rellenado y totalizado desde las atenciones ITS-1 activas.
+- `GET /api/v1/its1/attentions/monthly-report?facilityId=<uuid>&year=2026&month=8`:
+  consolidado JSON usado por Angular.
+
+El frontend ofrece también los formatos vacíos para impresión directa.
 
 El backend acepta únicamente access tokens asimétricos `ES256` o `RS256`. Configure
 `AUTH_ISSUER`, `AUTH_AUDIENCE` y `AUTH_JWKS_URL`; no se admite el secreto JWT legado dentro de la

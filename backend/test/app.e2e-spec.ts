@@ -80,4 +80,26 @@ describe('Application (e2e)', () => {
   it('protects the ITS 1 capture context', async () => {
     await request(app.getHttpServer()).get('/api/v1/its1/attentions/context').expect(401);
   });
+
+  it('protects the printable ITS 1 register', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/its1/attentions/register.pdf')
+      .query({
+        facilityId: '11111111-1111-4111-8111-111111111111',
+        year: 2026,
+        month: 8,
+      })
+      .expect(401);
+  });
+
+  it('protects the printable ITS 2 monthly report', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/its1/attentions/monthly-report.pdf')
+      .query({
+        facilityId: '11111111-1111-4111-8111-111111111111',
+        year: 2026,
+        month: 8,
+      })
+      .expect(401);
+  });
 });

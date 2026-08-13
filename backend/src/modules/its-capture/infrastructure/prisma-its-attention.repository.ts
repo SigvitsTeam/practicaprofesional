@@ -7,6 +7,8 @@ import type {
   CreatedAttention,
   PersistAttentionInput,
 } from '../domain/its-attention';
+import type { MonthlyReportSource } from '../domain/its-monthly-report';
+import type { Its1PrintRegister } from '../domain/its1-print-register';
 
 @Injectable()
 export class PrismaItsAttentionRepository extends ItsAttentionRepository {
@@ -242,5 +244,151 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
       });
       return attention;
     });
+  }
+
+  async getMonthlyReportSource(input: {
+    facilityId: string;
+    year: number;
+    month: number;
+  }): Promise<MonthlyReportSource> {
+    const [facility, ageGroups, diseases, attentions] = await Promise.all([
+      this.prisma.client.healthFacility.findUniqueOrThrow({
+        where: { id: input.facilityId },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          municipality: {
+            select: { name: true, region: { select: { name: true } } },
+          },
+        },
+      }),
+      this.prisma.client.ageGroup.findMany({
+        where: { active: true },
+        orderBy: { formatOrder: 'asc' },
+        select: { code: true, name: true, formatOrder: true },
+      }),
+      this.prisma.client.itsDisease.findMany({
+        where: { active: true, classification: { active: true, program: { code: 'ITS' } } },
+        orderBy: { formatOrder: 'asc' },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          appliesToMale: true,
+          appliesToFemale: true,
+          formatOrder: true,
+          classification: { select: { code: true, name: true } },
+        },
+      }),
+      this.prisma.client.itsAttention.findMany({
+        where: {
+          facilityId: input.facilityId,
+          year: input.year,
+          month: input.month,
+          status: 'ACTIVO',
+        },
+        select: {
+          sex: true,
+          isContact: true,
+          isPregnant: true,
+          ageGroup: { select: { code: true } },
+          populationType: { select: { code: true } },
+          diagnoses: { select: { diseaseId: true, caseType: true } },
+        },
+      }),
+    ]);
+    return {
+      facility: {
+        id: facility.id,
+        code: facility.code,
+        name: facility.name,
+        municipalityName: facility.municipality.name,
+        regionName: facility.municipality.region.name,
+      },
+      ageGroups,
+      diseases: diseases.map((disease) => ({
+        id: disease.id,
+        code: disease.code ?? undefined,
+        name: disease.name,
+        classificationCode: disease.classification.code,
+        classificationName: disease.classification.name,
+        appliesToMale: disease.appliesToMale,
+        appliesToFemale: disease.appliesToFemale,
+        formatOrder: disease.formatOrder,
+      })),
+      attentions: attentions.map((attention) => ({
+        sex: attention.sex,
+        ageGroupCode: attention.ageGroup.code,
+        populationTypeCode: attention.populationType.code,
+        isContact: attention.isContact,
+        isPregnant: attention.isPregnant,
+        diagnoses: attention.diagnoses,
+      })),
+    };
+  }
+
+  async getIts1PrintRegister(input: {
+    facilityId: string;
+    userId: string;
+    year: number;
+    month: number;
+  }): Promise<Its1PrintRegister> {
+    const [facility, responsible, diseases, attentions] = await Promise.all([
+      this.prisma.client.healthFacility.findUniqueOrThrow({
+        where: { id: input.facilityId },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          municipality: { select: { name: true, region: { select: { name: true } } } },
+        },
+      }),
+      this.prisma.client.appUser.findUniqueOrThrow({
+        where: { id: input.userId },
+        select: { fullName: true },
+      }),
+      this.prisma.client.itsDisease.findMany({
+        where: { active: true, classification: { active: true, program: { code: 'ITS' } } },
+        orderBy: { formatOrder: 'asc' },
+        select: { id: true, formatOrder: true },
+      }),
+      this.prisma.client.itsAttention.findMany({
+        where: {
+          facilityId: input.facilityId,
+          year: input.year,
+          month: input.month,
+          status: 'ACTIVO',
+        },
+        orderBy: [{ attentionDate: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          originText: true,
+          patientRecordNumber: true,
+          sex: true,
+          age: true,
+          populationType: { select: { code: true } },
+          isContact: true,
+          isPregnant: true,
+          diagnoses: { select: { diseaseId: true, caseType: true } },
+        },
+      }),
+    ]);
+    return {
+      facility: {
+        id: facility.id,
+        code: facility.code,
+        name: facility.name,
+        municipalityName: facility.municipality.name,
+        regionName: facility.municipality.region.name,
+      },
+      responsibleName: responsible.fullName,
+      year: input.year,
+      month: input.month,
+      diseases,
+      attentions: attentions.map((attention) => ({
+        ...attention,
+        populationTypeCode: attention.populationType.code,
+      })),
+    };
   }
 }

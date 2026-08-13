@@ -1,4 +1,10 @@
 :host { display: block; }
+.template-actions { display: flex; gap: 8px; align-items: center; }
+.report-message { margin-bottom: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; border: 1px solid #b8d3c5; border-radius: 9px; background: #f3faf6; }
+.report-message span { flex: 1; color: var(--muted); font-size: .76rem; }
+.report-message.error { border-color: #e2a6aa; background: #fff3f3; }
+.official-rows { padding: 14px 16px; border-top: 1px solid var(--line); }
+.official-rows h3 { margin: 0 0 10px; font-size: .82rem; }
 .its2-correction { min-height: 62px; margin-bottom: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 11px; border: 1px solid #e2a6aa; border-radius: 9px; background: #fff3f3; }.its2-correction i { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 50%; color: var(--red); background: #f9e0e2; font-style: normal; }.its2-correction div { flex: 1; }.its2-correction strong { font-size: .8rem; }.its2-correction p { margin: 4px 0 0; color: #8a5b60; font-size: .7rem; }.its2-actions { padding: 14px 16px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); }
 .report-state strong { font-size: 1.25rem; }
 .report-state small,.flow small { font-size: 0.68rem; }

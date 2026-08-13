@@ -1,0 +1,6 @@
+/backend/dist/
+/backend/node_modules/
+/frontend/dist/
+/frontend/node_modules/
+/tmp/pdfs/qa-*
+/tmp/pdfs/rendered-forms/
