@@ -8,6 +8,7 @@ export class Topbar {
   readonly darkMode = input(false);
   readonly themeToggle = output<void>();
   readonly roleChange = output<RoleId>();
+  readonly logout = output<void>();
   protected readonly roles = ROLE_PROFILES;
 
   protected get notificationCount() {

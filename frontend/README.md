@@ -1,5 +1,19 @@
 # Frontend
 
+## Acceso y autenticación
+
+La aplicación inicia en una pantalla de acceso y conserva la sesión en `sessionStorage`, o en
+`localStorage` cuando el usuario selecciona **Recordarme**. Para el prototipo local está habilitado
+un botón de acceso de demostración.
+
+La configuración se encuentra en `src/environments/environment.ts`. Al definir `supabaseUrl` y
+`supabaseAnonKey`, el mismo formulario utiliza Supabase Auth (correo y contraseña) y desactiva el
+acceso visual de demostración. El backend continúa siendo la autoridad de roles, permisos y alcance
+territorial; el JWT del proveedor solamente acredita la identidad.
+
+Antes de desplegar se debe deshabilitar `demoEnabled`, suministrar la configuración pública mediante
+el mecanismo de entornos del despliegue y completar la renovación automática del access token.
+
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.1.2.
 
 ## Development server

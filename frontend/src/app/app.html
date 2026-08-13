@@ -1,7 +1,10 @@
+@if (!auth.isAuthenticated()) {
+  <app-login />
+} @else {
 <main class="app-shell">
   <app-sidebar [active]="active" [role]="role" (navigate)="navigate($event)" />
   <section class="workspace">
-    <app-topbar [role]="role" [darkMode]="darkMode" (roleChange)="changeRole($event)" (themeToggle)="toggleTheme()" />
+    <app-topbar [role]="role" [darkMode]="darkMode" (roleChange)="changeRole($event)" (themeToggle)="toggleTheme()" (logout)="signOut()" />
     <div class="content">
       <div class="page-heading"><div><p class="eyebrow">{{ meta.eyebrow }}</p><h1>{{ meta.title }}</h1><p>{{ meta.description }}</p></div>@if (showPrimaryAction) {<button class="btn primary" (click)="primaryAction()">＋ {{ primaryLabel() }}</button>}</div>
       <div class="global-filter-slot" [hidden]="!showGlobalFilters" [attr.aria-hidden]="!showGlobalFilters"><app-global-filters [role]="role" /></div>
@@ -23,3 +26,4 @@
   @if (selectedReport) {<app-report-drawer [report]="selectedReport" (close)="selectedReport = null" (action)="handleDrawerAction($event)" />}
   @if (notice) {<div class="toast"><b>✓</b>{{ notice }}</div>}
 </main>
+}
