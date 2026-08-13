@@ -34,6 +34,11 @@ describe('App', () => {
     expect(compiled.querySelector('.brand strong')?.textContent).toContain('SIGVITS');
   });
 
+  afterEach(() => {
+    localStorage.removeItem(TEST_SESSION);
+    sessionStorage.removeItem(TEST_SESSION);
+  });
+
   it('should toggle and persist dark mode', () => {
     localStorage.setItem('sigvits-theme', 'light');
     const fixture = TestBed.createComponent(App);

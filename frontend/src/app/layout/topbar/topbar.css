@@ -23,3 +23,6 @@
 :host-context([data-theme='dark']) .role-switcher select { background:#172c35; }
 @media(max-width:1050px) { .role-switcher>span { display:none; }.role-switcher select { width:155px; } }
 @media(max-width:780px) { .role-switcher { display:none; } }
+.logout-button { width:30px; height:30px; display:grid; place-items:center; border:0; border-radius:7px; color:var(--muted); background:transparent; font-size:17px; transform:rotate(180deg); }
+.logout-button:hover { color:var(--red); background:#f8e9ea; }
+:host-context([data-theme='dark']) .logout-button:hover { background:#3b2429; }
