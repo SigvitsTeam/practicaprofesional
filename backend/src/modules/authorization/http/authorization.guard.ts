@@ -31,10 +31,12 @@ export class AuthorizationGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<RequestWithContext>();
     if (!request.auth) throw new ForbiddenException('Acceso denegado.');
+    const target =
+      requirement.scope === 'NATIONAL' ? { national: true } : (requirement.target?.(request) ?? {});
     const decision = this.policy.evaluate(request.auth, {
       permission: requirement.permission,
       dataLevel: requirement.dataLevel,
-      target: requirement.scope === 'NATIONAL' ? { national: true } : {},
+      target,
     });
     if (!decision.allowed) throw new ForbiddenException('Acceso denegado.');
     return true;

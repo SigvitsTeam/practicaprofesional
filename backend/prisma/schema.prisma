@@ -32,19 +32,49 @@ enum TerritorialScopeType {
   ESTABLECIMIENTO
 }
 
+enum BiologicalSex {
+  H
+  M
+}
+
+enum CaseType {
+  NUEVO
+  CONTROL
+}
+
+enum AttentionStatus {
+  ACTIVO
+  ANULADO
+}
+
+enum PeriodType {
+  MENSUAL
+  SEMANAL
+  TRIMESTRAL
+  SEMESTRAL
+  ANUAL
+}
+
+enum PeriodStatus {
+  ABIERTO
+  CERRADO
+  BLOQUEADO
+}
+
 model AppUser {
-  id                 String                      @id @default(uuid()) @db.Uuid
-  fullName           String                      @map("nombre_completo") @db.VarChar(160)
-  email              String                      @unique @db.VarChar(255)
-  phone              String?                     @map("telefono") @db.VarChar(30)
-  active             Boolean                     @default(true) @map("activo")
-  lastAccessAt       DateTime?                   @map("ultimo_acceso_at") @db.Timestamptz(3)
-  createdAt          DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt          DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
-  externalIdentities ExternalIdentity[]
-  roles              UserRole[]
-  assignments        UserTerritorialAssignment[]
-  auditEvents        AuditEvent[]
+  id                   String                      @id @default(uuid()) @db.Uuid
+  fullName             String                      @map("nombre_completo") @db.VarChar(160)
+  email                String                      @unique @db.VarChar(255)
+  phone                String?                     @map("telefono") @db.VarChar(30)
+  active               Boolean                     @default(true) @map("activo")
+  lastAccessAt         DateTime?                   @map("ultimo_acceso_at") @db.Timestamptz(3)
+  createdAt            DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  externalIdentities   ExternalIdentity[]
+  roles                UserRole[]
+  assignments          UserTerritorialAssignment[]
+  auditEvents          AuditEvent[]
+  registeredAttentions ItsAttention[]              @relation("RegisteredAttentions")
 
   @@index([active], map: "idx_usuarios_activo")
   @@map("usuarios")
@@ -143,14 +173,16 @@ model UserTerritorialAssignment {
 }
 
 model HealthProgram {
-  id          String                @id @default(uuid()) @db.Uuid
-  code        String                @unique @map("codigo") @db.VarChar(30)
-  name        String                @map("nombre") @db.VarChar(120)
-  description String?               @map("descripcion") @db.VarChar(500)
-  active      Boolean               @default(true) @map("activo")
-  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
-  memberships NetworkMunicipality[]
+  id              String                @id @default(uuid()) @db.Uuid
+  code            String                @unique @map("codigo") @db.VarChar(30)
+  name            String                @map("nombre") @db.VarChar(120)
+  description     String?               @map("descripcion") @db.VarChar(500)
+  active          Boolean               @default(true) @map("activo")
+  createdAt       DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  memberships     NetworkMunicipality[]
+  classifications ItsClassification[]
+  attentions      ItsAttention[]
 
   @@map("programas_salud")
 }
@@ -168,6 +200,7 @@ model Region {
   networks          HealthNetwork[]
   municipalities    Municipality[]
   userAssignments   UserTerritorialAssignment[]
+  attentions        ItsAttention[]
 
   @@index([active, operationalStatus], map: "idx_regiones_estado")
   @@map("regiones")
@@ -207,6 +240,7 @@ model Municipality {
   memberships       NetworkMunicipality[]
   facilities        HealthFacility[]
   userAssignments   UserTerritorialAssignment[]
+  attentions        ItsAttention[]
 
   @@index([regionId, active], map: "idx_municipios_region_activo")
   @@map("municipios")
@@ -248,9 +282,180 @@ model HealthFacility {
   updatedAt            DateTime                              @updatedAt @map("updated_at") @db.Timestamptz(3)
   municipality         Municipality                          @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
   userAssignments      UserTerritorialAssignment[]
+  attentions           ItsAttention[]
 
   @@index([municipalityId, active], map: "idx_establecimientos_municipio_activo")
   @@map("establecimientos_salud")
+}
+
+model ItsClassification {
+  id        String        @id @default(uuid()) @db.Uuid
+  programId String        @map("programa_id") @db.Uuid
+  code      String        @map("codigo") @db.VarChar(30)
+  name      String        @map("nombre") @db.VarChar(120)
+  order     Int           @map("orden")
+  active    Boolean       @default(true) @map("activo")
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  program   HealthProgram @relation(fields: [programId], references: [id], onDelete: Restrict)
+  diseases  ItsDisease[]
+
+  @@unique([programId, code], map: "uq_clasificaciones_programa_codigo")
+  @@index([programId, active, order], map: "idx_clasificaciones_programa_orden")
+  @@map("clasificaciones_its")
+}
+
+model ItsDisease {
+  id               String               @id @default(uuid()) @db.Uuid
+  classificationId String               @map("clasificacion_id") @db.Uuid
+  code             String?              @map("codigo") @db.VarChar(30)
+  name             String               @map("nombre") @db.VarChar(160)
+  appliesToMale    Boolean              @default(true) @map("aplica_hombre")
+  appliesToFemale  Boolean              @default(true) @map("aplica_mujer")
+  requiresAgeAlert Boolean              @default(false) @map("requiere_alerta_edad")
+  formatOrder      Int                  @map("orden_formato")
+  active           Boolean              @default(true) @map("activo")
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  classification   ItsClassification    @relation(fields: [classificationId], references: [id], onDelete: Restrict)
+  diagnoses        AttentionDiagnosis[]
+
+  @@unique([classificationId, name], map: "uq_enfermedades_clasificacion_nombre")
+  @@index([classificationId, active, formatOrder], map: "idx_enfermedades_clasificacion_orden")
+  @@map("enfermedades_its")
+}
+
+model AgeGroup {
+  id          String         @id @default(uuid()) @db.Uuid
+  code        String         @unique @map("codigo") @db.VarChar(30)
+  name        String         @map("nombre") @db.VarChar(120)
+  minimumAge  Int?           @map("edad_min")
+  maximumAge  Int?           @map("edad_max")
+  formatOrder Int            @map("orden_formato")
+  active      Boolean        @default(true) @map("activo")
+  attentions  ItsAttention[]
+
+  @@index([active, minimumAge, maximumAge], map: "idx_grupos_edad_rango")
+  @@map("grupos_edad")
+}
+
+model ComparativeAgeGroup {
+  id         String         @id @default(uuid()) @db.Uuid
+  code       String         @unique @map("codigo") @db.VarChar(30)
+  name       String         @map("nombre") @db.VarChar(120)
+  minimumAge Int?           @map("edad_min")
+  maximumAge Int?           @map("edad_max")
+  definition String         @map("definicion") @db.VarChar(500)
+  active     Boolean        @default(true) @map("activo")
+  attentions ItsAttention[]
+
+  @@index([active, minimumAge, maximumAge], map: "idx_grupos_edad_comparativo_rango")
+  @@map("grupos_edad_comparativo")
+}
+
+model PopulationType {
+  id         String         @id @default(uuid()) @db.Uuid
+  code       String         @unique @map("codigo") @db.VarChar(30)
+  name       String         @map("nombre") @db.VarChar(120)
+  active     Boolean        @default(true) @map("activo")
+  attentions ItsAttention[]
+
+  @@map("tipos_poblacion")
+}
+
+model EpidemiologicalWeek {
+  id         String            @id @default(uuid()) @db.Uuid
+  year       Int               @map("anio")
+  weekNumber Int               @map("numero_semana")
+  startDate  DateTime          @map("fecha_inicio") @db.Date
+  endDate    DateTime          @map("fecha_fin") @db.Date
+  active     Boolean           @default(true) @map("activa")
+  periods    ReportingPeriod[]
+  attentions ItsAttention[]
+
+  @@unique([year, weekNumber], map: "uq_semanas_anio_numero")
+  @@index([startDate, endDate, active], map: "idx_semanas_fechas")
+  @@map("semanas_epidemiologicas")
+}
+
+model ReportingPeriod {
+  id                    String               @id @default(uuid()) @db.Uuid
+  type                  PeriodType           @map("tipo")
+  year                  Int                  @map("anio")
+  month                 Int?                 @map("mes")
+  quarter               Int?                 @map("trimestre")
+  semester              Int?                 @map("semestre")
+  epidemiologicalWeekId String?              @map("semana_epidemiologica_id") @db.Uuid
+  startDate             DateTime             @map("fecha_inicio") @db.Date
+  endDate               DateTime             @map("fecha_fin") @db.Date
+  status                PeriodStatus         @default(ABIERTO) @map("estado")
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  epidemiologicalWeek   EpidemiologicalWeek? @relation(fields: [epidemiologicalWeekId], references: [id], onDelete: Restrict)
+  monthlyAttentions     ItsAttention[]
+
+  @@index([type, year, month, status], map: "idx_periodos_tipo_fecha_estado")
+  @@index([startDate, endDate], map: "idx_periodos_fechas")
+  @@map("periodos")
+}
+
+model ItsAttention {
+  id                    String               @id @default(uuid()) @db.Uuid
+  programId             String               @map("programa_id") @db.Uuid
+  attentionDate         DateTime             @map("fecha_atencion") @db.Date
+  epidemiologicalWeekId String               @map("semana_epidemiologica_id") @db.Uuid
+  monthlyPeriodId       String               @map("periodo_mensual_id") @db.Uuid
+  year                  Int                  @map("anio")
+  month                 Int                  @map("mes")
+  regionId              String               @map("region_id") @db.Uuid
+  municipalityId        String               @map("municipio_id") @db.Uuid
+  facilityId            String               @map("establecimiento_atencion_id") @db.Uuid
+  registeredById        String               @map("usuario_registro_id") @db.Uuid
+  patientRecordNumber   String               @map("numero_expediente") @db.VarChar(100)
+  originText            String               @map("procedencia_texto") @db.VarChar(500)
+  sex                   BiologicalSex        @map("sexo")
+  age                   Int                  @map("edad")
+  ageGroupId            String               @map("grupo_edad_id") @db.Uuid
+  comparativeAgeGroupId String               @map("grupo_edad_comparativo_id") @db.Uuid
+  populationTypeId      String               @map("tipo_poblacion_id") @db.Uuid
+  isContact             Boolean              @map("es_contacto")
+  isPregnant            Boolean              @map("esta_embarazada")
+  status                AttentionStatus      @default(ACTIVO) @map("estado")
+  possibleDuplicate     Boolean              @default(false) @map("posible_duplicado")
+  observation           String?              @map("observacion") @db.VarChar(1000)
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  program               HealthProgram        @relation(fields: [programId], references: [id], onDelete: Restrict)
+  epidemiologicalWeek   EpidemiologicalWeek  @relation(fields: [epidemiologicalWeekId], references: [id], onDelete: Restrict)
+  monthlyPeriod         ReportingPeriod      @relation(fields: [monthlyPeriodId], references: [id], onDelete: Restrict)
+  region                Region               @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  municipality          Municipality         @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
+  facility              HealthFacility       @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+  registeredBy          AppUser              @relation("RegisteredAttentions", fields: [registeredById], references: [id], onDelete: Restrict)
+  ageGroup              AgeGroup             @relation(fields: [ageGroupId], references: [id], onDelete: Restrict)
+  comparativeAgeGroup   ComparativeAgeGroup  @relation(fields: [comparativeAgeGroupId], references: [id], onDelete: Restrict)
+  populationType        PopulationType       @relation(fields: [populationTypeId], references: [id], onDelete: Restrict)
+  diagnoses             AttentionDiagnosis[]
+
+  @@index([facilityId, attentionDate, status], map: "idx_atenciones_establecimiento_fecha")
+  @@index([patientRecordNumber, attentionDate, facilityId], map: "idx_atenciones_posible_duplicado")
+  @@index([regionId, municipalityId, year, month], map: "idx_atenciones_territorio_periodo")
+  @@map("atenciones_its")
+}
+
+model AttentionDiagnosis {
+  id          String       @id @default(uuid()) @db.Uuid
+  attentionId String       @map("atencion_id") @db.Uuid
+  diseaseId   String       @map("enfermedad_id") @db.Uuid
+  caseType    CaseType     @map("tipo_caso")
+  createdAt   DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  attention   ItsAttention @relation(fields: [attentionId], references: [id], onDelete: Cascade)
+  disease     ItsDisease   @relation(fields: [diseaseId], references: [id], onDelete: Restrict)
+
+  @@unique([attentionId, diseaseId, caseType], map: "uq_diagnosticos_atencion_enfermedad_tipo")
+  @@index([diseaseId, caseType], map: "idx_diagnosticos_enfermedad_tipo")
+  @@map("diagnosticos_atencion")
 }
 
 model AuditEvent {

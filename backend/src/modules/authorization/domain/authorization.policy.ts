@@ -59,11 +59,7 @@ export class AuthorizationPolicy {
     }
 
     if (subject.roles.includes(RoleCode.CoordinationDataEntry)) {
-      return (
-        target.municipalityId !== undefined &&
-        subject.territory.municipalityIds.includes(target.municipalityId) &&
-        subject.territory.facilityIds.includes(target.facilityId)
-      );
+      return subject.territory.facilityIds.includes(target.facilityId);
     }
 
     return false;

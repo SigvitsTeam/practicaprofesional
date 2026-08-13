@@ -112,6 +112,12 @@ export class App {
 
   selectReport(report: Report) { this.selectedReport = report; }
 
+  signOut() {
+    this.auth.signOut();
+    this.active = 'Inicio';
+    this.selectedReport = null;
+  }
+
   toggleTheme() {
     this.darkMode = !this.darkMode;
     if (typeof localStorage !== 'undefined') localStorage.setItem('sigvits-theme', this.darkMode ? 'dark' : 'light');

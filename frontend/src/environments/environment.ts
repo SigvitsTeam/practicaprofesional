@@ -1,7 +1,7 @@
 export const environment = {
   production: false,
+  apiUrl: 'http://localhost:3000/api',
   auth: {
-    /** Configure these public values to use Supabase Auth instead of the local prototype. */
     supabaseUrl: '',
     supabaseAnonKey: '',
     demoEnabled: true,

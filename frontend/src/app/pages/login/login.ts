@@ -1,7 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { AuthService, AuthenticationError } from '../../core/auth.service';
 import { environment } from '../../../environments/environment';
+import { AuthenticationError, AuthService } from '../../core/auth.service';
 
 @Component({ selector: 'app-login', imports: [ReactiveFormsModule], templateUrl: './login.html', styleUrl: './login.css' })
 export class Login {
@@ -33,7 +33,7 @@ export class Login {
 
   async recoverPassword(): Promise<void> {
     const email = this.form.controls.email;
-    this.error.set('');
+    this.error.set(''); this.recoveryMessage.set('');
     if (email.invalid) { email.markAsTouched(); this.error.set('Escribe primero tu correo institucional.'); return; }
     this.loading.set(true);
     try {

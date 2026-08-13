@@ -11,6 +11,7 @@ import { AuthorizationModule } from './modules/authorization/authorization.modul
 import { AuthenticationGuard } from './modules/authorization/http/authentication.guard';
 import { AuthorizationGuard } from './modules/authorization/http/authorization.guard';
 import { HealthModule } from './modules/health/health.module';
+import { ItsCaptureModule } from './modules/its-capture/its-capture.module';
 import { TerritorialModule } from './modules/territorial/territorial.module';
 
 @Module({
@@ -35,6 +36,7 @@ import { TerritorialModule } from './modules/territorial/territorial.module';
     HealthModule,
     AuthorizationModule,
     TerritorialModule,
+    ItsCaptureModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
