@@ -1,0 +1,30 @@
+<main class="login-page">
+  <section class="login-story" aria-label="Información del sistema">
+    <div class="story-grid"></div>
+    <div class="login-brand"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span><div><strong>SESAL</strong><small>Secretaría de Salud</small></div></div>
+    <div class="story-copy">
+      <span class="pilot-badge"><i></i> Plataforma institucional</span>
+      <h1>Vigilancia de ITS,<br><em>más clara y oportuna.</em></h1>
+      <p>Sistema de Gestión y Vigilancia de Infecciones de Transmisión Sexual.</p>
+      <div class="story-features"><div><span>01</span><p><strong>Información protegida</strong><small>Acceso por rol y alcance territorial.</small></p></div><div><span>02</span><p><strong>Seguimiento confiable</strong><small>Flujos trazables desde el establecimiento.</small></p></div></div>
+    </div>
+    <footer><span>SIGVITS · Honduras</span><span>Uso institucional autorizado</span></footer>
+  </section>
+  <section class="login-access">
+    <div class="access-card">
+      <div class="mobile-brand"><span class="brand-mark"><i></i><i></i><i></i><i></i></span><strong>SIGVITS</strong></div>
+      <header><p class="eyebrow">ACCESO SEGURO</p><h2>Bienvenido</h2><p>Ingresa con tus credenciales institucionales.</p></header>
+      <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <label class="field"><span>Correo institucional</span><div [class.invalid]="form.controls.email.touched && form.controls.email.invalid"><i aria-hidden="true">@</i><input formControlName="email" type="email" autocomplete="username" placeholder="nombre@salud.gob.hn" aria-describedby="email-error"></div>@if (form.controls.email.touched && form.controls.email.invalid) {<small id="email-error">Ingresa un correo válido.</small>}</label>
+        <label class="field"><span>Contraseña</span><div [class.invalid]="form.controls.password.touched && form.controls.password.invalid"><i class="lock" aria-hidden="true"></i><input formControlName="password" [type]="passwordVisible() ? 'text' : 'password'" autocomplete="current-password" placeholder="Mínimo 8 caracteres" aria-describedby="password-error"><button class="show-password" type="button" (click)="passwordVisible.set(!passwordVisible())">{{ passwordVisible() ? 'Ocultar' : 'Ver' }}</button></div>@if (form.controls.password.touched && form.controls.password.invalid) {<small id="password-error">La contraseña debe tener al menos 8 caracteres.</small>}</label>
+        <div class="form-options"><label class="remember"><input formControlName="remember" type="checkbox"><span>Recordarme en este equipo</span></label><button type="button" (click)="recoverPassword()">¿Olvidaste tu contraseña?</button></div>
+        @if (error()) {<div class="form-message error" role="alert"><b>!</b><span>{{ error() }}</span></div>}
+        @if (recoveryMessage()) {<div class="form-message success" role="status"><b>✓</b><span>{{ recoveryMessage() }}</span></div>}
+        <button class="submit-button" type="submit" [disabled]="loading()">@if (loading()) {<i class="spinner"></i> Verificando…} @else {Iniciar sesión <span>→</span>}</button>
+        @if (demoEnabled) {<div class="demo-access"><span>ENTORNO DE DEMOSTRACIÓN</span><button type="button" (click)="useDemo()" [disabled]="loading()">Entrar con usuario de prueba</button></div>}
+      </form>
+      <div class="access-help"><i>?</i><p><strong>¿Necesitas ayuda para ingresar?</strong><span>Contacta al administrador SIGVITS de tu región.</span></p></div>
+      <p class="legal">Al ingresar aceptas las políticas institucionales de seguridad y confidencialidad de la información.</p>
+    </div>
+  </section>
+</main>

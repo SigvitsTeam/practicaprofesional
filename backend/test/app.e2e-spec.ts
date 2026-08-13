@@ -66,4 +66,14 @@ describe('Application (e2e)', () => {
       .set('Authorization', 'Basic invalid')
       .expect(401);
   });
+
+  it('protects ITS 1 creation before processing individual patient data', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/its1/attentions')
+      .send({
+        facilityId: '11111111-1111-4111-8111-111111111111',
+        patientRecordNumber: 'EXP-001',
+      })
+      .expect(401);
+  });
 });

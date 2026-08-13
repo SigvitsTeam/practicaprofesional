@@ -1,4 +1,5 @@
 import { Component, inject, ViewChild, ViewEncapsulation } from '@angular/core';
+import { AuthService } from './core/auth.service';
 import { SCREEN_META } from './core/mock-data';
 import { Report, RoleId } from './core/models';
 import { RoleContext } from './core/role-context';
@@ -15,11 +16,12 @@ import { ReportIts2 } from './pages/report-its2/report-its2';
 import { ReviewInbox } from './pages/review-inbox/review-inbox';
 import { RoleDashboard } from './pages/role-dashboard/role-dashboard';
 import { Territory } from './pages/territory/territory';
+import { Login } from './pages/login/login';
 import { ReportDrawer } from './shared/report-drawer/report-drawer';
 
 @Component({
   selector: 'app-root',
-  imports: [Sidebar, Topbar, GlobalFilters, RoleDashboard, CaptureIts1, ReportIts2, ReviewInbox, Consolidated, Maps, Networks, Exports, Territory, ReportDrawer],
+  imports: [Sidebar, Topbar, GlobalFilters, RoleDashboard, CaptureIts1, ReportIts2, ReviewInbox, Consolidated, Maps, Networks, Exports, Territory, ReportDrawer, Login],
   templateUrl: './app.html',
   styleUrl: './app.css',
   encapsulation: ViewEncapsulation.None
@@ -27,6 +29,7 @@ import { ReportDrawer } from './shared/report-drawer/report-drawer';
 export class App {
   @ViewChild(Territory) private territory?: Territory;
   protected readonly roleContext = inject(RoleContext);
+  protected readonly auth = inject(AuthService);
   private readonly establishmentContext = inject(EstablishmentContext);
   active = 'Inicio';
   selectedReport: Report | null = null;
@@ -108,6 +111,12 @@ export class App {
   }
 
   selectReport(report: Report) { this.selectedReport = report; }
+
+  signOut() {
+    this.auth.signOut();
+    this.active = 'Inicio';
+    this.selectedReport = null;
+  }
 
   toggleTheme() {
     this.darkMode = !this.darkMode;

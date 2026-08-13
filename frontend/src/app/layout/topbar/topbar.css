@@ -3,6 +3,7 @@
 .user strong { font-size: 0.8rem; }
 .user span { font-size: 0.7rem; }
 .avatar { font-size: 0.75rem; }
+.logout-button { border:0; color:inherit; background:transparent; cursor:pointer; text-align:left; }.logout-button>b { color:var(--muted); font-size:.62rem; }
 .role-switcher { display:flex; align-items:center; gap:7px; }.role-switcher>span { color:var(--muted); font-size:.65rem; font-weight:800; text-transform:uppercase; }.role-switcher select { width:190px; height:36px; padding:0 28px 0 10px; border:1px solid var(--line); border-radius:8px; color:var(--ink); background:var(--surface,#fff); font-size:.7rem; font-weight:700; }
 .theme-toggle {
   width: 38px;

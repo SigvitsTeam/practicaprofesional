@@ -1,5 +1,17 @@
 # Frontend
 
+## Autenticación
+
+La aplicación inicia en una pantalla de acceso. La configuración pública se encuentra en
+`src/environments/environment.ts`: al definir `supabaseUrl` y `supabaseAnonKey` se utiliza
+Supabase Auth; mientras estén vacíos queda disponible el usuario de demostración.
+
+El token se renueva antes de expirar y el interceptor HTTP lo envía únicamente a `apiUrl`.
+El backend continúa siendo la autoridad de roles, permisos y alcance territorial.
+
+Antes de un despliegue real se debe desactivar `demoEnabled` y suministrar la configuración
+de Supabase mediante el mecanismo de entornos del despliegue.
+
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.1.2.
 
 ## Development server

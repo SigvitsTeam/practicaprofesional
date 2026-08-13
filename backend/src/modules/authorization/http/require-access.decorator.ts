@@ -1,5 +1,6 @@
 import { SetMetadata } from '@nestjs/common';
-import type { DataLevel } from '../domain/authorization.types';
+import type { RequestWithContext } from '../../../common/http/request-context';
+import type { DataLevel, TargetTerritory } from '../domain/authorization.types';
 
 export type AccessScope = 'OWN' | 'NATIONAL';
 
@@ -7,6 +8,7 @@ export interface AccessRequirement {
   permission: string;
   dataLevel: DataLevel;
   scope: AccessScope;
+  target?: (request: RequestWithContext) => TargetTerritory;
 }
 
 export const ACCESS_REQUIREMENT_KEY = 'authorization:requirement';

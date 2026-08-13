@@ -102,6 +102,14 @@ secciones sustituidas no deben convertirse en reglas de negocio.
 
 ## Autenticación y autorización
 
+La captura individual comienza en `POST /api/v1/its1/attentions`. Requiere el permiso
+`its1:attentions:create`; el backend valida el establecimiento asignado, resuelve región,
+municipio, semana epidemiológica, período mensual y grupos de edad, y registra auditoría
+en la misma transacción.
+
+La migración `202608130001_its_capture_core` incorpora los catálogos y tablas mínimas para
+atenciones y diagnósticos. Debe aplicarse junto con los catálogos institucionales validados.
+
 El backend acepta únicamente access tokens asimétricos `ES256` o `RS256`. Configure
 `AUTH_ISSUER`, `AUTH_AUDIENCE` y `AUTH_JWKS_URL`; no se admite el secreto JWT legado dentro de la
 aplicación. Los endpoints administrativos niegan por defecto cualquier ruta sin política explícita.

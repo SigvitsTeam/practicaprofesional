@@ -1,11 +1,23 @@
 import { TestBed } from '@angular/core/testing';
 import { App } from './app';
+import { environment } from '../environments/environment';
+
+const TEST_SESSION = 'sigvits-auth-session';
 
 describe('App', () => {
   beforeEach(async () => {
+    localStorage.setItem(TEST_SESSION, JSON.stringify({
+      provider: 'demo', remember: true,
+      user: { id: 'test', email: environment.auth.demoEmail, name: 'Test' },
+    }));
     await TestBed.configureTestingModule({
       imports: [App],
     }).compileComponents();
+  });
+
+  afterEach(() => {
+    localStorage.removeItem(TEST_SESSION);
+    sessionStorage.removeItem(TEST_SESSION);
   });
 
   it('should create the app', () => {
