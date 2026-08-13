@@ -30,6 +30,7 @@ export interface AuthorizationSubject {
 }
 
 export interface TargetTerritory {
+  national?: boolean;
   regionId?: string;
   municipalityId?: string;
   facilityId?: string;

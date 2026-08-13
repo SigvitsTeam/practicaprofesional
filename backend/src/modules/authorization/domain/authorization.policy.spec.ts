@@ -114,4 +114,14 @@ describe('AuthorizationPolicy', () => {
 
     expect(decision).toEqual({ allowed: false, reason: 'INDIVIDUAL_DATA_RESTRICTED' });
   });
+
+  it('requires an explicit national assignment for national operations', () => {
+    const decision = policy.evaluate(subject({ roles: [RoleCode.RegionalSuperAdmin] }), {
+      permission: capturePermission,
+      dataLevel: DataLevel.Configuration,
+      target: { national: true },
+    });
+
+    expect(decision).toEqual({ allowed: false, reason: 'OUTSIDE_TERRITORY' });
+  });
 });

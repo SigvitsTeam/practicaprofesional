@@ -9,7 +9,7 @@ Definir un modelo de base de datos preparado para:
 - Flujo establecimiento -> municipio -> region -> central -> nacional.
 - Privacidad por diseno.
 - Mapas por alcance territorial.
-- Procedencia textual manual.
+- Procedencia declarada como texto libre, sin clasificación AGI en el alcance vigente.
 - Reportes mensuales, semanales, trimestrales, semestrales y anuales.
 - Evaluacion anual general y comparativa.
 - Historicos y linea base.
@@ -79,12 +79,12 @@ Roles iniciales:
 
 ```text
 SUPERADMIN
-NIVEL_CENTRAL
+ADMIN_CENTRAL
+SUPERADMIN_REGIONAL
 ADMIN_REGIONAL
 COORDINADOR_MUNICIPAL
 DIGITADOR_COORDINACION
 RESPONSABLE_ESTABLECIMIENTO
-DIGITADOR_ESTABLECIMIENTO
 SUPERVISOR_CONSULTA
 ```
 
@@ -114,39 +114,64 @@ rol_permiso
 ```sql
 usuarios
 - id uuid pk
-- auth_user_id uuid unique null
 - nombre_completo text
 - email text unique
 - telefono text null
-- rol_id uuid fk roles
-- pais_id uuid null
-- region_id uuid null
-- red_id uuid null
-- municipio_id uuid null
-- establecimiento_id uuid null
 - activo boolean
 - ultimo_acceso_at timestamptz null
 - created_at timestamptz
 - updated_at timestamptz
 ```
 
-Regla:
+### identidades_externas
+
+Desacopla el usuario institucional del proveedor de autenticacion. Permite iniciar con Supabase
+Auth y migrar o federar otro emisor sin cambiar la identidad interna ni sus permisos.
+
+```sql
+identidades_externas
+- id uuid pk
+- usuario_id uuid fk usuarios
+- emisor text
+- sujeto text
+- email_referencia text null
+- created_at timestamptz
+- updated_at timestamptz
+- unique (emisor, sujeto)
+```
+
+Reglas:
 
 ```text
-El alcance territorial del usuario se interpreta por rol + region_id + red_id + municipio_id + establecimiento_id.
+El JWT prueba identidad externa, pero no concede roles ni territorios.
+Solo se aceptan tokens firmados asimetricamente y verificados por JWKS, emisor, audiencia y expiracion.
+Un usuario inactivo no puede autenticarse aunque su token externo sea valido.
+```
+
+### usuario_roles
+
+```sql
+usuario_roles
+- id uuid pk
+- usuario_id uuid fk usuarios
+- rol_id uuid fk roles
+- fecha_inicio date
+- fecha_fin date null
+- activo boolean
+- created_at timestamptz
 ```
 
 Para `DIGITADOR_COORDINACION`, `municipio_id` identifica la coordinacion a la que pertenece, pero no concede acceso automatico a todos los datos individuales. Los establecimientos operables deben resolverse desde `usuario_asignaciones`, y cada solicitud sobre ITS 1 debe incluir y validar el establecimiento activo.
 
 ### usuario_asignaciones
 
-Para permitir multiples asignaciones futuras:
+El alcance se expresa mediante asignaciones vigentes, no mediante columnas ambiguas en `usuarios`.
 
 ```sql
 usuario_asignaciones
 - id uuid pk
 - usuario_id uuid fk usuarios
-- pais_id uuid null
+- tipo_alcance text -- NACIONAL, REGION, MUNICIPIO, ESTABLECIMIENTO
 - region_id uuid null
 - municipio_id uuid null
 - establecimiento_id uuid null
@@ -156,15 +181,14 @@ usuario_asignaciones
 - created_at timestamptz
 ```
 
-Reglas para el digitador de coordinacion:
+Restricciones:
 
 ```text
-- Una asignacion activa por cada establecimiento que puede operar (12 en el piloto).
-- El establecimiento de cada registro ITS 1 se toma del contexto seleccionado y validado por backend, nunca solo de un valor enviado por la interfaz.
-- Captura y correccion requieren asignacion activa y periodo/reporte editable o devuelto.
-- Generacion y envio de ITS 2 requieren la misma asignacion activa.
-- Revision, aprobacion y cierre requieren otro permiso y no se conceden a este rol.
-- La auditoria registra usuario, establecimiento activo, accion, reporte/version, motivo y fecha.
+NACIONAL: todos los ids territoriales deben ser null.
+REGION: solo region_id es obligatorio.
+MUNICIPIO: solo municipio_id es obligatorio.
+ESTABLECIMIENTO: solo establecimiento_id es obligatorio.
+La autorizacion siempre evalua permiso + territorio expandido + nivel de dato solicitado.
 ```
 
 ## Territorio y geografia
@@ -545,7 +569,7 @@ Restricciones recomendadas:
 sexo in ('H', 'M')
 edad >= 0
 si sexo = H, esta_embarazada debe ser false
-procedencia_texto no debe estar vacio y debe conservar el valor digitado por el usuario
+procedencia_texto debe conservar la referencia declarada sin inferir AGI, comunidad ni cobertura
 ```
 
 `procedencia_texto` es un campo abierto y obligatorio para comunidad o direccion. La captura no utiliza clasificaciones territoriales ni relaciones obligatorias con catalogos. Si posteriormente se normaliza el texto para analisis, el resultado derivado debe almacenarse por separado sin reemplazar el valor original.
@@ -904,7 +928,7 @@ v_its2_nacional
 v_mapa_establecimientos_resumen
 v_mapa_municipios_resumen
 v_mapa_regiones_resumen
-v_indicadores_calidad_procedencia
+v_indicadores_procedencia_agregada
 ```
 
 Regla:
@@ -922,6 +946,7 @@ idx_atenciones_establecimiento_periodo
 idx_atenciones_fecha
 idx_atenciones_semana
 idx_atenciones_sexo
+idx_atenciones_procedencia_texto -- considerar GIN/trigram solo si la búsqueda lo justifica
 idx_diagnosticos_enfermedad
 idx_diagnosticos_atencion
 ```
@@ -969,8 +994,7 @@ idx_staging_importacion
 - ITS 2 se calcula desde ITS 1.
 - Reporte enviado queda congelado por version.
 - Devolucion permite correccion segun nivel.
-- Procedencia es obligatoria y conserva el texto manual original.
-- La captura no exige clasificacion territorial ni seleccion de comunidad desde catalogo.
+- Procedencia se conserva como texto libre sin derivar AGI ni exigir catálogo territorial.
 - Tasas no se calculan sin denominador.
 - Semanas epidemiologicas se calculan desde fecha_atencion.
 - Enfermedad debe aplicar al sexo.

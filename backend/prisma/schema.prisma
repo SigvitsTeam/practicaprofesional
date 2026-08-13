@@ -1,0 +1,275 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  engineType          = "client"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RegionType {
+  SANITARIA
+  DEPARTAMENTAL
+  METROPOLITANA
+}
+
+enum OperationalStatus {
+  PRECONFIGURADO
+  CREADO
+  EN_PILOTAJE
+  ACTIVO
+  INACTIVO
+  SUSPENDIDO
+}
+
+enum TerritorialScopeType {
+  NACIONAL
+  REGION
+  MUNICIPIO
+  ESTABLECIMIENTO
+}
+
+model AppUser {
+  id                 String                      @id @default(uuid()) @db.Uuid
+  fullName           String                      @map("nombre_completo") @db.VarChar(160)
+  email              String                      @unique @db.VarChar(255)
+  phone              String?                     @map("telefono") @db.VarChar(30)
+  active             Boolean                     @default(true) @map("activo")
+  lastAccessAt       DateTime?                   @map("ultimo_acceso_at") @db.Timestamptz(3)
+  createdAt          DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  externalIdentities ExternalIdentity[]
+  roles              UserRole[]
+  assignments        UserTerritorialAssignment[]
+  auditEvents        AuditEvent[]
+
+  @@index([active], map: "idx_usuarios_activo")
+  @@map("usuarios")
+}
+
+model ExternalIdentity {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @map("usuario_id") @db.Uuid
+  issuer        String   @map("emisor") @db.VarChar(255)
+  subject       String   @map("sujeto") @db.VarChar(255)
+  emailSnapshot String?  @map("email_referencia") @db.VarChar(255)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+  user          AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([issuer, subject], map: "uq_identidad_emisor_sujeto")
+  @@index([userId], map: "idx_identidades_usuario")
+  @@map("identidades_externas")
+}
+
+model Role {
+  id              String           @id @default(uuid()) @db.Uuid
+  code            String           @unique @map("codigo") @db.VarChar(60)
+  name            String           @map("nombre") @db.VarChar(120)
+  description     String?          @map("descripcion") @db.VarChar(500)
+  hierarchyLevel  Int              @map("nivel_jerarquico")
+  active          Boolean          @default(true) @map("activo")
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  rolePermissions RolePermission[]
+  users           UserRole[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @map("codigo") @db.VarChar(100)
+  module      String           @map("modulo") @db.VarChar(60)
+  action      String           @map("accion") @db.VarChar(60)
+  description String?          @map("descripcion") @db.VarChar(500)
+  active      Boolean          @default(true) @map("activo")
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  roles       RolePermission[]
+
+  @@map("permisos")
+}
+
+model RolePermission {
+  roleId       String     @map("rol_id") @db.Uuid
+  permissionId String     @map("permiso_id") @db.Uuid
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("rol_permiso")
+}
+
+model UserRole {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("usuario_id") @db.Uuid
+  roleId    String    @map("rol_id") @db.Uuid
+  startDate DateTime  @map("fecha_inicio") @db.Date
+  endDate   DateTime? @map("fecha_fin") @db.Date
+  active    Boolean   @default(true) @map("activo")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  user      AppUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      Role      @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  @@index([userId, active, startDate, endDate], map: "idx_usuario_roles_vigencia")
+  @@map("usuario_roles")
+}
+
+model UserTerritorialAssignment {
+  id             String               @id @default(uuid()) @db.Uuid
+  userId         String               @map("usuario_id") @db.Uuid
+  scopeType      TerritorialScopeType @map("tipo_alcance")
+  regionId       String?              @map("region_id") @db.Uuid
+  municipalityId String?              @map("municipio_id") @db.Uuid
+  facilityId     String?              @map("establecimiento_id") @db.Uuid
+  startDate      DateTime             @map("fecha_inicio") @db.Date
+  endDate        DateTime?            @map("fecha_fin") @db.Date
+  active         Boolean              @default(true) @map("activo")
+  createdAt      DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  user           AppUser              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  region         Region?              @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  municipality   Municipality?        @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
+  facility       HealthFacility?      @relation(fields: [facilityId], references: [id], onDelete: Restrict)
+
+  @@index([userId, active, startDate, endDate], map: "idx_usuario_asignaciones_vigencia")
+  @@index([regionId], map: "idx_usuario_asignaciones_region")
+  @@index([municipalityId], map: "idx_usuario_asignaciones_municipio")
+  @@index([facilityId], map: "idx_usuario_asignaciones_establecimiento")
+  @@map("usuario_asignaciones")
+}
+
+model HealthProgram {
+  id          String                @id @default(uuid()) @db.Uuid
+  code        String                @unique @map("codigo") @db.VarChar(30)
+  name        String                @map("nombre") @db.VarChar(120)
+  description String?               @map("descripcion") @db.VarChar(500)
+  active      Boolean               @default(true) @map("activo")
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  memberships NetworkMunicipality[]
+
+  @@map("programas_salud")
+}
+
+model Region {
+  id                String                      @id @default(uuid()) @db.Uuid
+  code              String                      @unique @map("codigo") @db.VarChar(30)
+  name              String                      @map("nombre") @db.VarChar(120)
+  regionNumber      String?                     @map("numero_region") @db.VarChar(30)
+  type              RegionType                  @map("tipo")
+  operationalStatus OperationalStatus           @default(CREADO) @map("estado_operativo")
+  active            Boolean                     @default(true) @map("activo")
+  createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  networks          HealthNetwork[]
+  municipalities    Municipality[]
+  userAssignments   UserTerritorialAssignment[]
+
+  @@index([active, operationalStatus], map: "idx_regiones_estado")
+  @@map("regiones")
+}
+
+model HealthNetwork {
+  id                String                @id @default(uuid()) @db.Uuid
+  regionId          String                @map("region_id") @db.Uuid
+  code              String                @map("codigo") @db.VarChar(30)
+  name              String                @map("nombre") @db.VarChar(120)
+  description       String?               @map("descripcion") @db.VarChar(500)
+  operationalStatus OperationalStatus     @default(CREADO) @map("estado_operativo")
+  startDate         DateTime              @map("fecha_inicio") @db.Date
+  endDate           DateTime?             @map("fecha_fin") @db.Date
+  active            Boolean               @default(true) @map("activo")
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  region            Region                @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  memberships       NetworkMunicipality[]
+
+  @@unique([regionId, code], map: "uq_redes_region_codigo")
+  @@index([regionId, active], map: "idx_redes_region_activo")
+  @@map("redes_salud")
+}
+
+model Municipality {
+  id                String                      @id @default(uuid()) @db.Uuid
+  regionId          String                      @map("region_id") @db.Uuid
+  officialCode      String                      @unique @map("codigo_oficial") @db.VarChar(30)
+  name              String                      @map("nombre") @db.VarChar(120)
+  operationalStatus OperationalStatus           @default(CREADO) @map("estado_operativo")
+  mapValidated      Boolean                     @default(false) @map("mapa_validado")
+  active            Boolean                     @default(true) @map("activo")
+  createdAt         DateTime                    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(3)
+  region            Region                      @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  memberships       NetworkMunicipality[]
+  facilities        HealthFacility[]
+  userAssignments   UserTerritorialAssignment[]
+
+  @@index([regionId, active], map: "idx_municipios_region_activo")
+  @@map("municipios")
+}
+
+model NetworkMunicipality {
+  id             String         @id @default(uuid()) @db.Uuid
+  networkId      String         @map("red_id") @db.Uuid
+  municipalityId String         @map("municipio_id") @db.Uuid
+  programId      String?        @map("programa_id") @db.Uuid
+  startDate      DateTime       @map("fecha_inicio") @db.Date
+  endDate        DateTime?      @map("fecha_fin") @db.Date
+  active         Boolean        @default(true) @map("activo")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
+  network        HealthNetwork  @relation(fields: [networkId], references: [id], onDelete: Restrict)
+  municipality   Municipality   @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
+  program        HealthProgram? @relation(fields: [programId], references: [id], onDelete: Restrict)
+
+  @@index([networkId, startDate, endDate], map: "idx_red_municipios_red_vigencia")
+  @@index([municipalityId, startDate, endDate], map: "idx_red_municipios_municipio_vigencia")
+  @@map("red_municipios")
+}
+
+model HealthFacility {
+  id                   String                                @id @default(uuid()) @db.Uuid
+  municipalityId       String                                @map("municipio_id") @db.Uuid
+  code                 String                                @unique @map("codigo") @db.VarChar(30)
+  name                 String                                @map("nombre") @db.VarChar(160)
+  type                 String                                @map("tipo") @db.VarChar(50)
+  address              String?                               @map("direccion") @db.VarChar(300)
+  latitude             Decimal?                              @map("latitud") @db.Decimal(9, 6)
+  longitude            Decimal?                              @map("longitud") @db.Decimal(9, 6)
+  geom                 Unsupported("geometry(Point, 4326)")?
+  operationalStatus    OperationalStatus                     @default(CREADO) @map("estado_operativo")
+  coordinatesValidated Boolean                               @default(false) @map("coordenadas_validadas")
+  active               Boolean                               @default(true) @map("activo")
+  createdAt            DateTime                              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime                              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  municipality         Municipality                          @relation(fields: [municipalityId], references: [id], onDelete: Restrict)
+  userAssignments      UserTerritorialAssignment[]
+
+  @@index([municipalityId, active], map: "idx_establecimientos_municipio_activo")
+  @@map("establecimientos_salud")
+}
+
+model AuditEvent {
+  id           String   @id @default(uuid()) @db.Uuid
+  actorUserId  String?  @map("usuario_id") @db.Uuid
+  action       String   @map("accion") @db.VarChar(100)
+  entity       String   @map("entidad") @db.VarChar(100)
+  entityId     String?  @map("entidad_id") @db.Uuid
+  dataLevel    String   @map("nivel_dato") @db.VarChar(30)
+  previousData Json?    @map("datos_anteriores") @db.JsonB
+  newData      Json?    @map("datos_nuevos") @db.JsonB
+  reason       String?  @map("motivo") @db.VarChar(500)
+  requestId    String?  @map("request_id") @db.VarChar(128)
+  ipAddress    String?  @map("ip") @db.Inet
+  userAgent    String?  @map("user_agent") @db.VarChar(500)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  actor        AppUser? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entity, entityId, createdAt], map: "idx_auditoria_entidad_fecha")
+  @@index([actorUserId, createdAt], map: "idx_auditoria_usuario_fecha")
+  @@map("auditoria_eventos")
+}

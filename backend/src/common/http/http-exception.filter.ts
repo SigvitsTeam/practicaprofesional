@@ -22,6 +22,7 @@ const STATUS_TITLES: Readonly<Record<number, string>> = {
   413: 'Carga demasiado grande',
   429: 'Demasiadas solicitudes',
   500: 'Error interno del servidor',
+  503: 'Servicio no disponible',
 };
 
 @Catch()
@@ -32,15 +33,16 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
     const http = host.switchToHttp();
     const request = http.getRequest<RequestWithContext>();
     const response = http.getResponse<Response>();
-    const status = exception instanceof HttpException ? exception.getStatus() : 500;
+    const isExpectedHttpError = exception instanceof HttpException;
+    const status = isExpectedHttpError ? exception.getStatus() : 500;
     const safePath = request.originalUrl.split('?')[0] ?? request.path;
-    const exceptionResponse =
-      exception instanceof HttpException ? exception.getResponse() : undefined;
+    const exceptionResponse = isExpectedHttpError ? exception.getResponse() : undefined;
     const errors = this.extractValidationErrors(exceptionResponse);
-    const detail =
-      status >= 500 ? 'Ocurrió un error inesperado.' : this.extractDetail(exceptionResponse);
+    const detail = isExpectedHttpError
+      ? this.extractDetail(exceptionResponse)
+      : 'Ocurrió un error inesperado.';
 
-    if (status >= 500) {
+    if (!isExpectedHttpError) {
       const stack = exception instanceof Error ? exception.stack : undefined;
       this.logger.error(
         `Unhandled error requestId=${request.requestId} method=${request.method} path=${safePath}`,

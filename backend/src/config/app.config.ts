@@ -19,3 +19,18 @@ export const appConfig = registerAs('app', () => ({
 }));
 
 export type AppConfig = ReturnType<typeof appConfig>;
+
+export const databaseConfig = registerAs('database', () => ({
+  url: process.env.DATABASE_URL,
+  poolMax: Number(process.env.DATABASE_POOL_MAX ?? 10),
+  connectionTimeoutMs: Number(process.env.DATABASE_CONNECTION_TIMEOUT_MS ?? 5_000),
+  idleTimeoutMs: Number(process.env.DATABASE_IDLE_TIMEOUT_MS ?? 30_000),
+}));
+
+export const authConfig = registerAs('auth', () => ({
+  issuer: process.env.AUTH_ISSUER,
+  audience: process.env.AUTH_AUDIENCE,
+  jwksUrl: process.env.AUTH_JWKS_URL,
+  clockToleranceSeconds: Number(process.env.AUTH_CLOCK_TOLERANCE_SECONDS ?? 5),
+  jwksTimeoutMs: Number(process.env.AUTH_JWKS_TIMEOUT_MS ?? 5_000),
+}));

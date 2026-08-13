@@ -37,6 +37,7 @@ export class AuthorizationPolicy {
     subject: AuthorizationSubject,
     target: TargetTerritory,
   ): boolean {
+    if (target.national) return subject.territory.national;
     if (subject.territory.national) return true;
 
     const regionAllowed =
