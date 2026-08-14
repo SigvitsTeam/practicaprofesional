@@ -21,6 +21,7 @@
     "db:import:diseases": "npm run db:generate && ts-node prisma/import-disease-catalog.ts",
     "db:seed:its-catalog": "npm run db:seed:pilot && npm run db:import:diseases",
     "db:verify-deployment": "ts-node prisma/verify-deployment.ts",
+    "smoke:its2": "npm run db:generate && ts-node prisma/smoke-its2-workflow.ts",
     "format": "prettier --write \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\"",
     "format:check": "prettier --check \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\"",
     "lint": "eslint \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\" --max-warnings=0",
@@ -83,6 +84,9 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s",

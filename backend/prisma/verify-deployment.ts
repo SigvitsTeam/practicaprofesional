@@ -81,6 +81,17 @@ async function verify(): Promise<void> {
     );
     if (workflowPermissions.rows[0]?.total !== 4)
       throw new Error('No están disponibles todos los permisos del flujo ITS-2.');
+    const operators = await directClient.query<{ roleCode: string; total: number }>(
+      `SELECT r.codigo AS "roleCode", count(DISTINCT u.id) FILTER (WHERE ie.id IS NOT NULL)::int AS total
+       FROM roles r
+       LEFT JOIN usuario_roles ur ON ur.rol_id = r.id AND ur.activo = true AND ur.fecha_fin IS NULL
+       LEFT JOIN usuarios u ON u.id = ur.usuario_id AND u.activo = true
+       LEFT JOIN identidades_externas ie ON ie.usuario_id = u.id
+       WHERE r.codigo = ANY($1::text[])
+       GROUP BY r.codigo
+       ORDER BY r.codigo`,
+      [['COORDINADOR_MUNICIPAL', 'DIGITADOR_COORDINACION', 'RESPONSABLE_ESTABLECIMIENTO']],
+    );
 
     await runtimeClient.connect();
     await runtimeClient.query('SELECT 1');
@@ -105,6 +116,9 @@ async function verify(): Promise<void> {
         rlsForced: deployment.hardened,
         publiclyReadable: deployment.publiclyReadable,
         its2WorkflowPermissions: workflowPermissions.rows[0].total,
+        activeOperators: Object.fromEntries(
+          operators.rows.map((operator) => [operator.roleCode, operator.total]),
+        ),
         jwksKeys: keyCount,
       })}\n`,
     );

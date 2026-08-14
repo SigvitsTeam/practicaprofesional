@@ -182,10 +182,21 @@ El estado de un período mensual se administra con `npm run db:set-period-status
 SuperAdmin o Admin Central puede ejecutar la transición, los períodos cerrados no se reabren y
 cada cambio queda auditado.
 
-Autenticación real, persistencia, auditoría inmutable, Redis/BullMQ y almacenamiento se añadirán en
-incrementos verticales. La existencia de esta base no debe interpretarse como preparación completa
-para producción: antes de ello también se requieren gestión de secretos, TLS, backups restaurados,
-MFA para perfiles privilegiados, observabilidad y pruebas de carga/seguridad.
+## Flujo autenticado ITS-2
+
+La migración `202608140001_its2_workflow` incorpora reportes versionados, detalle congelado,
+historial de estados y observaciones. El flujo de establecimiento y municipio expone preparación,
+envío, devolución, corrección y aprobación bajo permisos y alcance territorial.
+
+`npm run smoke:its2` ejecuta una prueba integral reutilizable contra la API local: autentica un
+responsable, un digitador y un coordinador mediante Supabase, valida sus territorios, genera y
+envía el reporte, solicita una corrección, crea una nueva versión y la aprueba. Requiere un archivo
+local ignorado `.env.pilot-users` con los correos, contraseñas y `SUPABASE_PUBLISHABLE_KEY`; ninguna
+credencial se versiona.
+
+Antes de considerar producción completa todavía se requieren gestión centralizada de secretos,
+TLS de extremo a extremo, backups restaurados, MFA para perfiles privilegiados, observabilidad,
+colas para trabajos pesados y pruebas de carga y seguridad.
 
 La generación interactiva de OpenAPI se mantiene fuera del runtime inicial porque las versiones
 disponibles de su cadena `js-yaml` presentan avisos de denegación de servicio. Se reintroducirá al
