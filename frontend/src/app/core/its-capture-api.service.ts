@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { environment } from '../../environments/environment';
+import { RuntimeConfigService } from './runtime-config.service';
 
 export interface CaptureContextResponse {
   facilities: { id: string; code: string; name: string; type: string }[];
@@ -55,7 +55,8 @@ export interface ItsMonthlyReportResponse {
 @Injectable({ providedIn: 'root' })
 export class ItsCaptureApiService {
   private readonly http = inject(HttpClient);
-  private readonly endpoint = `${environment.apiUrl}/v1/its1/attentions`;
+  private readonly runtimeConfig = inject(RuntimeConfigService);
+  private get endpoint() { return `${this.runtimeConfig.apiUrl}/v1/its1/attentions`; }
 
   getContext() { return this.http.get<CaptureContextResponse>(`${this.endpoint}/context`); }
   createAttention(input: CreateAttentionRequest) { return this.http.post<{ id: string; possibleDuplicate: boolean }>(this.endpoint, input); }

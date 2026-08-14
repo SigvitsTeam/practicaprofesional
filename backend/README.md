@@ -171,6 +171,17 @@ Requiere `BOOTSTRAP_ADMIN_ISSUER`, `BOOTSTRAP_ADMIN_SUBJECT`, `BOOTSTRAP_ADMIN_E
 `SUPERADMIN`, crea alcance nacional y registra el evento de auditoría. No crea ni almacena
 contraseñas; el usuario debe existir previamente en el proveedor de identidad.
 
+Los usuarios siguientes se vinculan de forma idempotente con `npm run db:provision-user`. Antes
+de ejecutarlo, cree la identidad en Supabase Auth y configure `PROVISION_USER_SUBJECT`,
+`PROVISION_USER_EMAIL`, `PROVISION_USER_NAME`, `PROVISION_USER_ROLE`, `PROVISION_SCOPE_TYPE` y,
+salvo para alcance nacional, `PROVISION_SCOPE_CODE`. El proceso valida el actor, rol y territorio,
+y audita la asignación.
+
+El estado de un período mensual se administra con `npm run db:set-period-status`, usando
+`PERIOD_YEAR`, `PERIOD_MONTH`, `PERIOD_STATUS`, `PERIOD_REASON` y `PERIOD_ACTOR_EMAIL`. Solo un
+SuperAdmin o Admin Central puede ejecutar la transición, los períodos cerrados no se reabren y
+cada cambio queda auditado.
+
 Autenticación real, persistencia, auditoría inmutable, Redis/BullMQ y almacenamiento se añadirán en
 incrementos verticales. La existencia de esta base no debe interpretarse como preparación completa
 para producción: antes de ello también se requieren gestión de secretos, TLS, backups restaurados,

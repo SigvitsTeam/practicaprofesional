@@ -1,0 +1,10 @@
+{
+  "apiUrl": "http://localhost:3000/api",
+  "auth": {
+    "supabaseUrl": "https://project-id.supabase.co",
+    "supabaseAnonKey": "paste-the-supabase-publishable-or-anon-key-here",
+    "demoEnabled": false,
+    "demoEmail": "",
+    "demoPassword": ""
+  }
+}

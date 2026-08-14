@@ -28,7 +28,7 @@ export class CaptureIts1 implements OnInit {
   submitted = false;
 
   readonly form = this.formBuilder.group({
-    attentionDate: ['2026-07-28', Validators.required],
+    attentionDate: [new Date().toISOString().slice(0, 10), Validators.required],
     patientId: ['', [Validators.required, Validators.minLength(4)]],
     procedence: ['', [Validators.required, Validators.minLength(3)]],
     sex: ['', Validators.required],

@@ -1,5 +1,5 @@
-import { Injectable, computed, signal } from '@angular/core';
-import { environment } from '../../environments/environment';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { RuntimeConfigService } from './runtime-config.service';
 
 export interface AuthUser { id: string; email: string; name: string; }
 
@@ -27,6 +27,7 @@ const REFRESH_MARGIN_MS = 60_000;
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+  private readonly runtimeConfig = inject(RuntimeConfigService);
   private readonly session = signal<AuthSession | null>(this.restoreSession());
   private refreshPromise?: Promise<string | null>;
 
@@ -36,7 +37,7 @@ export class AuthService {
 
   async signIn(credentials: SignInCredentials): Promise<void> {
     const email = credentials.email.trim().toLowerCase();
-    const auth = environment.auth;
+    const auth = this.runtimeConfig.auth;
     let session: AuthSession;
 
     if (auth.supabaseUrl && auth.supabaseAnonKey) {
@@ -75,7 +76,7 @@ export class AuthService {
   }
 
   async requestPasswordReset(email: string): Promise<void> {
-    const auth = environment.auth;
+    const auth = this.runtimeConfig.auth;
     if (!auth.supabaseUrl || !auth.supabaseAnonKey) {
       await new Promise(resolve => setTimeout(resolve, 200));
       return;
@@ -100,7 +101,7 @@ export class AuthService {
   }
 
   private async requestToken(grantType: 'password' | 'refresh_token', body: Record<string, unknown>): Promise<SupabaseTokenResponse> {
-    const auth = environment.auth;
+    const auth = this.runtimeConfig.auth;
     let response: Response;
     try {
       response = await fetch(`${auth.supabaseUrl}/auth/v1/token?grant_type=${grantType}`, {
@@ -118,7 +119,7 @@ export class AuthService {
   }
 
   private authHeaders() {
-    return { 'Content-Type': 'application/json', apikey: environment.auth.supabaseAnonKey };
+    return { 'Content-Type': 'application/json', apikey: this.runtimeConfig.auth.supabaseAnonKey };
   }
 
   private toSession(data: SupabaseTokenResponse, remember: boolean, fallbackEmail: string): AuthSession {

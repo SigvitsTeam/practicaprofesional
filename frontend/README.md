@@ -2,15 +2,26 @@
 
 ## Autenticación
 
-La aplicación inicia en una pantalla de acceso. La configuración pública se encuentra en
-`src/environments/environment.ts`: al definir `supabaseUrl` y `supabaseAnonKey` se utiliza
-Supabase Auth; mientras estén vacíos queda disponible el usuario de demostración.
+La aplicación carga su configuración pública desde `public/config/runtime-config.json`. Este
+archivo está ignorado por Git y permite cambiar API o proyecto Supabase sin recompilar.
+
+Para crearlo localmente, defina la URL y la clave pública `publishable` (o la clave `anon`
+legada) del proyecto y ejecute:
+
+```powershell
+$env:SUPABASE_URL='https://project-id.supabase.co'
+$env:SUPABASE_PUBLISHABLE_KEY='sb_publishable_...'
+npm run config:runtime
+```
+
+También puede copiar `public/config/runtime-config.example.json` manualmente. Cuando URL y clave
+están presentes, el modo demostración queda desactivado automáticamente.
 
 El token se renueva antes de expirar y el interceptor HTTP lo envía únicamente a `apiUrl`.
 El backend continúa siendo la autoridad de roles, permisos y alcance territorial.
 
-Antes de un despliegue real se debe desactivar `demoEnabled` y suministrar la configuración
-de Supabase mediante el mecanismo de entornos del despliegue.
+Nunca use ni publique la clave `service_role` en Angular. El archivo runtime solo acepta una clave
+pública destinada a aplicaciones cliente.
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.1.2.
 

@@ -5,6 +5,7 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
+    "config:runtime": "node tools/write-runtime-config.mjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },
