@@ -52,11 +52,22 @@ export interface ItsMonthlyReportResponse {
   totalAttentions: number;
 }
 
+export type Its2WorkflowStatus = 'BORRADOR' | 'ENVIADO_A_MUNICIPIO' | 'DEVUELTO_POR_MUNICIPIO' | 'APROBADO_MUNICIPIO';
+export interface Its2WorkflowReport {
+  id: string; status: Its2WorkflowStatus; version: number;
+  facility: { id: string; code: string; name: string }; municipalityId: string;
+  year: number; month: number; totalAttentions: number; attentionTotalsComplete: boolean;
+  attentionsUnder15?: number; attentions15Plus?: number; attentionTotalsSource?: string;
+  currentComment?: string; generatedAt: string; sentAt?: string; approvedAt?: string;
+  openObservations: { id: string; comment: string; createdAt: string }[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class ItsCaptureApiService {
   private readonly http = inject(HttpClient);
   private readonly runtimeConfig = inject(RuntimeConfigService);
   private get endpoint() { return `${this.runtimeConfig.apiUrl}/v1/its1/attentions`; }
+  private get reportsEndpoint() { return `${this.runtimeConfig.apiUrl}/v1/its2/reports`; }
 
   getContext() { return this.http.get<CaptureContextResponse>(`${this.endpoint}/context`); }
   createAttention(input: CreateAttentionRequest) { return this.http.post<{ id: string; possibleDuplicate: boolean }>(this.endpoint, input); }
@@ -76,5 +87,23 @@ export class ItsCaptureApiService {
       params: { facilityId, year, month },
       responseType: 'blob',
     });
+  }
+  getCurrentIts2Report(facilityId: string, year: number, month: number) {
+    return this.http.get<Its2WorkflowReport | null>(`${this.reportsEndpoint}/current`, { params: { facilityId, year, month } });
+  }
+  prepareIts2Report(input: { facilityId: string; year: number; month: number; attentionsUnder15?: number; attentions15Plus?: number; attentionTotalsSource?: string }) {
+    return this.http.post<Its2WorkflowReport>(`${this.reportsEndpoint}/prepare`, input);
+  }
+  submitIts2Report(reportId: string) {
+    return this.http.post<Its2WorkflowReport>(`${this.reportsEndpoint}/${reportId}/submit`, {});
+  }
+  getMunicipalIts2Inbox(year: number, month: number) {
+    return this.http.get<Its2WorkflowReport[]>(`${this.reportsEndpoint}/municipal-inbox`, { params: { year, month } });
+  }
+  returnIts2Report(reportId: string, comment: string) {
+    return this.http.post<Its2WorkflowReport>(`${this.reportsEndpoint}/${reportId}/return`, { comment });
+  }
+  approveIts2Report(reportId: string, comment?: string) {
+    return this.http.post<Its2WorkflowReport>(`${this.reportsEndpoint}/${reportId}/approve`, { comment });
   }
 }

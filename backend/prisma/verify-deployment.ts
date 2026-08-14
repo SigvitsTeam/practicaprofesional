@@ -25,6 +25,10 @@ const protectedTables = [
   'periodos',
   'atenciones_its',
   'diagnosticos_atencion',
+  'reportes_its',
+  'reporte_its_detalle',
+  'reporte_flujo_historial',
+  'observaciones_reporte',
 ] as const;
 
 function requiredEnvironment(name: string): string {
@@ -71,6 +75,12 @@ async function verify(): Promise<void> {
     ) {
       throw new Error('La validación de tablas o RLS no coincide con la política esperada.');
     }
+    const workflowPermissions = await directClient.query<{ total: number }>(
+      `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
+      [['its2:reports:read', 'its2:reports:prepare', 'its2:reports:submit', 'its2:reports:review']],
+    );
+    if (workflowPermissions.rows[0]?.total !== 4)
+      throw new Error('No están disponibles todos los permisos del flujo ITS-2.');
 
     await runtimeClient.connect();
     await runtimeClient.query('SELECT 1');
@@ -94,6 +104,7 @@ async function verify(): Promise<void> {
         protectedTables: deployment.total,
         rlsForced: deployment.hardened,
         publiclyReadable: deployment.publiclyReadable,
+        its2WorkflowPermissions: workflowPermissions.rows[0].total,
         jwksKeys: keyCount,
       })}\n`,
     );

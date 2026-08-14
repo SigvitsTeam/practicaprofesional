@@ -102,4 +102,18 @@ describe('Application (e2e)', () => {
       })
       .expect(401);
   });
+
+  it('protects preparation of an ITS 2 workflow report', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/its2/reports/prepare')
+      .send({ facilityId: '11111111-1111-4111-8111-111111111111', year: 2026, month: 8 })
+      .expect(401);
+  });
+
+  it('protects the municipal ITS 2 review inbox', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/its2/reports/municipal-inbox')
+      .query({ year: 2026, month: 8 })
+      .expect(401);
+  });
 });

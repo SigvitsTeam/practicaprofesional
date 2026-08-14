@@ -1,6 +1,8 @@
 export type ReportStatus = 'Aprobado' | 'En revisión' | 'Devuelto' | 'Pendiente';
 
 export interface Report {
+  workflowId?: string;
+  version?: number;
   name: string;
   code: string;
   status: ReportStatus;

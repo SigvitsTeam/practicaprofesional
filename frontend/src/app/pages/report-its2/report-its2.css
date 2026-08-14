@@ -17,4 +17,7 @@ th { font-size: 0.68rem; }
 td { font-size: 0.78rem; }
 .validation strong { font-size: 0.78rem; }
 .validation small { font-size: 0.7rem; }
+.workflow-fields { display: grid; gap: 10px; padding: 0 16px 14px; }
+.workflow-fields label { display: grid; gap: 5px; color: var(--muted); font-size: .7rem; }
+.workflow-fields input { width: 100%; box-sizing: border-box; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: inherit; }
 :host-context([data-theme='dark']) .its2-correction { border-color: #63363a; background: #311f24; }:host-context([data-theme='dark']) .its2-correction p { color: #d4a8ac; }

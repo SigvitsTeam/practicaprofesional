@@ -28,6 +28,7 @@ import { ReportDrawer } from './shared/report-drawer/report-drawer';
 })
 export class App {
   @ViewChild(Territory) private territory?: Territory;
+  @ViewChild(ReviewInbox) private reviewInbox?: ReviewInbox;
   protected readonly roleContext = inject(RoleContext);
   protected readonly auth = inject(AuthService);
   private readonly establishmentContext = inject(EstablishmentContext);
@@ -171,6 +172,7 @@ export class App {
 
   handleDrawerAction(message: string) {
     this.selectedReport = null;
+    this.reviewInbox?.reload();
     this.showNotice(message);
   }
 

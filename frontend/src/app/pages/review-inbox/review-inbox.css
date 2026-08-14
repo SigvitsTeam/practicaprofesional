@@ -2,3 +2,5 @@
 .review-summary span { font-size: 0.78rem; }
 .review-summary strong { font-size: 1.65rem; }
 .search,.search input,select { font-size: 0.78rem; }
+.inbox-message { margin-bottom: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: .78rem; }
+.inbox-message.error { color: var(--red); }
