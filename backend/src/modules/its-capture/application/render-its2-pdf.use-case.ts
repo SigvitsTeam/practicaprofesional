@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
@@ -11,6 +12,16 @@ import type {
 const REFERENCE_WIDTH = 3508;
 const REFERENCE_HEIGHT = 2480;
 
+function templatePath(filename: string): string {
+  const candidates = [
+    join(process.cwd(), 'src', 'assets', 'forms', filename),
+    join(process.cwd(), 'dist', 'assets', 'forms', filename),
+  ];
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) throw new Error(`No se encontró la plantilla oficial ${filename}.`);
+  return found;
+}
+
 function pxX(value: number, pageWidth: number): number {
   return (value / REFERENCE_WIDTH) * pageWidth;
 }
@@ -22,9 +33,7 @@ function pxY(value: number, pageHeight: number): number {
 @Injectable()
 export class RenderIts2PdfUseCase {
   async execute(report: ItsMonthlyReport): Promise<Uint8Array> {
-    const template = await readFile(
-      join(process.cwd(), 'assets', 'forms', 'formato-its2-oficial.pdf'),
-    );
+    const template = await readFile(templatePath('formato-its2-oficial.pdf'));
     const document = await PDFDocument.load(template);
     const page = document.getPage(0);
     const font = await document.embedFont(StandardFonts.Helvetica);
