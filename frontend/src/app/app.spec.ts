@@ -115,27 +115,16 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Responsable de Establecimiento');
   });
 
-  it('should display geography, responsibles and history territory tabs', async () => {
+  it('should not fabricate territorial details when the catalog is unavailable', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('regional-superadmin');
     fixture.componentInstance.navigate('Administración');
     fixture.detectChanges();
     await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
-    const tab = (label: string) => Array.from(compiled.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(button => button.textContent?.trim() === label)!;
-
-    tab('Geografía').click();
-    fixture.detectChanges();
-    expect(compiled.querySelector('.geography-view')).toBeTruthy();
-    expect(compiled.textContent).toContain('11 de 12');
-
-    tab('Responsables').click();
-    fixture.detectChanges();
-    expect(compiled.querySelectorAll('.responsible-list article')).toHaveLength(3);
-
-    tab('Historial').click();
-    fixture.detectChanges();
-    expect(compiled.querySelectorAll('.history-timeline article')).toHaveLength(4);
+    expect(compiled.textContent).toContain('No hay municipios disponibles dentro del alcance autorizado.');
+    expect(compiled.textContent).not.toContain('Puerto Cortés');
+    expect(compiled.querySelectorAll('.history-timeline article')).toHaveLength(0);
   });
 
   it('should let only the global superadmin manage regions, municipalities and establishments', async () => {

@@ -1,8 +1,8 @@
 <section class="admin-scope-banner">
   <i>✓</i>
   <div>
-    <strong>{{ regionalScope ? 'Administración limitada a la Región de Cortés' : 'Administración global del sistema' }}</strong>
-    <span>{{ regionalScope ? 'Puede gestionar Cortés, sus municipios, establecimientos y usuarios. Honduras y otras regiones permanecen en solo lectura.' : 'Puede gestionar regiones y todos sus niveles dependientes.' }}</span>
+    <strong>{{ regionalScope ? 'Administración limitada al alcance regional asignado' : 'Administración global del sistema' }}</strong>
+    <span>{{ regionalScope ? 'Puede gestionar únicamente las regiones, municipios, establecimientos y usuarios devueltos por su alcance autorizado.' : 'Puede gestionar regiones y todos sus niveles dependientes.' }}</span>
   </div>
 </section>
 
@@ -40,7 +40,7 @@
       <div><span class="eyebrow">ESTRUCTURA NACIONAL</span><h2>Regiones y municipios</h2><p>El SuperAdmin puede crear, configurar, activar o desactivar territorios de Honduras.</p></div>
       <div><button class="btn secondary" type="button" (click)="openCreate('municipality')">＋ Nuevo municipio</button><button class="btn primary" type="button" (click)="openCreate('region')">＋ Nueva región</button></div>
     </div>
-    <div class="global-territory-kpis"><div><span>Regiones registradas</span><strong>18</strong><small>1 activa en el piloto</small></div><div><span>Municipios registrados</span><strong>298</strong><small>1 operativo</small></div><div><span>Establecimientos activos</span><strong>12</strong><small>Puerto Cortés</small></div><div><span>Configuración pendiente</span><strong>17</strong><small>Regiones preconfiguradas</small></div></div>
+    <div class="global-territory-kpis"><div><span>Regiones registradas</span><strong>{{ regions.length }}</strong><small>{{ activeRegionCount }} activas</small></div><div><span>Municipios registrados</span><strong>{{ municipalities.length }}</strong><small>{{ activeMunicipalityCount }} activos</small></div><div><span>Establecimientos activos</span><strong>{{ activeFacilityCount }}</strong><small>{{ facilities.length }} registrados</small></div><div><span>Configuración pendiente</span><strong>{{ regions.length - activeRegionCount }}</strong><small>Regiones no activas</small></div></div>
     <div class="global-territory-table"><div class="global-table-toolbar"><div><h3>Catálogo regional</h3><p>Regiones sanitarias y estado de sus municipios dependientes</p></div><label>⌕<input placeholder="Buscar región o código"></label></div><div class="table-wrap"><table><thead><tr><th>Región</th><th>Municipios</th><th>Municipios activos</th><th>Establecimientos</th><th>Estado</th><th></th></tr></thead><tbody>@for (region of regions; track region.code) {<tr><td><strong>{{ region.name }}</strong><small>Código {{ region.code }}</small></td><td>{{ region.municipalities }}</td><td>{{ region.activeMunicipalities }}</td><td>{{ region.establishments }}</td><td><span class="region-status" [class.preconfigured]="!region.active">{{ region.status }}</span></td><td><button type="button" [attr.aria-label]="'Cambiar estado de ' + region.name" (click)="openTerritoryStatus(region, 'REGION')">Cambiar estado</button></td></tr>}</tbody></table></div></div>
     <div class="global-territory-table municipality-catalog"><div class="global-table-toolbar"><div><h3>Catálogo municipal</h3><p>Municipios dentro del alcance autorizado</p></div><label>⌕<input placeholder="Buscar municipio o código"></label></div><div class="table-wrap"><table><thead><tr><th>Municipio</th><th>Región</th><th>Establecimientos</th><th>Responsable</th><th>Estado</th><th></th></tr></thead><tbody>@for (municipality of municipalities; track municipality.code) {<tr><td><strong>{{ municipality.name }}</strong><small>Código {{ municipality.code }}</small></td><td>{{ municipality.region }}</td><td>{{ municipality.establishments }}</td><td>{{ municipality.responsible }}</td><td><span class="region-status" [class.preconfigured]="!municipality.active">{{ municipality.status }}</span></td><td><button type="button" [attr.aria-label]="'Cambiar estado de ' + municipality.name" (click)="openTerritoryStatus(municipality, 'MUNICIPIO')">Cambiar estado</button></td></tr>}</tbody></table></div></div>
   </section>
@@ -62,82 +62,88 @@
 <section class="territory-layout">
   <aside class="panel tree">
     <div class="section-heading"><div><h2>Estructura territorial</h2></div></div>
-    <label class="tree-search">⌕<input placeholder="Buscar territorio…"></label>
-    <button [class.scope-locked]="regionalScope">⌄ <i>HN</i><strong>Honduras</strong><span class="badge neutral">{{ regionalScope ? 'Solo lectura' : 'Preconfigurado' }}</span></button>
-    <button class="level-1">⌄ <i>05</i><strong>Cortés</strong><span class="badge active">Activo</span></button>
-    <button class="level-2 selected">⌄ <i>06</i><strong>Puerto Cortés</strong><span class="badge pilot">Pilotaje</span></button>
-    @for (name of establishmentNames; track name) {
-      <button class="level-3"><span>•</span><strong>{{ name }}</strong>@if ($last) {<b class="warning-text">!</b>}</button>
+    <button [class.scope-locked]="regionalScope">⌄ <i>HN</i><strong>Honduras</strong><span class="badge neutral">{{ regionalScope ? 'Alcance limitado' : 'Nacional' }}</span></button>
+    @for (region of regions; track region.id) {
+      <button class="level-1">⌄ <i>{{ region.code }}</i><strong>{{ region.name }}</strong><span class="badge" [class.active]="region.active">{{ region.status }}</span></button>
+      @for (municipality of municipalities; track municipality.id) {
+        @if (municipality.regionId === region.id) {
+          <button class="level-2" [class.selected]="selectedMunicipality?.id === municipality.id" (click)="selectMunicipality(municipality.id)">⌄ <i>{{ municipality.code }}</i><strong>{{ municipality.name }}</strong><span class="badge" [class.active]="municipality.active">{{ municipality.status }}</span></button>
+          @if (selectedMunicipality?.id === municipality.id) {
+            @for (facility of selectedFacilities; track facility.id) {
+              <button class="level-3"><span>•</span><strong>{{ facility.name }}</strong>@if (!facility.coordinatesValidated) {<b class="warning-text" title="Coordenadas pendientes">!</b>}</button>
+            }
+          }
+        }
+      }
     }
   </aside>
 
   <article class="panel territory-detail">
-    <div class="territory-title">
-      <div><span class="eyebrow">COORDINACIÓN MUNICIPAL</span><h2>Puerto Cortés</h2><p>Código oficial 0506 · Región Sanitaria Departamental de Cortés</p></div>
-      <div class="territory-title-actions"><span class="badge pilot">EN PILOTAJE</span>@if (selectedMunicipality) {<button class="btn secondary" type="button" (click)="openTerritoryStatus(selectedMunicipality, 'MUNICIPIO')">Cambiar estado</button>}<button class="btn primary" type="button" (click)="openCreate('establishment')">＋ Nuevo establecimiento</button></div>
-    </div>
+    @if (selectedMunicipality; as municipality) {
+      <div class="territory-title">
+        <div><span class="eyebrow">COORDINACIÓN MUNICIPAL</span><h2>{{ municipality.name }}</h2><p>Código oficial {{ municipality.code }} · {{ municipality.region }}</p></div>
+        <div class="territory-title-actions"><span class="badge" [class.active]="municipality.active">{{ municipality.status }}</span><button class="btn secondary" type="button" (click)="openTerritoryStatus(municipality, 'MUNICIPIO')">Cambiar estado</button><button class="btn primary" type="button" (click)="openCreate('establishment')">＋ Nuevo establecimiento</button></div>
+      </div>
 
-    <div class="tabs" role="tablist" aria-label="Secciones de la coordinación municipal">
-      @for (tab of tabs; track tab.id) {
-        <button type="button" role="tab" [class.selected]="activeTab === tab.id" [attr.aria-selected]="activeTab === tab.id" (click)="selectTab(tab.id)">{{ tab.label }}</button>
-      }
-    </div>
+      <div class="tabs" role="tablist" aria-label="Secciones de la coordinación municipal">
+        @for (tab of tabs; track tab.id) {
+          <button type="button" role="tab" [class.selected]="activeTab === tab.id" [attr.aria-selected]="activeTab === tab.id" (click)="selectTab(tab.id)">{{ tab.label }}</button>
+        }
+      </div>
 
-    <div class="tab-content">
-      @switch (activeTab) {
-        @case ('general') {
-          <div class="territory-form">
-            <label class="wide"><span>Nombre oficial</span><input value="Coordinación Municipal de Salud de Puerto Cortés"></label>
-            <label><span>Código oficial</span><input value="0506"></label>
-            <label><span>Estado operativo</span><select><option>En pilotaje</option><option>Activo</option></select></label>
-            <label class="wide"><span>Región sanitaria</span><select><option>Región Sanitaria Departamental de Cortés</option></select></label>
-          </div>
-          <div class="coordinate-panel"><div class="mini-map"><i>＋</i><span>Puerto Cortés</span></div><div><h3>Territorio geográfico asociado</h3><p>Silueta municipal vinculada al código oficial 0506. La geometría fue validada para el piloto.</p><span class="validation-chip">✓ GEOMETRÍA VALIDADA</span></div></div>
-        }
-        @case ('geography') {
-          <section class="geography-view" aria-label="Geografía de Puerto Cortés">
-            <div class="geo-map-large"><div class="geo-water">Mar Caribe</div><div class="geo-shape"><span>Puerto Cortés</span><i></i></div><div class="geo-points">@for (point of [1,2,3,4,5,6]; track point) {<b [style.--point]="point">+</b>}</div><div class="geo-map-label">0506 · Límite municipal validado</div></div>
-            <div class="geo-details">
-              <div class="section-heading"><div><h2>Geografía asociada</h2><p>Información territorial utilizada por mapas y filtros</p></div><span class="validation-chip">✓ VIGENTE</span></div>
-              <dl><div><dt>Centro aproximado</dt><dd>15.8256, -87.9297</dd></div><div><dt>Fuente</dt><dd>Catálogo geográfico institucional</dd></div><div><dt>Versión</dt><dd>PC-0506 · v1.0</dd></div><div><dt>Validada</dt><dd>01 ago 2026</dd></div></dl>
-              <div class="geo-readiness"><span><strong>11 de 12</strong> establecimientos con coordenadas validadas</span><div class="progress"><i style="width:91.6%"></i></div></div>
-              <button class="btn secondary full" type="button" (click)="notify.emit('Abriendo validación de los 12 establecimientos en el mapa.')">Revisar establecimientos en el mapa</button>
+      <div class="tab-content">
+        @switch (activeTab) {
+          @case ('general') {
+            <div class="territory-form">
+              <label class="wide"><span>Nombre oficial</span><input [value]="municipality.name" readonly></label>
+              <label><span>Código oficial</span><input [value]="municipality.code" readonly></label>
+              <label><span>Estado operativo</span><input [value]="municipality.status" readonly></label>
+              <label class="wide"><span>Región sanitaria</span><input [value]="municipality.region" readonly></label>
             </div>
-          </section>
+            <div class="coordinate-panel"><div class="mini-map"><i>＋</i><span>{{ municipality.name }}</span></div><div><h3>Territorio geográfico asociado</h3><p>Validación registrada en el catálogo para el código oficial {{ municipality.code }}.</p><span class="validation-chip">{{ municipality.mapValidated ? '✓ GEOMETRÍA VALIDADA' : 'GEOMETRÍA PENDIENTE' }}</span></div></div>
+          }
+          @case ('geography') {
+            <section class="geography-view" [attr.aria-label]="'Geografía de ' + municipality.name">
+              <div class="geo-map-large"><div class="geo-shape"><span>{{ municipality.name }}</span><i></i></div><div class="geo-map-label">{{ municipality.code }} · {{ municipality.mapValidated ? 'Límite municipal validado' : 'Validación de límite pendiente' }}</div></div>
+              <div class="geo-details">
+                <div class="section-heading"><div><h2>Geografía asociada</h2><p>Estado real registrado en el catálogo territorial</p></div><span class="validation-chip">{{ municipality.mapValidated ? '✓ VALIDADA' : 'PENDIENTE' }}</span></div>
+                <dl><div><dt>Municipio</dt><dd>{{ municipality.name }}</dd></div><div><dt>Código oficial</dt><dd>{{ municipality.code }}</dd></div><div><dt>Región</dt><dd>{{ municipality.region }}</dd></div><div><dt>Actualizado</dt><dd>{{ formatDate(municipality.updatedAt) }}</dd></div></dl>
+                <div class="geo-readiness"><span><strong>{{ validatedFacilityCount }} de {{ selectedFacilities.length }}</strong> establecimientos con coordenadas validadas</span><div class="progress"><i [style.width.%]="coordinateProgress"></i></div></div>
+              </div>
+            </section>
+          }
+          @case ('responsibles') {
+            <section class="responsibles-view" [attr.aria-label]="'Responsables de ' + municipality.name">
+              <div class="tab-section-title"><div><h2>Responsables asignados</h2><p>Usuarios reales con responsabilidad directa o supervisión territorial.</p></div><button class="btn primary" type="button" (click)="openUserCreate()">＋ Asignar responsable</button></div>
+              <div class="responsible-list">
+                @for (person of responsibles; track person.id) {
+                  <article><span class="responsible-avatar">{{ person.initials }}</span><div><strong>{{ person.name }}</strong><small>{{ person.role }}</small></div><dl><div><dt>Alcance</dt><dd>{{ person.scope }}</dd></div><div><dt>Asignado desde</dt><dd>{{ person.since }}</dd></div></dl><span class="assignment-status">{{ person.status }}</span></article>
+                } @empty {<p>No hay responsables visibles asignados a este municipio, sus establecimientos o su región.</p>}
+              </div>
+              <div class="responsible-note"><i>i</i><span><strong>Separación de responsabilidades</strong><small>La supervisión territorial no concede acceso automático a registros individuales ITS 1.</small></span></div>
+            </section>
+          }
+          @case ('history') {
+            <section class="history-view" [attr.aria-label]="'Historial de ' + municipality.name">
+              <div class="tab-section-title"><div><h2>Historial de cambios</h2><p>Eventos administrativos paginados y filtrados por el alcance territorial autorizado.</p></div></div>
+              <div class="history-timeline">
+                @for (event of history; track event.id) {
+                  <article><i class="history-dot blue"></i><div class="history-date">{{ formatDate(event.createdAt) }}</div><div><strong>{{ auditActionLabel(event.action) }}</strong><p>{{ event.reason || 'Sin motivo descriptivo registrado.' }}</p><small>{{ event.actorName || 'Sistema' }}</small></div></article>
+                } @empty {<p>{{ historyLoading ? 'Cargando historial…' : 'No hay eventos territoriales registrados para este municipio.' }}</p>}
+              </div>
+              @if (historyNextCursor) {<button class="btn secondary history-export" type="button" (click)="loadHistory(true)" [disabled]="historyLoading">{{ historyLoading ? 'Cargando…' : 'Cargar más eventos' }}</button>}
+            </section>
+          }
         }
-        @case ('responsibles') {
-          <section class="responsibles-view" aria-label="Responsables de Puerto Cortés">
-            <div class="tab-section-title"><div><h2>Responsables asignados</h2><p>Usuarios con responsabilidad directa o supervisión territorial.</p></div><button class="btn primary" type="button" (click)="notify.emit('Formulario de asignación de responsable abierto.')">＋ Asignar responsable</button></div>
-            <div class="responsible-list">
-              @for (person of responsibles; track person.name) {
-                <article><span class="responsible-avatar">{{ person.initials }}</span><div><strong>{{ person.name }}</strong><small>{{ person.role }}</small></div><dl><div><dt>Alcance</dt><dd>{{ person.scope }}</dd></div><div><dt>Asignado desde</dt><dd>{{ person.since }}</dd></div></dl><span class="assignment-status" [class.supervision]="person.status === 'Supervisión'">{{ person.status }}</span><button type="button" aria-label="Opciones de {{ person.name }}" (click)="notify.emit('Opciones de ' + person.name + ' abiertas.')">⋮</button></article>
-              }
-            </div>
-            <div class="responsible-note"><i>i</i><span><strong>Separación de responsabilidades</strong><small>El SuperAdmin Regional administra asignaciones dentro de Cortés, pero no obtiene acceso automático a registros individuales ITS 1.</small></span></div>
-          </section>
-        }
-        @case ('history') {
-          <section class="history-view" aria-label="Historial de Puerto Cortés">
-            <div class="tab-section-title"><div><h2>Historial de cambios</h2><p>Eventos administrativos registrados para esta coordinación.</p></div><label>Mostrar <select><option>Todos los eventos</option><option>Configuración</option><option>Responsables</option><option>Geografía</option></select></label></div>
-            <div class="history-timeline">
-              @for (event of history; track event.date) {
-                <article><i [class]="'history-dot ' + event.tone"></i><div class="history-date">{{ event.date }}</div><div><strong>{{ event.action }}</strong><p>{{ event.detail }}</p><small>{{ event.user }}</small></div></article>
-              }
-            </div>
-            <button class="btn secondary history-export" type="button" (click)="notify.emit('Historial territorial preparado para exportación.')">↓ Exportar historial</button>
-          </section>
-        }
-      }
-    </div>
-
-    @if (activeTab !== 'history') {
-      <div class="save-row"><button class="btn secondary" type="button">Cancelar</button><button class="btn primary" type="button" (click)="notify.emit(activeTab === 'responsibles' ? 'Asignaciones guardadas.' : activeTab === 'geography' ? 'Geografía territorial guardada.' : 'Configuración territorial guardada.')">Guardar cambios</button></div>
+      </div>
+    } @else {
+      <div class="tab-content"><p>No hay municipios disponibles dentro del alcance autorizado.</p></div>
     }
   </article>
 
   <aside class="side-stack">
-    <article class="panel readiness"><div class="section-heading"><div><h2>Preparación operativa</h2></div></div><div><strong>83%</strong><span>10 de 12 criterios</span></div><div class="progress"><span style="width:83%"></span></div><p>Faltan coordenadas y un responsable.</p></article>
-    <article class="panel territory-alerts"><div class="section-heading"><div><h2>Requiere atención</h2></div></div><button><i>!</i><span>1 establecimiento sin coordenadas</span><b>›</b></button><button><i>i</i><span>1 usuario sin alcance asignado</span><b>›</b></button></article>
+    <article class="panel readiness"><div class="section-heading"><div><h2>Preparación operativa</h2></div></div><div><strong>{{ readinessProgress }}%</strong><span>según catálogo y asignaciones</span></div><div class="progress"><span [style.width.%]="readinessProgress"></span></div><p>Se evalúan estado, geografía, establecimientos, coordenadas y responsables activos.</p></article>
+    <article class="panel territory-alerts"><div class="section-heading"><div><h2>Requiere atención</h2></div></div>@if (pendingCoordinates > 0) {<button><i>!</i><span>{{ pendingCoordinates }} establecimiento(s) sin coordenadas</span><b>›</b></button>}@if (!responsibles.length) {<button><i>i</i><span>Sin responsables visibles asignados</span><b>›</b></button>}@if (pendingCoordinates === 0 && responsibles.length) {<p>Sin alertas territoriales de configuración.</p>}</article>
   </aside>
 </section>
 

@@ -13,6 +13,10 @@ import { HealthNetworkRepository } from './application/ports/health-network.repo
 import { HealthNetworksUseCase } from './application/health-networks.use-case';
 import { PrismaHealthNetworkRepository } from './infrastructure/prisma-health-network.repository';
 import { HealthNetworksController } from './http/health-networks.controller';
+import { TerritorialAuditRepository } from './application/ports/territorial-audit.repository';
+import { TerritorialAuditUseCase } from './application/territorial-audit.use-case';
+import { PrismaTerritorialAuditRepository } from './infrastructure/prisma-territorial-audit.repository';
+import { TerritorialAuditController } from './http/territorial-audit.controller';
 
 @Module({
   imports: [DatabaseModule],
@@ -21,11 +25,18 @@ import { HealthNetworksController } from './http/health-networks.controller';
     ListActiveRegionsUseCase,
     TerritorialCatalogUseCase,
     HealthNetworksUseCase,
+    TerritorialAuditUseCase,
     { provide: RegionRepository, useClass: PrismaRegionRepository },
     { provide: TerritorialCatalogRepository, useClass: PrismaTerritorialCatalogRepository },
     { provide: HealthNetworkRepository, useClass: PrismaHealthNetworkRepository },
+    { provide: TerritorialAuditRepository, useClass: PrismaTerritorialAuditRepository },
   ],
-  controllers: [RegionsController, TerritorialCatalogController, HealthNetworksController],
+  controllers: [
+    RegionsController,
+    TerritorialCatalogController,
+    HealthNetworksController,
+    TerritorialAuditController,
+  ],
   exports: [CreateRegionUseCase, ListActiveRegionsUseCase],
 })
 export class TerritorialModule {}

@@ -64,6 +64,10 @@ describe('Application (e2e)', () => {
     await request(app.getHttpServer()).get('/api/v1/territories/catalog').expect(401);
   });
 
+  it('protects territorial audit history before validating its query', async () => {
+    await request(app.getHttpServer()).get('/api/v1/territories/audit-events').expect(401);
+  });
+
   it('protects municipality creation before processing administrative data', async () => {
     await request(app.getHttpServer())
       .post('/api/v1/territories/municipalities')

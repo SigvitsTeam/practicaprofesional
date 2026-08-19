@@ -102,9 +102,11 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 13. Mapa productivo conectado a catálogo y versiones ITS-2 vigentes; los datos simulados quedan limitados al modo demo.
 14. Carga diferida de pantallas operativas y administrativas para mantener el bundle inicial bajo presupuesto.
 15. Panel de inicio productivo con KPIs y prioridades calculados desde la analítica territorial vigente; mocks limitados al modo demo.
+16. Administración territorial secundaria conectada al catálogo y asignaciones reales: árbol, KPIs, ficha municipal, geografía, responsables, preparación y alertas sin valores ficticios.
+17. Historial territorial conectado a auditoría paginada, con permiso específico, alcance regional validado y sin exponer datos previos/nuevos sensibles.
 
 ### Siguiente ejecución
 
 1. Completar invitación y vinculación segura con el proveedor de identidad externa.
-2. Sustituir datos simulados restantes en vistas administrativas y documentales secundarias.
+2. Sustituir datos simulados restantes en vistas documentales secundarias.
 3. Aplicar las migraciones pendientes y ejecutar smoke/UAT sobre PostgreSQL de staging.

@@ -117,6 +117,12 @@ async function verify(): Promise<void> {
     );
     if (analyticsPermissions.rows[0]?.total !== 1)
       throw new Error('No está disponible el permiso de analítica territorial.');
+    const auditPermissions = await directClient.query<{ total: number }>(
+      `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
+      [['audit:territorial:read']],
+    );
+    if (auditPermissions.rows[0]?.total !== 1)
+      throw new Error('No está disponible el permiso de lectura de auditoría territorial.');
     const territorialPermissions = await directClient.query<{ total: number }>(
       `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
       [

@@ -7,6 +7,8 @@ export interface MunicipalityRecord { id: string; regionId: string; regionName: 
 export interface FacilityRecord { id: string; municipalityId: string; municipalityName: string; code: string; name: string; type: string; address?: string; operationalStatus: string; coordinatesValidated: boolean; active: boolean; updatedAt: string }
 export interface TerritorialCatalog { municipalities: MunicipalityRecord[]; facilities: FacilityRecord[] }
 export interface HealthNetworkRecord { id: string; regionId: string; regionName: string; code: string; name: string; description?: string; operationalStatus: string; startDate: string; active: boolean; municipalities: { id: string; code: string; name: string; startDate: string }[]; updatedAt: string }
+export interface TerritorialAuditEventRecord { id: string; action: string; entity: string; reason?: string; actorName?: string; createdAt: string }
+export interface TerritorialAuditPage { items: TerritorialAuditEventRecord[]; nextCursor?: string }
 
 @Injectable({ providedIn: 'root' })
 export class TerritorialApiService {
@@ -26,6 +28,11 @@ export class TerritorialApiService {
     return this.http.post<FacilityRecord>(`${this.base}/territories/facilities`, input);
   }
   listNetworks() { return this.http.get<HealthNetworkRecord[]>(`${this.base}/territories/networks`); }
+  listMunicipalityAudit(municipalityId: string, cursor?: string) {
+    const params: Record<string, string> = { municipalityId, limit: '25' };
+    if (cursor) params['cursor'] = cursor;
+    return this.http.get<TerritorialAuditPage>(`${this.base}/territories/audit-events`, { params });
+  }
   createNetwork(input: { regionId: string; code: string; name: string; description?: string; operationalStatus: string; startDate: string; municipalityIds: string[]; reason: string }) { return this.http.post<HealthNetworkRecord>(`${this.base}/territories/networks`, input); }
   replaceNetworkMunicipalities(networkId: string, municipalityIds: string[], effectiveDate: string, expectedUpdatedAt: string, reason: string) { return this.http.put<HealthNetworkRecord>(`${this.base}/territories/networks/${networkId}/municipalities`, { municipalityIds, effectiveDate, expectedUpdatedAt, reason }); }
   updateNetworkStatus(networkId: string, status: string, expectedUpdatedAt: string, reason: string) { return this.http.patch<HealthNetworkRecord>(`${this.base}/territories/networks/${networkId}/status`, { status, expectedUpdatedAt, reason }); }

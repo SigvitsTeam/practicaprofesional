@@ -4,7 +4,7 @@ import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RoleContext } from '../../core/role-context';
-import { TerritorialApiService } from '../../core/territorial-api.service';
+import { TerritorialApiService, type TerritorialAuditEventRecord } from '../../core/territorial-api.service';
 import { ManagedUserRecord, UserAdminApiService } from '../../core/user-admin-api.service';
 
 type TerritoryTab = 'general' | 'geography' | 'responsibles' | 'history';
@@ -25,21 +25,13 @@ export class Territory implements OnInit {
     { id: 'responsibles', label: 'Responsables' },
     { id: 'history', label: 'Historial' },
   ];
-  protected readonly responsibles = [
-    { initials: 'AM', name: 'Dra. Ana Martínez', role: 'Coordinadora Municipal', scope: 'Puerto Cortés', status: 'Activo', since: '12 ene 2026' },
-    { initials: 'ML', name: 'María López', role: 'Digitadora de Coordinación', scope: '12 establecimientos', status: 'Activo', since: '03 feb 2026' },
-    { initials: 'RL', name: 'Lic. Roberto Lagos', role: 'SuperAdmin Regional', scope: 'Región de Cortés', status: 'Supervisión', since: '08 ene 2026' },
-  ];
-  protected readonly history = [
-    { date: '04 ago 2026 · 09:22', user: 'Lic. Roberto Lagos', action: 'Actualizó catálogo de establecimientos', detail: 'Se registraron los 12 establecimientos oficiales de Puerto Cortés.', tone: 'green' },
-    { date: '03 ago 2026 · 15:40', user: 'Dra. Ana Martínez', action: 'Validó información municipal', detail: 'Confirmó el código 0506 y la dependencia regional.', tone: 'blue' },
-    { date: '02 ago 2026 · 11:18', user: 'Carlos Mejía', action: 'Activó coordinación en pilotaje', detail: 'Puerto Cortés quedó disponible para operación supervisada.', tone: 'purple' },
-    { date: '01 ago 2026 · 08:05', user: 'Sistema', action: 'Registró geometría municipal', detail: 'La silueta geográfica se vinculó al catálogo territorial.', tone: 'gray' },
-  ];
   protected regions: { id: string; code: string; name: string; municipalities: number; activeMunicipalities: number; establishments: number; status: string; rawStatus: string; active: boolean; updatedAt: string }[] = [];
-  protected municipalities: { id: string; regionId: string; code: string; name: string; region: string; establishments: number; responsible: string; status: string; rawStatus: string; active: boolean; updatedAt: string }[] = [];
-  protected establishmentNames: string[] = [];
-  protected facilities: { id: string; municipalityId: string; municipality: string; code: string; name: string; type: string; status: string; rawStatus: string; active: boolean; updatedAt: string }[] = [];
+  protected municipalities: { id: string; regionId: string; code: string; name: string; region: string; establishments: number; responsible: string; status: string; rawStatus: string; mapValidated: boolean; active: boolean; updatedAt: string }[] = [];
+  protected facilities: { id: string; municipalityId: string; municipality: string; code: string; name: string; type: string; status: string; rawStatus: string; coordinatesValidated: boolean; active: boolean; updatedAt: string }[] = [];
+  protected selectedMunicipalityId = '';
+  protected history: TerritorialAuditEventRecord[] = [];
+  protected historyNextCursor: string | undefined;
+  protected historyLoading = false;
   protected territoryStatusTarget: { entityType: 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO'; id: string; name: string; rawStatus: string; updatedAt: string } | null = null;
   protected territoryNextStatus = 'SUSPENDIDO';
   protected territoryStatusReason = '';
@@ -52,7 +44,37 @@ export class Territory implements OnInit {
   protected userForm = this.emptyUserForm();
   get regionalScope() { return this.roleContext.activeRoleId() === 'regional-superadmin'; }
   get globalScope() { return this.roleContext.activeRoleId() === 'superadmin'; }
-  get selectedMunicipality() { return this.municipalities.find(row => row.code === '0506') ?? this.municipalities[0]; }
+  get selectedMunicipality() { return this.municipalities.find(row => row.id === this.selectedMunicipalityId) ?? this.municipalities[0]; }
+  get selectedRegion() { return this.regions.find(row => row.id === this.selectedMunicipality?.regionId); }
+  get selectedFacilities() { return this.facilities.filter(row => row.municipalityId === this.selectedMunicipality?.id); }
+  get validatedFacilityCount() { return this.selectedFacilities.filter(row => row.coordinatesValidated).length; }
+  get coordinateProgress() { return this.selectedFacilities.length ? Math.round(this.validatedFacilityCount * 100 / this.selectedFacilities.length) : 0; }
+  get responsibles() {
+    const municipality = this.selectedMunicipality;
+    if (!municipality) return [];
+    const facilityIds = new Set(this.selectedFacilities.map(row => row.id));
+    return this.users.filter(user =>
+      user.assignment.municipalityId === municipality.id
+      || (!!user.assignment.facilityId && facilityIds.has(user.assignment.facilityId))
+      || user.assignment.regionId === municipality.regionId,
+    ).map(user => ({
+      id: user.id,
+      initials: user.fullName.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase(),
+      name: user.fullName,
+      role: user.role.name,
+      scope: user.assignment.label,
+      status: user.active && user.hasExternalIdentity ? 'Activo' : user.hasExternalIdentity ? 'Suspendido' : 'Pendiente de identidad',
+      since: this.formatDate(user.assignment.startDate),
+    }));
+  }
+  get readinessProgress() {
+    const checks = [this.selectedMunicipality?.active, this.selectedMunicipality?.mapValidated, this.selectedFacilities.length > 0, this.selectedFacilities.length > 0 && this.validatedFacilityCount === this.selectedFacilities.length, this.responsibles.some(row => row.status === 'Activo')];
+    return Math.round(checks.filter(Boolean).length * 100 / checks.length);
+  }
+  get pendingCoordinates() { return this.selectedFacilities.length - this.validatedFacilityCount; }
+  get activeRegionCount() { return this.regions.filter(row => row.active).length; }
+  get activeMunicipalityCount() { return this.municipalities.filter(row => row.active).length; }
+  get activeFacilityCount() { return this.facilities.filter(row => row.active).length; }
 
   protected createKind: CreateTerritoryKind | null = null;
   protected formSubmitted = false;
@@ -70,6 +92,31 @@ export class Territory implements OnInit {
     this.formSubmitted = false;
     this.territoryForm = this.emptyForm();
     if (kind === 'region') this.territoryForm.status = 'Preconfigurada';
+  }
+
+  protected selectMunicipality(id: string) {
+    if (id === this.selectedMunicipalityId) return;
+    this.selectedMunicipalityId = id;
+    this.loadHistory(false);
+  }
+
+  protected loadHistory(append: boolean) {
+    const municipalityId = this.selectedMunicipality?.id;
+    if (!municipalityId || this.historyLoading) return;
+    this.historyLoading = true;
+    this.api.listMunicipalityAudit(municipalityId, append ? this.historyNextCursor : undefined).pipe(
+      takeUntilDestroyed(this.destroyRef), finalize(() => this.historyLoading = false),
+    ).subscribe({
+      next: page => {
+        this.history = append ? [...this.history, ...page.items] : page.items;
+        this.historyNextCursor = page.nextCursor;
+      },
+      error: () => { this.history = []; this.historyNextCursor = undefined; },
+    });
+  }
+
+  protected auditActionLabel(action: string) {
+    return ({ MUNICIPALITY_CREATED: 'Municipio creado', TERRITORIAL_STATUS_CHANGED: 'Estado territorial actualizado' } as Record<string, string>)[action] ?? action.replaceAll('_', ' ');
   }
 
   protected closeCreate() {
@@ -178,7 +225,7 @@ export class Territory implements OnInit {
       takeUntilDestroyed(this.destroyRef), finalize(() => this.loading = false),
     ).subscribe({
       next: ({ regions, catalog, users }) => {
-        this.municipalities = catalog.municipalities.map(row => ({ id: row.id, regionId: row.regionId, code: row.officialCode, name: row.name, region: row.regionName, establishments: row.facilityCount, responsible: 'Sin asignar', status: this.statusLabel(row.operationalStatus), rawStatus: row.operationalStatus, active: row.active, updatedAt: row.updatedAt }));
+        this.municipalities = catalog.municipalities.map(row => ({ id: row.id, regionId: row.regionId, code: row.officialCode, name: row.name, region: row.regionName, establishments: row.facilityCount, responsible: 'Sin asignar', status: this.statusLabel(row.operationalStatus), rawStatus: row.operationalStatus, mapValidated: row.mapValidated, active: row.active, updatedAt: row.updatedAt }));
         this.facilities = catalog.facilities.map(row => ({
           id: row.id,
           municipalityId: row.municipalityId,
@@ -188,17 +235,23 @@ export class Territory implements OnInit {
           type: row.type,
           status: this.statusLabel(row.operationalStatus),
           rawStatus: row.operationalStatus,
+          coordinatesValidated: row.coordinatesValidated,
           active: row.active,
           updatedAt: row.updatedAt,
         }));
-        this.establishmentNames = this.facilities.map(row => row.name);
         this.users = users;
+        this.municipalities = this.municipalities.map(municipality => ({
+          ...municipality,
+          responsible: users.find(user => user.assignment.municipalityId === municipality.id && user.active)?.fullName ?? 'Sin asignar',
+        }));
         this.regions = regions.map(region => {
           const municipalities = this.municipalities.filter(row => row.regionId === region.id);
           return { id: region.id, code: region.code, name: region.name, municipalities: municipalities.length, activeMunicipalities: municipalities.filter(row => row.active).length, establishments: municipalities.reduce((total, row) => total + row.establishments, 0), status: this.statusLabel(region.operationalStatus), rawStatus: region.operationalStatus, active: region.active, updatedAt: region.updatedAt };
         });
         this.territoryForm.regionId ||= this.regions[0]?.id ?? '';
         this.territoryForm.municipalityId ||= this.municipalities[0]?.id ?? '';
+        if (!this.municipalities.some(row => row.id === this.selectedMunicipalityId)) this.selectedMunicipalityId = this.municipalities[0]?.id ?? '';
+        this.loadHistory(false);
         this.userForm.targetId ||= this.userTargets()[0]?.id ?? '';
       },
       error: () => this.notify.emit('No se pudo cargar el catálogo territorial real.'),
@@ -207,6 +260,10 @@ export class Territory implements OnInit {
 
   private statusLabel(status: string) {
     return ({ PRECONFIGURADO: 'Preconfigurada', CREADO: 'Creada', EN_PILOTAJE: 'En pilotaje', ACTIVO: 'Activa', INACTIVO: 'Inactiva', SUSPENDIDO: 'Suspendida' } as Record<string, string>)[status] ?? status;
+  }
+
+  protected formatDate(value: string) {
+    return new Intl.DateTimeFormat('es-HN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value));
   }
 
   selectTab(tab: TerritoryTab) { this.activeTab = tab; }
