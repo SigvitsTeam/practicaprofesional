@@ -26,6 +26,7 @@ import {
 import { CreateAttentionUseCase } from '../application/create-attention.use-case';
 import { ListAttentionsUseCase } from '../application/list-attentions.use-case';
 import { UpdateAttentionUseCase } from '../application/update-attention.use-case';
+import { CancelAttentionUseCase } from '../application/cancel-attention.use-case';
 import { GetCaptureContextUseCase } from '../application/get-capture-context.use-case';
 import { GetMonthlyReportUseCase } from '../application/get-monthly-report.use-case';
 import { ItsAttentionRepository } from '../application/ports/its-attention.repository';
@@ -41,12 +42,14 @@ import {
   type CaptureContext,
   InvalidAttentionError,
   type CreatedAttention,
+  type CancelledAttention,
 } from '../domain/its-attention';
 import { CreateAttentionDto } from './create-attention.dto';
 import { MonthlyReportQueryDto } from './monthly-report-query.dto';
 import { ListAttentionsQueryDto } from './list-attentions-query.dto';
 import { UpdateAttentionDto } from './update-attention.dto';
 import type { ItsMonthlyReport } from '../domain/its-monthly-report';
+import { CancelAttentionDto } from './cancel-attention.dto';
 
 @Controller('its1/attentions')
 export class ItsAttentionsController {
@@ -54,6 +57,7 @@ export class ItsAttentionsController {
     private readonly createAttention: CreateAttentionUseCase,
     private readonly listAttentions: ListAttentionsUseCase,
     private readonly updateAttention: UpdateAttentionUseCase,
+    private readonly cancelAttention: CancelAttentionUseCase,
     private readonly getCaptureContext: GetCaptureContextUseCase,
     private readonly getMonthlyReport: GetMonthlyReportUseCase,
     private readonly repository: ItsAttentionRepository,
@@ -213,6 +217,40 @@ export class ItsAttentionsController {
       if (error instanceof InvalidAttentionError) throw new BadRequestException(error.message);
       if (error instanceof CaptureConfigurationError)
         throw new ServiceUnavailableException(error.message);
+      if (error instanceof AttentionNotFoundError) throw new NotFoundException(error.message);
+      if (
+        error instanceof AttentionNotEditableError ||
+        error instanceof ConcurrentAttentionUpdateError
+      )
+        throw new ConflictException(error.message);
+      throw error;
+    }
+  }
+
+  @Patch(':id/cancel')
+  @RequireAccess({
+    permission: 'its1:attentions:cancel',
+    dataLevel: DataLevel.Individual,
+    scope: 'OWN',
+    target: (request) => ({ facilityId: (request.body as CancelAttentionDto).facilityId }),
+  })
+  async cancel(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: CancelAttentionDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+    @Req() request: RequestWithContext,
+  ): Promise<CancelledAttention> {
+    try {
+      return await this.cancelAttention.execute({
+        id,
+        facilityId: body.facilityId,
+        expectedUpdatedAt: new Date(body.expectedUpdatedAt),
+        userId: subject.userId,
+        requestId: request.requestId,
+        reason: body.reason,
+      });
+    } catch (error: unknown) {
+      if (error instanceof InvalidAttentionError) throw new BadRequestException(error.message);
       if (error instanceof AttentionNotFoundError) throw new NotFoundException(error.message);
       if (
         error instanceof AttentionNotEditableError ||

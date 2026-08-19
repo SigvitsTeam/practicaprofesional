@@ -92,6 +92,21 @@ export interface PersistAttentionUpdateInput extends PersistAttentionInput {
   expectedUpdatedAt: Date;
 }
 
+export interface CancelAttentionInput {
+  id: string;
+  facilityId: string;
+  expectedUpdatedAt: Date;
+  userId: string;
+  requestId: string;
+  reason: string;
+}
+
+export interface CancelledAttention {
+  id: string;
+  status: 'ANULADO';
+  updatedAt: Date;
+}
+
 export interface CaptureContext {
   facilities: readonly {
     id: string;

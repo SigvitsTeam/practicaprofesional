@@ -1,7 +1,11 @@
 @if (canSelectEstablishment) {<app-establishment-selector (selected)="loadRecords()" />}
 
 @if (editing()) {
-  <section class="editing-banner"><div><strong>Editando {{ editing()!.patientRecordNumber }}</strong><p>La corrección usa control de versión. Si otra persona modifica el registro, se solicitará recargar antes de guardar.</p></div><button type="button" class="btn secondary" (click)="clearForm()">Cancelar edición</button></section>
+  <section class="editing-banner"><div><strong>Editando {{ editing()!.patientRecordNumber }}</strong><p>La corrección usa control de versión. Si otra persona modifica el registro, se solicitará recargar antes de guardar.</p></div><div class="editing-actions"><button type="button" class="btn danger" (click)="openCancel()">Anular atención</button><button type="button" class="btn secondary" (click)="clearForm()">Cancelar edición</button></div></section>
+}
+
+@if (cancelling()) {
+  <div class="cancel-modal-backdrop" (click)="closeCancel()"><section class="cancel-modal" role="dialog" aria-modal="true" aria-label="Anular atención ITS 1" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">ACCIÓN IRREVERSIBLE</span><h2>Anular atención ITS 1</h2><p>{{ cancelling()!.patientRecordNumber }} · {{ cancelling()!.attentionDate.slice(0, 10) }}</p></div><button type="button" aria-label="Cerrar" (click)="closeCancel()">×</button></header><div><p>El registro dejará de participar en ITS 2. Si existe un borrador, se invalidará para obligar a recalcularlo.</p><label><span>Motivo obligatorio</span><textarea [value]="cancelReason()" (input)="cancelReason.set($any($event.target).value)" maxlength="500"></textarea><small>Mínimo 10 caracteres. La operación quedará auditada.</small></label></div><footer><button class="btn secondary" type="button" (click)="closeCancel()">Conservar registro</button><button class="btn danger" type="button" [disabled]="saving() || cancelReason().trim().length < 10" (click)="confirmCancel()">{{ saving() ? 'Anulando…' : 'Confirmar anulación' }}</button></footer></section></div>
 }
 
 @if (isCorrectionRequested) {

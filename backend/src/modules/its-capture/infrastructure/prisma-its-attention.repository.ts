@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { ItsAttentionRepository } from '../application/ports/its-attention.repository';
 import {
@@ -12,6 +13,8 @@ import type {
   CreatedAttention,
   AttentionCursor,
   AttentionRecord,
+  CancelAttentionInput,
+  CancelledAttention,
   PersistAttentionInput,
   PersistAttentionUpdateInput,
 } from '../domain/its-attention';
@@ -233,92 +236,211 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
   }
 
   async update(input: PersistAttentionUpdateInput): Promise<AttentionRecord> {
-    return this.prisma.client.$transaction(async (transaction) => {
-      const existing = await transaction.itsAttention.findFirst({
-        where: { id: input.id, facilityId: input.facilityId, status: 'ACTIVO' },
-        select: {
-          updatedAt: true,
-          attentionDate: true,
-          possibleDuplicate: true,
-          monthlyPeriod: { select: { status: true } },
-        },
-      });
-      if (!existing) throw new AttentionNotFoundError('La atención ITS-1 no existe.');
-      if (existing.monthlyPeriod.status !== 'ABIERTO')
-        throw new AttentionNotEditableError('La atención pertenece a un período no editable.');
-      if (existing.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
-        throw new ConcurrentAttentionUpdateError(
-          'La atención fue modificada por otra persona. Recargue los datos antes de continuar.',
-        );
+    try {
+      return await this.prisma.client.$transaction(
+        async (transaction) => {
+          const existing = await transaction.itsAttention.findFirst({
+            where: { id: input.id, facilityId: input.facilityId, status: 'ACTIVO' },
+            select: {
+              updatedAt: true,
+              attentionDate: true,
+              possibleDuplicate: true,
+              monthlyPeriodId: true,
+              monthlyPeriod: { select: { status: true } },
+            },
+          });
+          if (!existing) throw new AttentionNotFoundError('La atención ITS-1 no existe.');
+          if (existing.monthlyPeriod.status !== 'ABIERTO')
+            throw new AttentionNotEditableError('La atención pertenece a un período no editable.');
+          if (existing.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
+            throw new ConcurrentAttentionUpdateError(
+              'La atención fue modificada por otra persona. Recargue los datos antes de continuar.',
+            );
 
-      const updated = await transaction.itsAttention.updateMany({
-        where: {
-          id: input.id,
-          facilityId: input.facilityId,
-          status: 'ACTIVO',
-          updatedAt: input.expectedUpdatedAt,
-        },
-        data: {
-          programId: input.programId,
-          attentionDate: input.attentionDate,
-          epidemiologicalWeekId: input.epidemiologicalWeekId,
-          monthlyPeriodId: input.monthlyPeriodId,
-          year: input.attentionDate.getUTCFullYear(),
-          month: input.attentionDate.getUTCMonth() + 1,
-          regionId: input.regionId,
-          municipalityId: input.municipalityId,
-          patientRecordNumber: input.patientRecordNumber,
-          originText: input.originText,
-          sex: input.sex,
-          age: input.age,
-          ageGroupId: input.ageGroupId,
-          comparativeAgeGroupId: input.comparativeAgeGroupId,
-          populationTypeId: input.populationTypeId,
-          isContact: input.isContact,
-          isPregnant: input.isPregnant,
-          observation: input.observation,
-          possibleDuplicate: input.possibleDuplicate,
-        },
-      });
-      if (updated.count !== 1)
-        throw new ConcurrentAttentionUpdateError(
-          'La atención fue modificada por otra persona. Recargue los datos antes de continuar.',
-        );
+          const affectedPeriodIds = [...new Set([existing.monthlyPeriodId, input.monthlyPeriodId])];
+          const currentReports = await transaction.itsReport.findMany({
+            where: {
+              facilityId: input.facilityId,
+              periodId: { in: affectedPeriodIds },
+              type: 'ITS2_MENSUAL',
+              level: 'ESTABLECIMIENTO',
+              isCurrentVersion: true,
+            },
+            select: { id: true, status: true },
+          });
+          if (
+            currentReports.some(
+              (report) => !['BORRADOR', 'DEVUELTO_POR_MUNICIPIO'].includes(report.status),
+            )
+          )
+            throw new AttentionNotEditableError(
+              'La atención forma parte de un reporte enviado o aprobado y ya no puede corregirse.',
+            );
+          if (currentReports.length)
+            await transaction.itsReport.updateMany({
+              where: { id: { in: currentReports.map((report) => report.id) } },
+              data: { isCurrentVersion: false },
+            });
 
-      await transaction.attentionDiagnosis.deleteMany({ where: { attentionId: input.id } });
-      await transaction.attentionDiagnosis.createMany({
-        data: input.diagnoses.map((diagnosis) => ({
-          attentionId: input.id,
-          diseaseId: diagnosis.diseaseId,
-          caseType: diagnosis.caseType,
-        })),
-      });
-      await transaction.auditEvent.create({
-        data: {
-          actorUserId: input.userId,
-          action: 'ITS1_ATENCION_ACTUALIZADA',
-          entity: 'atenciones_its',
-          entityId: input.id,
-          dataLevel: 'INDIVIDUAL',
-          requestId: input.requestId,
-          previousData: {
-            attentionDate: existing.attentionDate.toISOString().slice(0, 10),
-            possibleDuplicate: existing.possibleDuplicate,
-            updatedAt: existing.updatedAt.toISOString(),
-          },
-          newData: {
-            attentionDate: input.attentionDate.toISOString().slice(0, 10),
-            possibleDuplicate: input.possibleDuplicate,
-            diagnosesCount: input.diagnoses.length,
-          },
+          const updated = await transaction.itsAttention.updateMany({
+            where: {
+              id: input.id,
+              facilityId: input.facilityId,
+              status: 'ACTIVO',
+              updatedAt: input.expectedUpdatedAt,
+            },
+            data: {
+              programId: input.programId,
+              attentionDate: input.attentionDate,
+              epidemiologicalWeekId: input.epidemiologicalWeekId,
+              monthlyPeriodId: input.monthlyPeriodId,
+              year: input.attentionDate.getUTCFullYear(),
+              month: input.attentionDate.getUTCMonth() + 1,
+              regionId: input.regionId,
+              municipalityId: input.municipalityId,
+              patientRecordNumber: input.patientRecordNumber,
+              originText: input.originText,
+              sex: input.sex,
+              age: input.age,
+              ageGroupId: input.ageGroupId,
+              comparativeAgeGroupId: input.comparativeAgeGroupId,
+              populationTypeId: input.populationTypeId,
+              isContact: input.isContact,
+              isPregnant: input.isPregnant,
+              observation: input.observation,
+              possibleDuplicate: input.possibleDuplicate,
+            },
+          });
+          if (updated.count !== 1)
+            throw new ConcurrentAttentionUpdateError(
+              'La atención fue modificada por otra persona. Recargue los datos antes de continuar.',
+            );
+
+          await transaction.attentionDiagnosis.deleteMany({ where: { attentionId: input.id } });
+          await transaction.attentionDiagnosis.createMany({
+            data: input.diagnoses.map((diagnosis) => ({
+              attentionId: input.id,
+              diseaseId: diagnosis.diseaseId,
+              caseType: diagnosis.caseType,
+            })),
+          });
+          await transaction.auditEvent.create({
+            data: {
+              actorUserId: input.userId,
+              action: 'ITS1_ATENCION_ACTUALIZADA',
+              entity: 'atenciones_its',
+              entityId: input.id,
+              dataLevel: 'INDIVIDUAL',
+              requestId: input.requestId,
+              previousData: {
+                attentionDate: existing.attentionDate.toISOString().slice(0, 10),
+                possibleDuplicate: existing.possibleDuplicate,
+                updatedAt: existing.updatedAt.toISOString(),
+              },
+              newData: {
+                attentionDate: input.attentionDate.toISOString().slice(0, 10),
+                possibleDuplicate: input.possibleDuplicate,
+                diagnosesCount: input.diagnoses.length,
+              },
+            },
+          });
+          const result = await transaction.itsAttention.findUniqueOrThrow({
+            where: { id: input.id },
+            select: this.attentionRecordSelection,
+          });
+          return this.toAttentionRecord(result);
         },
-      });
-      const result = await transaction.itsAttention.findUniqueOrThrow({
-        where: { id: input.id },
-        select: this.attentionRecordSelection,
-      });
-      return this.toAttentionRecord(result);
-    });
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error: unknown) {
+      this.rethrowConcurrency(error);
+    }
+  }
+
+  async cancel(input: CancelAttentionInput): Promise<CancelledAttention> {
+    try {
+      return await this.prisma.client.$transaction(
+        async (transaction) => {
+          const existing = await transaction.itsAttention.findFirst({
+            where: { id: input.id, facilityId: input.facilityId, status: 'ACTIVO' },
+            select: {
+              id: true,
+              attentionDate: true,
+              updatedAt: true,
+              monthlyPeriodId: true,
+              monthlyPeriod: { select: { status: true } },
+            },
+          });
+          if (!existing) throw new AttentionNotFoundError('La atención ITS-1 no existe.');
+          if (existing.monthlyPeriod.status !== 'ABIERTO')
+            throw new AttentionNotEditableError('La atención pertenece a un período no editable.');
+          if (existing.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
+            throw new ConcurrentAttentionUpdateError(
+              'La atención fue modificada por otra persona. Recargue los datos antes de continuar.',
+            );
+
+          const currentReport = await transaction.itsReport.findFirst({
+            where: {
+              facilityId: input.facilityId,
+              periodId: existing.monthlyPeriodId,
+              type: 'ITS2_MENSUAL',
+              level: 'ESTABLECIMIENTO',
+              isCurrentVersion: true,
+            },
+            select: { id: true, status: true, version: true },
+          });
+          if (
+            currentReport &&
+            !['BORRADOR', 'DEVUELTO_POR_MUNICIPIO'].includes(currentReport.status)
+          )
+            throw new AttentionNotEditableError(
+              'La atención forma parte de un reporte enviado o aprobado y ya no puede anularse.',
+            );
+
+          const cancelledAt = new Date();
+          const updated = await transaction.itsAttention.updateMany({
+            where: {
+              id: input.id,
+              facilityId: input.facilityId,
+              status: 'ACTIVO',
+              updatedAt: input.expectedUpdatedAt,
+            },
+            data: { status: 'ANULADO', updatedAt: cancelledAt },
+          });
+          if (updated.count !== 1)
+            throw new ConcurrentAttentionUpdateError(
+              'La atención fue modificada por otra persona. Recargue los datos antes de continuar.',
+            );
+          if (currentReport)
+            await transaction.itsReport.update({
+              where: { id: currentReport.id },
+              data: { isCurrentVersion: false },
+            });
+          await transaction.auditEvent.create({
+            data: {
+              actorUserId: input.userId,
+              action: 'ITS1_ATENCION_ANULADA',
+              entity: 'atenciones_its',
+              entityId: input.id,
+              dataLevel: 'INDIVIDUAL',
+              requestId: input.requestId,
+              previousData: {
+                status: 'ACTIVO',
+                attentionDate: existing.attentionDate.toISOString().slice(0, 10),
+                updatedAt: existing.updatedAt.toISOString(),
+                invalidatedReportVersion: currentReport?.version,
+              },
+              newData: { status: 'ANULADO', updatedAt: cancelledAt.toISOString() },
+              reason: input.reason,
+            },
+          });
+          return { id: input.id, status: 'ANULADO', updatedAt: cancelledAt };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error: unknown) {
+      this.rethrowConcurrency(error);
+    }
   }
 
   async create(input: PersistAttentionInput): Promise<CreatedAttention> {
@@ -575,5 +697,13 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
         caseType: diagnosis.caseType,
       })),
     };
+  }
+
+  private rethrowConcurrency(error: unknown): never {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034')
+      throw new ConcurrentAttentionUpdateError(
+        'Otra operación modificó el registro o su reporte simultáneamente. Recargue e intente nuevamente.',
+      );
+    throw error;
   }
 }

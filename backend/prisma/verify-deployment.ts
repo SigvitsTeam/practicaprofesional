@@ -98,6 +98,19 @@ async function verify(): Promise<void> {
     );
     if (workflowPermissions.rows[0]?.total !== 13)
       throw new Error('No están disponibles todos los permisos del flujo ITS-2.');
+    const its1Permissions = await directClient.query<{ total: number }>(
+      `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
+      [
+        [
+          'its1:attentions:read',
+          'its1:attentions:create',
+          'its1:attentions:update',
+          'its1:attentions:cancel',
+        ],
+      ],
+    );
+    if (its1Permissions.rows[0]?.total !== 4)
+      throw new Error('No están disponibles todos los permisos operativos de ITS-1.');
     const territorialPermissions = await directClient.query<{ total: number }>(
       `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
       [
@@ -155,6 +168,7 @@ async function verify(): Promise<void> {
         rlsForced: deployment.hardened,
         publiclyReadable: deployment.publiclyReadable,
         its2WorkflowPermissions: workflowPermissions.rows[0].total,
+        its1Permissions: its1Permissions.rows[0].total,
         territorialPermissions: territorialPermissions.rows[0].total,
         userAdminPermissions: userAdminPermissions.rows[0].total,
         activeOperators: Object.fromEntries(

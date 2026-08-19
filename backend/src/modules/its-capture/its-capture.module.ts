@@ -14,6 +14,7 @@ import { ItsReportsController } from './http/its-reports.controller';
 import { PrismaItsReportWorkflowRepository } from './infrastructure/prisma-its-report-workflow.repository';
 import { ListAttentionsUseCase } from './application/list-attentions.use-case';
 import { UpdateAttentionUseCase } from './application/update-attention.use-case';
+import { CancelAttentionUseCase } from './application/cancel-attention.use-case';
 import { MunicipalConsolidationUseCase } from './application/municipal-consolidation.use-case';
 import { MunicipalConsolidationRepository } from './application/ports/municipal-consolidation.repository';
 import { PrismaMunicipalConsolidationRepository } from './infrastructure/prisma-municipal-consolidation.repository';
@@ -40,6 +41,7 @@ import { NationalConsolidationsController } from './http/national-consolidations
     CreateAttentionUseCase,
     ListAttentionsUseCase,
     UpdateAttentionUseCase,
+    CancelAttentionUseCase,
     MunicipalConsolidationUseCase,
     RegionalConsolidationUseCase,
     NationalConsolidationUseCase,

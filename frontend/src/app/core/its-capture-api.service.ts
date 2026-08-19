@@ -142,6 +142,9 @@ export class ItsCaptureApiService {
     const { id, ...body } = input;
     return this.http.patch<ItsAttentionRecord>(`${this.endpoint}/${id}`, body);
   }
+  cancelAttention(id: string, facilityId: string, expectedUpdatedAt: string, reason: string) {
+    return this.http.patch<{ id: string; status: 'ANULADO'; updatedAt: string }>(`${this.endpoint}/${id}/cancel`, { facilityId, expectedUpdatedAt, reason });
+  }
   getMonthlyReport(facilityId: string, year: number, month: number) {
     return this.http.get<ItsMonthlyReportResponse>(`${this.endpoint}/monthly-report`, {
       params: { facilityId, year, month },

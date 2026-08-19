@@ -6,6 +6,8 @@ import type {
   AttentionRecord,
   PersistAttentionInput,
   PersistAttentionUpdateInput,
+  CancelAttentionInput,
+  CancelledAttention,
 } from '../../domain/its-attention';
 import type { MonthlyReportSource } from '../../domain/its-monthly-report';
 import type { Its1PrintRegister } from '../../domain/its1-print-register';
@@ -34,6 +36,7 @@ export abstract class ItsAttentionRepository {
     cursor?: AttentionCursor;
   }): Promise<readonly AttentionRecord[]>;
   abstract update(input: PersistAttentionUpdateInput): Promise<AttentionRecord>;
+  abstract cancel(input: CancelAttentionInput): Promise<CancelledAttention>;
   abstract getMonthlyReportSource(input: {
     facilityId: string;
     year: number;

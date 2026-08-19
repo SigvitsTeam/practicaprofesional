@@ -161,6 +161,13 @@ describe('Application (e2e)', () => {
       .expect(401);
   });
 
+  it('protects ITS 1 cancellation before validating sensitive content', async () => {
+    await request(app.getHttpServer())
+      .patch('/api/v1/its1/attentions/11111111-1111-4111-8111-111111111111/cancel')
+      .send({})
+      .expect(401);
+  });
+
   it('protects the printable ITS 1 register', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/its1/attentions/register.pdf')

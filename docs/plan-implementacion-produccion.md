@@ -97,10 +97,10 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 8. Transiciones territoriales protegidas por dependencias, jerarquía, auditoría y concurrencia.
 9. Gestión directa de estados de regiones, municipios y establecimientos desde la interfaz administrativa.
 10. Suspensión, reactivación e inactivación de redes con bloqueo optimista, auditoría y conservación de membresías históricas.
+11. Anulación auditada de ITS-1 y bloqueo de correcciones/anulaciones cuando el ITS-2 ya fue enviado o aprobado.
 
 ### Siguiente ejecución
 
 1. Completar invitación y vinculación segura con el proveedor de identidad externa.
-2. Implementar anulación ITS-1 y reglas adicionales de bloqueo por reporte enviado.
-3. Sustituir datos simulados restantes en tableros, mapas y bandejas.
-4. Aplicar las nueve migraciones y ejecutar smoke/UAT sobre PostgreSQL de staging.
+2. Sustituir datos simulados restantes en tableros, mapas y bandejas.
+3. Aplicar las migraciones pendientes y ejecutar smoke/UAT sobre PostgreSQL de staging.

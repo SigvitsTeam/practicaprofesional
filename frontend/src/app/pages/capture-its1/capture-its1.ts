@@ -27,6 +27,8 @@ export class CaptureIts1 implements OnInit {
   readonly recordsLoading = signal(false);
   readonly records = signal<ItsAttentionRecord[]>([]);
   readonly editing = signal<ItsAttentionRecord | null>(null);
+  readonly cancelling = signal<ItsAttentionRecord | null>(null);
+  readonly cancelReason = signal('');
   readonly captureContext = signal<CaptureContextResponse | null>(null);
   submitted = false;
 
@@ -140,6 +142,36 @@ export class CaptureIts1 implements OnInit {
     this.form.controls.pregnant.disable({ emitEvent: false });
     this.diagnostics.clear();
     this.diagnostics.push(this.createDiagnostic());
+  }
+
+  openCancel() {
+    const record = this.editing();
+    if (!record) return;
+    this.cancelReason.set('');
+    this.cancelling.set(record);
+  }
+
+  closeCancel() {
+    this.cancelling.set(null);
+    this.cancelReason.set('');
+  }
+
+  confirmCancel() {
+    const record = this.cancelling();
+    const reason = this.cancelReason().trim();
+    if (!record || reason.length < 10 || this.saving()) return;
+    this.saving.set(true);
+    this.api.cancelAttention(record.id, record.facilityId, record.updatedAt, reason).pipe(
+      finalize(() => this.saving.set(false)),
+    ).subscribe({
+      next: () => {
+        this.records.update(records => records.filter(item => item.id !== record.id));
+        this.closeCancel();
+        this.clearForm();
+        this.notify.emit('Atención ITS 1 anulada y registrada en auditoría.');
+      },
+      error: error => this.notify.emit(error?.error?.detail ?? 'No fue posible anular la atención ITS 1.'),
+    });
   }
 
   save() {
