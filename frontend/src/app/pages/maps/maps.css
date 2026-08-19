@@ -8,3 +8,4 @@
 .filter-field select { min-height: 40px; font-size: 0.78rem; }
 .ranking strong { font-size: 0.74rem; }
 .ranking small,.map-legend,.marker small { font-size: 0.65rem; }
+.map-message { margin-bottom:12px; padding:10px 13px; border:1px solid var(--line); border-radius:8px; color:var(--muted); background:var(--surface,#fff); font-size:.7rem; }.map-message.error { color:var(--red); }

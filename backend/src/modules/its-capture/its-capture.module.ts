@@ -27,6 +27,10 @@ import { NationalConsolidationUseCase } from './application/national-consolidati
 import { NationalConsolidationRepository } from './application/ports/national-consolidation.repository';
 import { PrismaNationalConsolidationRepository } from './infrastructure/prisma-national-consolidation.repository';
 import { NationalConsolidationsController } from './http/national-consolidations.controller';
+import { TerritorialAnalyticsController } from './http/territorial-analytics.controller';
+import { TerritorialAnalyticsUseCase } from './application/territorial-analytics.use-case';
+import { TerritorialAnalyticsRepository } from './application/ports/territorial-analytics.repository';
+import { PrismaTerritorialAnalyticsRepository } from './infrastructure/prisma-territorial-analytics.repository';
 
 @Module({
   imports: [DatabaseModule],
@@ -36,6 +40,7 @@ import { NationalConsolidationsController } from './http/national-consolidations
     MunicipalConsolidationsController,
     RegionalConsolidationsController,
     NationalConsolidationsController,
+    TerritorialAnalyticsController,
   ],
   providers: [
     CreateAttentionUseCase,
@@ -45,6 +50,7 @@ import { NationalConsolidationsController } from './http/national-consolidations
     MunicipalConsolidationUseCase,
     RegionalConsolidationUseCase,
     NationalConsolidationUseCase,
+    TerritorialAnalyticsUseCase,
     GetCaptureContextUseCase,
     GetMonthlyReportUseCase,
     RenderIts2PdfUseCase,
@@ -63,6 +69,10 @@ import { NationalConsolidationsController } from './http/national-consolidations
     {
       provide: NationalConsolidationRepository,
       useClass: PrismaNationalConsolidationRepository,
+    },
+    {
+      provide: TerritorialAnalyticsRepository,
+      useClass: PrismaTerritorialAnalyticsRepository,
     },
   ],
 })

@@ -27,8 +27,8 @@ import { ReportDrawer } from './shared/report-drawer/report-drawer';
   encapsulation: ViewEncapsulation.None
 })
 export class App {
-  @ViewChild(Territory) private territory?: Territory;
-  @ViewChild(ReviewInbox) private reviewInbox?: ReviewInbox;
+  @ViewChild('territory') private territory?: { openCreate(kind: 'region' | 'municipality' | 'establishment'): void };
+  @ViewChild('reviewInbox') private reviewInbox?: { reload(): void };
   protected readonly roleContext = inject(RoleContext);
   protected readonly auth = inject(AuthService);
   private readonly establishmentContext = inject(EstablishmentContext);

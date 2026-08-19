@@ -168,6 +168,12 @@ describe('Application (e2e)', () => {
       .expect(401);
   });
 
+  it('protects territorial analytics before exposing aggregated indicators', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/analytics/territorial?level=MUNICIPIO&year=2026&month=8')
+      .expect(401);
+  });
+
   it('protects the printable ITS 1 register', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/its1/attentions/register.pdf')

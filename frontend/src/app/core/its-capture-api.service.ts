@@ -123,6 +123,15 @@ export interface NationalConsolidationReport {
   generatedAt: string; closedAt?: string;
 }
 export interface NationalConsolidationContext { activeRegions: number }
+export type TerritorialAnalyticsLevel = 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO';
+export interface TerritorialAnalyticsResponse {
+  level: TerritorialAnalyticsLevel; year: number; month: number;
+  rows: {
+    id: string; code: string; name: string; reportId?: string; reportVersion?: number;
+    status: string; attentions: number; newCases: number; controls: number; alerts: number;
+    sentAt?: string;
+  }[];
+}
 
 @Injectable({ providedIn: 'root' })
 export class ItsCaptureApiService {
@@ -239,5 +248,8 @@ export class ItsCaptureApiService {
   }
   reopenNationalConsolidation(reportId: string, reason: string) {
     return this.http.post<NationalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/national-consolidations/${reportId}/reopen`, { reason });
+  }
+  getTerritorialAnalytics(level: TerritorialAnalyticsLevel, year: number, month: number) {
+    return this.http.get<TerritorialAnalyticsResponse>(`${this.runtimeConfig.apiUrl}/v1/analytics/territorial`, { params: { level, year, month } });
   }
 }

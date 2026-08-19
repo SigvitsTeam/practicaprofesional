@@ -1,8 +1,20 @@
-import { TestBed } from '@angular/core/testing';
+import {
+  ComponentFixture,
+  DeferBlockBehavior,
+  DeferBlockState,
+  TestBed,
+} from '@angular/core/testing';
 import { App } from './app';
 import { environment } from '../environments/environment';
 
 const TEST_SESSION = 'sigvits-auth-session';
+const settleDeferred = async (fixture: ComponentFixture<App>) => {
+  fixture.detectChanges();
+  const blocks = await fixture.getDeferBlocks();
+  await Promise.all(blocks.map(block => block.render(DeferBlockState.Complete)));
+  await fixture.whenStable();
+  fixture.detectChanges();
+};
 
 describe('App', () => {
   beforeEach(async () => {
@@ -12,6 +24,7 @@ describe('App', () => {
     }));
     await TestBed.configureTestingModule({
       imports: [App],
+      deferBlockBehavior: DeferBlockBehavior.Manual,
     }).compileComponents();
   });
 
@@ -51,11 +64,12 @@ describe('App', () => {
     expect(localStorage.getItem('sigvits-theme')).toBe('dark');
   });
 
-  it('should render the coordination digitizer ITS 1 workflow without legacy coverage fields', () => {
+  it('should render the coordination digitizer ITS 1 workflow without legacy coverage fields', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('coordination-digitizer');
     fixture.componentInstance.navigate('Captura ITS 1');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.querySelectorAll('app-establishment-selector option')).toHaveLength(12);
@@ -87,11 +101,12 @@ describe('App', () => {
     expect(Array.from(compiled.querySelectorAll('.nav-item')).some(item => item.textContent?.includes('Administración'))).toBe(true);
   });
 
-  it('should keep the establishment manager fixed to its assigned establishment', () => {
+  it('should keep the establishment manager fixed to its assigned establishment', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('establishment-manager');
     fixture.componentInstance.navigate('Captura ITS 1');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.querySelectorAll('app-establishment-selector')).toHaveLength(0);
@@ -100,11 +115,12 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Responsable de Establecimiento');
   });
 
-  it('should display geography, responsibles and history territory tabs', () => {
+  it('should display geography, responsibles and history territory tabs', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('regional-superadmin');
     fixture.componentInstance.navigate('Administración');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
     const tab = (label: string) => Array.from(compiled.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(button => button.textContent?.trim() === label)!;
 
@@ -127,8 +143,7 @@ describe('App', () => {
     fixture.componentInstance.changeRole('superadmin');
     fixture.componentInstance.navigate('Administración');
     fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
+    await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.querySelector('.global-territory-management')).toBeTruthy();
@@ -149,11 +164,12 @@ describe('App', () => {
     expect(compiled.querySelector('.facility-admin')).toBeTruthy();
   });
 
-  it('should let global and regional superadmins manage health networks', () => {
+  it('should let global and regional superadmins manage health networks', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('superadmin');
     fixture.componentInstance.navigate('Redes');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.querySelector('.network-catalog')).toBeTruthy();
@@ -165,15 +181,17 @@ describe('App', () => {
     fixture.componentInstance.changeRole('regional-superadmin');
     fixture.componentInstance.navigate('Redes');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     expect(compiled.textContent).toContain('Redes de la Región de Cortés');
     expect(compiled.textContent).toContain('＋ Nueva Red');
   });
 
-  it('should give the regional admin a read-only network view with filters and exports', () => {
+  it('should give the regional admin a read-only network view with filters and exports', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('regional-admin');
     fixture.componentInstance.navigate('Redes');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
     compiled.querySelector<HTMLButtonElement>('.scope-toggle')!.click();
     fixture.detectChanges();
@@ -189,20 +207,22 @@ describe('App', () => {
     expect(compiled.textContent).toContain('catálogo y la composición municipal provienen de PostgreSQL');
   });
 
-  it('should show the aggregated network consolidation without individual ITS 1 data', () => {
+  it('should show the aggregated network consolidation without individual ITS 1 data', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('regional-superadmin');
     fixture.componentInstance.navigate('Redes');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain('Pendiente API analítica');
     expect(compiled.textContent).not.toContain('Número de expediente');
   });
 
-  it('should render one interactive map with twelve establishment markers', () => {
+  it('should render one interactive map with twelve establishment markers', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.navigate('Mapas');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.querySelectorAll('app-interactive-map')).toHaveLength(1);
@@ -210,11 +230,12 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Métrica activa');
   });
 
-  it('should configure annual evaluations with comparison dimensions and two time ranges', () => {
+  it('should configure annual evaluations with comparison dimensions and two time ranges', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('regional-admin');
     fixture.componentInstance.navigate('Reportes y exportaciones');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
 
     const annualButton = Array.from(compiled.querySelectorAll<HTMLButtonElement>('.export-catalog button'))
@@ -235,11 +256,12 @@ describe('App', () => {
     expect(compiled.textContent).toContain('ene 2025 – dic 2025');
   });
 
-  it('should prevent an establishment user from comparing unauthorized territories', () => {
+  it('should prevent an establishment user from comparing unauthorized territories', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('establishment-manager');
     fixture.componentInstance.navigate('Reportes y exportaciones');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
 
     Array.from(compiled.querySelectorAll<HTMLButtonElement>('.export-catalog button'))
@@ -334,13 +356,14 @@ describe('App', () => {
     expectFilters('Administración', false);
   });
 
-  it('should adapt review entities and totals to each approval level', () => {
+  it('should adapt review entities and totals to each approval level', async () => {
     const fixture = TestBed.createComponent(App);
     const compiled = fixture.nativeElement as HTMLElement;
 
     fixture.componentInstance.changeRole('central-validator');
     fixture.componentInstance.navigate('Bandeja de revisión');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     expect(compiled.querySelector('h1')?.textContent).toContain('Revisión de regiones');
     expect(compiled.querySelector('app-report-table th')?.textContent).toContain('Región sanitaria');
     expect(compiled.textContent).toContain('Región Sanitaria de Cortés');
@@ -348,35 +371,39 @@ describe('App', () => {
     fixture.componentInstance.changeRole('regional-admin');
     fixture.componentInstance.navigate('Bandeja de revisión');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     expect(compiled.querySelector('h1')?.textContent).toContain('Revisión de municipios');
     expect(compiled.querySelector('app-report-table th')?.textContent).toContain('Municipio');
     expect(compiled.textContent).toContain('Puerto Cortés');
   });
 
-  it('should adapt consolidation coverage and workflow to the active level', () => {
+  it('should adapt consolidation coverage and workflow to the active level', async () => {
     const fixture = TestBed.createComponent(App);
     const compiled = fixture.nativeElement as HTMLElement;
 
     fixture.componentInstance.changeRole('central-validator');
     fixture.componentInstance.navigate('Consolidados');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     expect(compiled.textContent).toContain('1 de 18 regiones');
     expect(compiled.textContent).toContain('Publicación nacional');
 
     fixture.componentInstance.changeRole('regional-admin');
     fixture.componentInstance.navigate('Consolidados');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     expect(compiled.textContent).toContain('2 de 12 municipios');
     expect(compiled.textContent).toContain('Envío a Nivel Central');
   });
 
-  it('should start maps at the authorized geographic level', () => {
+  it('should start maps at the authorized geographic level', async () => {
     const fixture = TestBed.createComponent(App);
     const compiled = fixture.nativeElement as HTMLElement;
 
     fixture.componentInstance.changeRole('central-validator');
     fixture.componentInstance.navigate('Mapas');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     expect(compiled.querySelector('h1')?.textContent).toContain('Mapa nacional');
     expect(compiled.textContent).toContain('Regiones sanitarias visibles');
     expect(compiled.textContent).toContain('Honduras · información agregada por región');
@@ -384,23 +411,26 @@ describe('App', () => {
     fixture.componentInstance.changeRole('establishment-manager');
     fixture.componentInstance.navigate('Mapas');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     expect(compiled.querySelectorAll('.marker')).toHaveLength(1);
     expect(compiled.textContent).not.toContain('← Región de Cortés');
   });
 
-  it('should expose only role-appropriate exports and authors', () => {
+  it('should expose only role-appropriate exports and authors', async () => {
     const fixture = TestBed.createComponent(App);
     const compiled = fixture.nativeElement as HTMLElement;
 
     fixture.componentInstance.changeRole('central-validator');
     fixture.componentInstance.navigate('Reportes y exportaciones');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     expect(compiled.textContent).toContain('Consolidado nacional');
     expect(compiled.textContent).toContain('Dra. Elena Pineda');
 
     fixture.componentInstance.changeRole('establishment-manager');
     fixture.componentInstance.navigate('Reportes y exportaciones');
     fixture.detectChanges();
+    await settleDeferred(fixture);
     expect(compiled.textContent).toContain('ITS 1 del establecimiento');
     expect(compiled.textContent).toContain('CIS Linda Coello');
     expect(compiled.textContent).not.toContain('Consolidado nacional');

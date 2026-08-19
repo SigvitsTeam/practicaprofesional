@@ -111,6 +111,12 @@ async function verify(): Promise<void> {
     );
     if (its1Permissions.rows[0]?.total !== 4)
       throw new Error('No están disponibles todos los permisos operativos de ITS-1.');
+    const analyticsPermissions = await directClient.query<{ total: number }>(
+      `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
+      [['analytics:territorial:read']],
+    );
+    if (analyticsPermissions.rows[0]?.total !== 1)
+      throw new Error('No está disponible el permiso de analítica territorial.');
     const territorialPermissions = await directClient.query<{ total: number }>(
       `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
       [
@@ -169,6 +175,7 @@ async function verify(): Promise<void> {
         publiclyReadable: deployment.publiclyReadable,
         its2WorkflowPermissions: workflowPermissions.rows[0].total,
         its1Permissions: its1Permissions.rows[0].total,
+        analyticsPermissions: analyticsPermissions.rows[0].total,
         territorialPermissions: territorialPermissions.rows[0].total,
         userAdminPermissions: userAdminPermissions.rows[0].total,
         activeOperators: Object.fromEntries(

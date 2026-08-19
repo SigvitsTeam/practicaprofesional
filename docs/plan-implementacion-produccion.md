@@ -98,9 +98,12 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 9. Gestión directa de estados de regiones, municipios y establecimientos desde la interfaz administrativa.
 10. Suspensión, reactivación e inactivación de redes con bloqueo optimista, auditoría y conservación de membresías históricas.
 11. Anulación auditada de ITS-1 y bloqueo de correcciones/anulaciones cuando el ITS-2 ya fue enviado o aprobado.
+12. Analítica territorial agregada por región, municipio y establecimiento, filtrada por alcance y sin consultar ITS-1 individual.
+13. Mapa productivo conectado a catálogo y versiones ITS-2 vigentes; los datos simulados quedan limitados al modo demo.
+14. Carga diferida de pantallas operativas y administrativas para mantener el bundle inicial bajo presupuesto.
 
 ### Siguiente ejecución
 
 1. Completar invitación y vinculación segura con el proveedor de identidad externa.
-2. Sustituir datos simulados restantes en tableros, mapas y bandejas.
+2. Sustituir datos simulados restantes en el panel de inicio y vistas secundarias.
 3. Aplicar las migraciones pendientes y ejecutar smoke/UAT sobre PostgreSQL de staging.

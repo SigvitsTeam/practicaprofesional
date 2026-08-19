@@ -237,3 +237,4 @@ td small { font-size:8.5px; }
 :root[data-theme='dark'] .drawer-backdrop { background: #020a0dcc; }
 :root[data-theme='dark'] .toast { color: #e9f6f2; background: #123d36; }
 :root[data-theme='dark'] * { scrollbar-color: #3a5661 #0c1a21; }
+.page-loading { padding:18px; border:1px solid var(--line); border-radius:9px; color:var(--muted); background:var(--surface,#fff); font-size:.72rem; }.drawer-loading { position:fixed; right:24px; bottom:24px; z-index:80; }
