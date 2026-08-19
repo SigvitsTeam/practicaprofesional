@@ -122,10 +122,12 @@ describe('App', () => {
     expect(compiled.querySelectorAll('.history-timeline article')).toHaveLength(4);
   });
 
-  it('should let only the global superadmin manage regions and municipalities', () => {
+  it('should let only the global superadmin manage regions, municipalities and establishments', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('superadmin');
     fixture.componentInstance.navigate('Administración');
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
 
@@ -136,11 +138,15 @@ describe('App', () => {
     expect(compiled.querySelector<HTMLElement>('.global-filter-slot')?.hidden).toBe(true);
     expect(compiled.querySelectorAll('.global-territory-table')).toHaveLength(2);
     expect(compiled.querySelector('.municipality-catalog')).toBeTruthy();
+    expect(compiled.querySelector('.facility-admin')).toBeTruthy();
+    expect(compiled.textContent).toContain('Catálogo de establecimientos');
+    expect(compiled.textContent).toContain('Estados operativos controlados');
 
     fixture.componentInstance.changeRole('regional-superadmin');
     fixture.componentInstance.navigate('Administración');
     fixture.detectChanges();
     expect(compiled.querySelector('.global-territory-management')).toBeNull();
+    expect(compiled.querySelector('.facility-admin')).toBeTruthy();
   });
 
   it('should let global and regional superadmins manage health networks', () => {
@@ -150,11 +156,10 @@ describe('App', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
 
-    expect(compiled.querySelectorAll('.network-catalog > button')).toHaveLength(5);
-    expect(compiled.textContent).toContain('Red Puerto Cortés–Omoa');
+    expect(compiled.querySelector('.network-catalog')).toBeTruthy();
     expect(compiled.textContent).toContain('＋ Nueva Red');
     expect(compiled.textContent).toContain('Producción consolidada');
-    expect(compiled.textContent).toContain('280');
+    expect(compiled.textContent).toContain('Pendiente API analítica');
     expect(Array.from(compiled.querySelectorAll('.network-filterbar label')).some(label => label.querySelector('span')?.textContent?.trim() === 'Región')).toBe(true);
 
     fixture.componentInstance.changeRole('regional-superadmin');
@@ -180,10 +185,8 @@ describe('App', () => {
     expect(compiled.textContent).toContain('↓ PDF');
     expect(Array.from(compiled.querySelectorAll('.filters label')).some(label => label.querySelector('span')?.textContent?.trim() === 'Red')).toBe(true);
 
-    const municipalitiesTab = Array.from(compiled.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(button => button.textContent?.trim() === 'Municipios asociados')!;
-    municipalitiesTab.click();
-    fixture.detectChanges();
-    expect(compiled.querySelectorAll('.network-members input:disabled')).toHaveLength(5);
+    expect(compiled.querySelector('.network-catalog')).toBeTruthy();
+    expect(compiled.textContent).toContain('catálogo y la composición municipal provienen de PostgreSQL');
   });
 
   it('should show the aggregated network consolidation without individual ITS 1 data', () => {
@@ -192,15 +195,8 @@ describe('App', () => {
     fixture.componentInstance.navigate('Redes');
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    const consolidatedTab = Array.from(compiled.querySelectorAll<HTMLButtonElement>('[role="tab"]')).find(button => button.textContent?.trim() === 'Consolidado')!;
-
-    consolidatedTab.click();
-    fixture.detectChanges();
-
-    expect(compiled.querySelectorAll('.network-consolidated tbody tr')).toHaveLength(5);
-    expect(compiled.textContent).toContain('Puerto Cortés');
-    expect(compiled.textContent).toContain('Omoa');
-    expect(compiled.textContent).toContain('no contiene registros individuales');
+    expect(compiled.textContent).toContain('Pendiente API analítica');
+    expect(compiled.textContent).not.toContain('Número de expediente');
   });
 
   it('should render one interactive map with twelve establishment markers', () => {

@@ -6,6 +6,10 @@ import {
   ForbiddenException,
   Get,
   NotFoundException,
+  Param,
+  ParseEnumPipe,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Req,
 } from '@nestjs/common';
@@ -19,12 +23,24 @@ import { RequireAccess } from '../../authorization/http/require-access.decorator
 import { TerritorialCatalogUseCase } from '../application/territorial-catalog.use-case';
 import {
   InvalidTerritorialDataError,
+  TerritorialConcurrencyError,
   TerritorialCodeAlreadyExistsError,
+  TerritorialEntityNotFoundError,
   TerritorialParentNotFoundError,
   TerritorialScopeDeniedError,
+  TerritorialStatusTransitionError,
 } from '../domain/territorial-catalog';
-import type { FacilitySummary, MunicipalitySummary } from '../domain/territorial-catalog';
-import { CreateFacilityDto, CreateMunicipalityDto } from './territorial-catalog.dto';
+import type {
+  FacilitySummary,
+  MunicipalitySummary,
+  TerritorialStatusContext,
+} from '../domain/territorial-catalog';
+import {
+  CreateFacilityDto,
+  CreateMunicipalityDto,
+  TerritorialEntityTypeDto,
+  UpdateTerritorialStatusDto,
+} from './territorial-catalog.dto';
 
 @Controller('territories')
 export class TerritorialCatalogController {
@@ -89,13 +105,43 @@ export class TerritorialCatalogController {
     );
   }
 
+  @Patch(':entityType/:id/status')
+  @RequireAccess({
+    permission: 'territorial:status:update',
+    dataLevel: DataLevel.Configuration,
+    scope: 'OWN',
+  })
+  updateStatus(
+    @Param('entityType', new ParseEnumPipe(TerritorialEntityTypeDto))
+    entityType: TerritorialEntityTypeDto,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: UpdateTerritorialStatusDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+    @Req() request: RequestWithContext,
+  ): Promise<TerritorialStatusContext> {
+    return this.handle(() =>
+      this.catalog.updateStatus(entityType, id, body, subject, {
+        actorUserId: subject.userId,
+        requestId: request.requestId,
+        reason: body.reason,
+      }),
+    );
+  }
+
   private async handle<T>(operation: () => Promise<T>): Promise<T> {
     try {
       return await operation();
     } catch (error: unknown) {
       if (error instanceof TerritorialCodeAlreadyExistsError)
         throw new ConflictException(error.message);
+      if (
+        error instanceof TerritorialConcurrencyError ||
+        error instanceof TerritorialStatusTransitionError
+      )
+        throw new ConflictException(error.message);
       if (error instanceof TerritorialParentNotFoundError)
+        throw new NotFoundException(error.message);
+      if (error instanceof TerritorialEntityNotFoundError)
         throw new NotFoundException(error.message);
       if (error instanceof TerritorialScopeDeniedError) throw new ForbiddenException(error.message);
       if (error instanceof InvalidTerritorialDataError)

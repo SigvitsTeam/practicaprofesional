@@ -93,11 +93,14 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 4. Catálogo real de regiones, municipios y establecimientos con alcance y auditoría.
 5. Alta y consulta de perfiles institucionales con rol, vigencia y alcance territorial atómicos.
 6. Suspensión/reactivación y cambios versionados de rol/alcance con bloqueo optimista.
+7. Creación de redes y composición municipal versionada con auditoría y concurrencia segura.
+8. Transiciones territoriales protegidas por dependencias, jerarquía, auditoría y concurrencia.
+9. Gestión directa de estados de regiones, municipios y establecimientos desde la interfaz administrativa.
+10. Suspensión, reactivación e inactivación de redes con bloqueo optimista, auditoría y conservación de membresías históricas.
 
 ### Siguiente ejecución
 
-1. Completar actualización, activación e inactivación de territorios y redes.
-2. Completar invitación y vinculación segura con el proveedor de identidad externa.
-3. Implementar anulación ITS-1 y reglas adicionales de bloqueo por reporte enviado.
-4. Sustituir datos simulados restantes en tableros, mapas y bandejas.
-5. Aplicar las siete migraciones y ejecutar smoke/UAT sobre PostgreSQL de staging.
+1. Completar invitación y vinculación segura con el proveedor de identidad externa.
+2. Implementar anulación ITS-1 y reglas adicionales de bloqueo por reporte enviado.
+3. Sustituir datos simulados restantes en tableros, mapas y bandejas.
+4. Aplicar las nueve migraciones y ejecutar smoke/UAT sobre PostgreSQL de staging.

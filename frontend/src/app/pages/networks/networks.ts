@@ -1,102 +1,104 @@
-import { Component, inject, output } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, output } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
+import { finalize } from 'rxjs/operators';
 import { RoleContext } from '../../core/role-context';
+import { HealthNetworkRecord, RegionRecord, TerritorialApiService } from '../../core/territorial-api.service';
 
 type NetworkTab = 'summary' | 'municipalities' | 'consolidated' | 'history';
+type NetworkView = { id: string; regionId: string; regionName: string; code: string; name: string; municipalities: number; reports: string; total: number; status: string; rawStatus: string; active: boolean; configured: boolean; memberIds: string[]; updatedAt: string };
 
-@Component({
-  selector: 'app-networks',
-  imports: [FormsModule],
-  templateUrl: './networks.html',
-  styleUrl: './networks.css'
-})
-export class Networks {
+@Component({ selector: 'app-networks', imports: [FormsModule], templateUrl: './networks.html', styleUrl: './networks.css' })
+export class Networks implements OnInit {
   readonly notify = output<string>();
   protected readonly roleContext = inject(RoleContext);
+  private readonly api = inject(TerritorialApiService);
+  private readonly destroyRef = inject(DestroyRef);
   protected activeTab: NetworkTab = 'summary';
-  protected selectedNetworkId = 'red-puerto-cortes-omoa';
+  protected selectedNetworkId = '';
   protected municipalityFilter = 'Todos los municipios';
-
+  protected loading = false;
+  protected regions: RegionRecord[] = [];
+  protected networks: NetworkView[] = [];
+  protected municipalities: { id: string; regionId: string; code: string; name: string; establishments: number; total: number; newCases: number; controls: number; reports: string; associated: boolean }[] = [];
+  protected membershipReason = '';
+  protected membershipEffectiveDate = new Date().toISOString().slice(0, 10);
+  protected draftMembershipIds: string[] = [];
+  protected showStatusForm = false;
+  protected statusReason = '';
+  protected nextStatus = 'SUSPENDIDO';
   protected readonly tabs: { id: NetworkTab; label: string }[] = [
-    { id: 'summary', label: 'Resumen' },
-    { id: 'municipalities', label: 'Municipios asociados' },
-    { id: 'consolidated', label: 'Consolidado' },
-    { id: 'history', label: 'Historial' },
+    { id: 'summary', label: 'Resumen' }, { id: 'municipalities', label: 'Municipios asociados' },
+    { id: 'consolidated', label: 'Consolidado' }, { id: 'history', label: 'Historial' },
   ];
-
-  protected networks = [
-    { id: 'red-puerto-cortes-omoa', code: 'RCO-01', name: 'Red Puerto Cortés–Omoa', municipalities: 2, reports: '15 / 18', total: 280, status: 'En pilotaje', configured: true },
-    { id: 'pending-02', code: 'POR VALIDAR', name: 'Red pendiente de validación 2', municipalities: 0, reports: '—', total: 0, status: 'Sin configurar', configured: false },
-    { id: 'pending-03', code: 'POR VALIDAR', name: 'Red pendiente de validación 3', municipalities: 0, reports: '—', total: 0, status: 'Sin configurar', configured: false },
-    { id: 'pending-04', code: 'POR VALIDAR', name: 'Red pendiente de validación 4', municipalities: 0, reports: '—', total: 0, status: 'Sin configurar', configured: false },
-    { id: 'pending-05', code: 'POR VALIDAR', name: 'Red pendiente de validación 5', municipalities: 0, reports: '—', total: 0, status: 'Sin configurar', configured: false },
-  ];
-
-  protected readonly municipalities = [
-    { code: '0506', name: 'Puerto Cortés', establishments: 12, total: 184, newCases: 139, controls: 45, reports: '9 / 12', associated: true },
-    { code: '0503', name: 'Omoa', establishments: 6, total: 96, newCases: 72, controls: 24, reports: '6 / 6', associated: true },
-    { code: '0501', name: 'San Pedro Sula', establishments: 0, total: 0, newCases: 0, controls: 0, reports: '—', associated: false },
-    { code: '0502', name: 'Choloma', establishments: 0, total: 0, newCases: 0, controls: 0, reports: '—', associated: false },
-    { code: '0504', name: 'La Lima', establishments: 0, total: 0, newCases: 0, controls: 0, reports: '—', associated: false },
-  ];
-
-  protected readonly classifications = [
-    { name: 'Sindrómico', puertoCortes: 82, omoa: 41, total: 123 },
-    { name: 'Clínico', puertoCortes: 48, omoa: 27, total: 75 },
-    { name: 'C/E', puertoCortes: 21, omoa: 12, total: 33 },
-    { name: 'Etiológico', puertoCortes: 33, omoa: 16, total: 49 },
-  ];
-
-  protected readonly history = [
-    { date: '04 ago 2026 · 10:15', action: 'Red creada para el prototipo', user: 'Lic. Roberto Lagos', detail: 'Se registró la agrupación Puerto Cortés–Omoa con estado En pilotaje.' },
-    { date: '04 ago 2026 · 10:18', action: 'Municipios asociados', user: 'Lic. Roberto Lagos', detail: 'Se asociaron Puerto Cortés y Omoa con vigencia desde julio 2026.' },
-    { date: '04 ago 2026 · 10:32', action: 'Consolidado recalculado', user: 'Sistema', detail: 'Se generó la vista agregada de 280 casos ITS.' },
-  ];
-
-  get canManage() { return ['superadmin', 'regional-superadmin'].includes(this.roleContext.activeRoleId()); }
-  get isGlobal() { return this.roleContext.activeRoleId() === 'superadmin'; }
-  get selectedNetwork() { return this.networks.find(network => network.id === this.selectedNetworkId) ?? this.networks[0]; }
-  get associatedMunicipalities() { return this.municipalities.filter(municipality => municipality.associated); }
-
+  protected readonly history = [{ date: 'Pendiente de API', action: 'Historial administrativo', user: 'Sistema', detail: 'La bitácora consultable se conectará en el bloque de auditoría.' }];
   protected showCreateForm = false;
   protected formSubmitted = false;
   protected networkForm = this.emptyNetworkForm();
 
-  protected openCreate() {
-    this.formSubmitted = false;
-    this.networkForm = this.emptyNetworkForm();
-    this.showCreateForm = true;
-  }
+  get canManage() { return ['superadmin', 'regional-superadmin'].includes(this.roleContext.activeRoleId()); }
+  get isGlobal() { return this.roleContext.activeRoleId() === 'superadmin'; }
+  get selectedNetwork(): NetworkView { return this.networks.find(network => network.id === this.selectedNetworkId) ?? { id: '', regionId: '', regionName: '', code: 'SIN REDES', name: 'Sin redes configuradas', municipalities: 0, reports: '—', total: 0, status: 'Sin configurar', rawStatus: '', active: false, configured: false, memberIds: [], updatedAt: '' }; }
+  get activeNetworks() { return this.networks.filter(network => network.active).length; }
+  get associatedMunicipalities() { return this.municipalities.filter(municipality => this.selectedNetwork.memberIds.includes(municipality.id)); }
+  get availableMunicipalities() { return this.municipalities.filter(municipality => municipality.regionId === this.networkForm.regionId); }
 
+  ngOnInit() { this.load(); }
+  protected openCreate() { this.formSubmitted = false; this.networkForm = this.emptyNetworkForm(); this.showCreateForm = true; }
   protected closeCreate() { this.showCreateForm = false; }
-
   protected saveNetwork() {
-    this.formSubmitted = true;
-    const form = this.networkForm;
-    if (!form.name.trim() || !form.code.trim() || !form.region) return;
-    const selected = this.municipalities.filter(municipality => form.municipalityCodes.includes(municipality.code));
-    const id = `${form.code.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`;
-    this.networks = [...this.networks, { id, code: form.code.trim(), name: form.name.trim(), municipalities: selected.length, reports: '—', total: 0, status: form.status, configured: true }];
-    this.selectedNetworkId = id;
-    this.showCreateForm = false;
-    this.notify.emit(`Red “${form.name.trim()}” creada correctamente.`);
+    this.formSubmitted = true; const form = this.networkForm;
+    if (!form.name.trim() || !form.code.trim() || !form.regionId || form.reason.trim().length < 10) return;
+    this.loading = true;
+    this.api.createNetwork({ regionId: form.regionId, code: form.code, name: form.name, operationalStatus: form.status, startDate: form.startDate, municipalityIds: form.municipalityIds, reason: form.reason }).pipe(finalize(() => this.loading = false)).subscribe({
+      next: record => { const view = this.toView(record); this.networks = [...this.networks, view]; this.selectNetwork(view.id); this.showCreateForm = false; this.notify.emit(`Red “${view.name}” creada correctamente.`); },
+      error: () => this.notify.emit('No fue posible crear la red. Verifique código, región, municipios y permisos.'),
+    });
   }
-
-  protected toggleMunicipality(code: string, checked: boolean) {
-    this.networkForm.municipalityCodes = checked
-      ? [...this.networkForm.municipalityCodes, code]
-      : this.networkForm.municipalityCodes.filter(item => item !== code);
+  protected toggleMunicipality(id: string, checked: boolean) { this.networkForm.municipalityIds = checked ? [...this.networkForm.municipalityIds, id] : this.networkForm.municipalityIds.filter(item => item !== id); }
+  protected toggleDraftMembership(id: string, checked: boolean) { this.draftMembershipIds = checked ? [...this.draftMembershipIds, id] : this.draftMembershipIds.filter(item => item !== id); }
+  protected saveMemberships() {
+    const network = this.selectedNetwork;
+    if (!network.id || this.membershipReason.trim().length < 10) return;
+    this.loading = true;
+    this.api.replaceNetworkMunicipalities(network.id, this.draftMembershipIds, this.membershipEffectiveDate, network.updatedAt, this.membershipReason).pipe(finalize(() => this.loading = false)).subscribe({
+      next: record => { const view = this.toView(record); this.networks = this.networks.map(item => item.id === view.id ? view : item); this.selectNetwork(view.id); this.membershipReason = ''; this.notify.emit('Composición municipal actualizada con vigencia e historial.'); },
+      error: () => this.notify.emit('No fue posible cambiar la composición. Recargue y verifique la vigencia.'),
+    });
   }
-
-  private emptyNetworkForm() {
-    return { name: '', code: '', region: 'Región de Cortés', status: 'Preconfigurada', startDate: '2026-08-01', municipalityCodes: [] as string[] };
+  protected openStatus() {
+    const network = this.selectedNetwork;
+    if (!network.id) return;
+    this.nextStatus = ({ PRECONFIGURADO: 'CREADO', CREADO: 'EN_PILOTAJE', EN_PILOTAJE: 'ACTIVO', ACTIVO: 'SUSPENDIDO', SUSPENDIDO: 'ACTIVO', INACTIVO: 'ACTIVO' } as Record<string, string>)[network.rawStatus] ?? 'ACTIVO';
+    this.statusReason = '';
+    this.showStatusForm = true;
   }
-
-  selectNetwork(id: string) {
-    this.selectedNetworkId = id;
-    this.activeTab = 'summary';
+  protected saveStatus() {
+    const network = this.selectedNetwork;
+    if (!network.id || this.statusReason.trim().length < 10) return;
+    this.loading = true;
+    this.api.updateNetworkStatus(network.id, this.nextStatus, network.updatedAt, this.statusReason).pipe(finalize(() => this.loading = false)).subscribe({
+      next: record => { const view = this.toView(record); this.networks = this.networks.map(item => item.id === view.id ? view : item); this.selectNetwork(view.id); this.showStatusForm = false; this.notify.emit(`Red “${view.name}” actualizada a ${view.status}.`); },
+      error: () => this.notify.emit('No fue posible cambiar el estado. Recargue la red y verifique la región padre.'),
+    });
   }
-
+  private emptyNetworkForm() { return { name: '', code: '', regionId: this.regions?.[0]?.id ?? '', status: 'PRECONFIGURADO', startDate: new Date().toISOString().slice(0, 10), municipalityIds: [] as string[], reason: '' }; }
+  private load() {
+    this.loading = true;
+    forkJoin({ regions: this.api.listRegions(), catalog: this.api.listCatalog(), networks: this.api.listNetworks() }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.loading = false)).subscribe({
+      next: ({ regions, catalog, networks }) => {
+        this.regions = regions;
+        this.municipalities = catalog.municipalities.map(row => ({ id: row.id, regionId: row.regionId, code: row.officialCode, name: row.name, establishments: row.facilityCount, total: 0, newCases: 0, controls: 0, reports: '—', associated: false }));
+        this.networks = networks.map(record => this.toView(record));
+        this.networkForm.regionId = regions[0]?.id ?? '';
+        if (this.networks[0]) this.selectNetwork(this.networks[0].id);
+      }, error: () => this.notify.emit('No se pudo cargar el catálogo real de redes.'),
+    });
+  }
+  private toView(record: HealthNetworkRecord): NetworkView { return { id: record.id, regionId: record.regionId, regionName: record.regionName, code: record.code, name: record.name, municipalities: record.municipalities.length, reports: '—', total: 0, status: this.statusLabel(record.operationalStatus), rawStatus: record.operationalStatus, active: record.active, configured: true, memberIds: record.municipalities.map(item => item.id), updatedAt: record.updatedAt }; }
+  private statusLabel(status: string) { return ({ PRECONFIGURADO: 'Preconfigurada', CREADO: 'Creada', EN_PILOTAJE: 'En pilotaje', ACTIVO: 'Activa', INACTIVO: 'Inactiva', SUSPENDIDO: 'Suspendida' } as Record<string, string>)[status] ?? status; }
+  selectNetwork(id: string) { this.selectedNetworkId = id; this.activeTab = 'summary'; this.draftMembershipIds = [...this.selectedNetwork.memberIds]; this.municipalities = this.municipalities.map(row => ({ ...row, associated: this.draftMembershipIds.includes(row.id) })); }
   setNetwork(event: Event) { this.selectNetwork((event.target as HTMLSelectElement).value); }
   setMunicipality(event: Event) { this.municipalityFilter = (event.target as HTMLSelectElement).value; }
   selectTab(tab: NetworkTab) { this.activeTab = tab; }

@@ -9,6 +9,8 @@ import {
   type CreateMunicipalityInput,
   type FacilitySummary,
   type MunicipalitySummary,
+  type TerritorialEntityType,
+  type TerritorialStatusContext,
 } from '../domain/territorial-catalog';
 import { TerritorialCatalogRepository } from './ports/territorial-catalog.repository';
 import { TerritorialCatalogUseCase } from './territorial-catalog.use-case';
@@ -47,6 +49,7 @@ class Repository extends TerritorialCatalogRepository {
       mapValidated: false,
       active: true,
       facilityCount: 0,
+      updatedAt: new Date('2026-08-19T12:00:00.000Z'),
     };
     this.municipalities.push(row);
     return Promise.resolve(row);
@@ -63,9 +66,42 @@ class Repository extends TerritorialCatalogRepository {
       operationalStatus: OperationalStatus.Created,
       coordinatesValidated: false,
       active: true,
+      updatedAt: new Date('2026-08-19T12:00:00.000Z'),
     };
     this.facilities.push(row);
     return Promise.resolve(row);
+  }
+  findStatusContext(
+    entityType: TerritorialEntityType,
+    id: string,
+  ): Promise<TerritorialStatusContext | null> {
+    const municipality = this.municipalities.find((row) => row.id === id);
+    return Promise.resolve(
+      municipality
+        ? {
+            id,
+            entityType,
+            regionId: municipality.regionId,
+            operationalStatus: municipality.operationalStatus,
+            active: municipality.active,
+            updatedAt: municipality.updatedAt,
+          }
+        : null,
+    );
+  }
+  updateStatus(input: {
+    entityType: TerritorialEntityType;
+    id: string;
+    status: OperationalStatus;
+  }): Promise<TerritorialStatusContext> {
+    return Promise.resolve({
+      id: input.id,
+      entityType: input.entityType,
+      regionId: this.regions[0].id,
+      operationalStatus: input.status,
+      active: true,
+      updatedAt: new Date(),
+    });
   }
 }
 
@@ -130,5 +166,21 @@ describe('TerritorialCatalogUseCase', () => {
     const result = await useCase.list(subject);
     expect(result.municipalities).toHaveLength(1);
     expect(result.facilities).toHaveLength(1);
+  });
+
+  it('permite una transición territorial válida con control de versión', async () => {
+    const municipality = await useCase.createMunicipality(
+      { regionId, officialCode: '0506', name: 'Puerto Cortés' },
+      subject,
+      audit,
+    );
+    const result = await useCase.updateStatus(
+      'MUNICIPIO',
+      municipality.id,
+      { status: OperationalStatus.Active, expectedUpdatedAt: municipality.updatedAt.toISOString() },
+      subject,
+      audit,
+    );
+    expect(result.operationalStatus).toBe(OperationalStatus.Active);
   });
 });

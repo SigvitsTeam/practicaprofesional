@@ -3,12 +3,17 @@ import type { AuthorizationSubject } from '../../authorization/domain/authorizat
 import {
   InvalidTerritorialDataError,
   TerritorialParentNotFoundError,
+  TerritorialEntityNotFoundError,
+  TerritorialStatusTransitionError,
   TerritorialScopeDeniedError,
   type CreateFacilityInput,
   type CreateMunicipalityInput,
   type FacilitySummary,
   type MunicipalitySummary,
+  type TerritorialEntityType,
+  type TerritorialStatusContext,
 } from '../domain/territorial-catalog';
+import { OperationalStatus, type AuditContext } from '../domain/region';
 import { TerritorialCatalogRepository } from './ports/territorial-catalog.repository';
 
 @Injectable()
@@ -63,6 +68,32 @@ export class TerritorialCatalogUseCase {
     });
   }
 
+  async updateStatus(
+    entityType: TerritorialEntityType,
+    id: string,
+    input: { status: OperationalStatus; expectedUpdatedAt: string },
+    subject: AuthorizationSubject,
+    audit: AuditContext,
+  ): Promise<TerritorialStatusContext> {
+    const context = await this.repository.findStatusContext(entityType, id);
+    if (!context) throw new TerritorialEntityNotFoundError('El territorio no existe.');
+    this.requireRegion(context.regionId, subject);
+    if (!this.allowedTransitions(context.operationalStatus).includes(input.status))
+      throw new TerritorialStatusTransitionError(
+        `No se permite cambiar de ${context.operationalStatus} a ${input.status}.`,
+      );
+    const expectedUpdatedAt = new Date(input.expectedUpdatedAt);
+    if (Number.isNaN(expectedUpdatedAt.getTime()))
+      throw new InvalidTerritorialDataError('La versión del territorio no es válida.');
+    return this.repository.updateStatus({
+      entityType,
+      id,
+      status: input.status,
+      expectedUpdatedAt,
+      audit,
+    });
+  }
+
   private requireRegion(regionId: string, subject: AuthorizationSubject): void {
     if (!subject.territory.national && !subject.territory.regionIds.includes(regionId))
       throw new TerritorialScopeDeniedError();
@@ -84,5 +115,21 @@ export class TerritorialCatalogUseCase {
         `El valor debe contener entre 2 y ${maximum} caracteres.`,
       );
     return normalized;
+  }
+
+  private allowedTransitions(current: OperationalStatus): readonly OperationalStatus[] {
+    const transitions: Record<OperationalStatus, readonly OperationalStatus[]> = {
+      [OperationalStatus.Preconfigured]: [OperationalStatus.Created, OperationalStatus.InPilot],
+      [OperationalStatus.Created]: [OperationalStatus.InPilot, OperationalStatus.Active],
+      [OperationalStatus.InPilot]: [
+        OperationalStatus.Active,
+        OperationalStatus.Suspended,
+        OperationalStatus.Inactive,
+      ],
+      [OperationalStatus.Active]: [OperationalStatus.Suspended, OperationalStatus.Inactive],
+      [OperationalStatus.Suspended]: [OperationalStatus.Active, OperationalStatus.Inactive],
+      [OperationalStatus.Inactive]: [OperationalStatus.Active],
+    };
+    return transitions[current];
   }
 }

@@ -36,10 +36,13 @@ export class Territory implements OnInit {
     { date: '02 ago 2026 · 11:18', user: 'Carlos Mejía', action: 'Activó coordinación en pilotaje', detail: 'Puerto Cortés quedó disponible para operación supervisada.', tone: 'purple' },
     { date: '01 ago 2026 · 08:05', user: 'Sistema', action: 'Registró geometría municipal', detail: 'La silueta geográfica se vinculó al catálogo territorial.', tone: 'gray' },
   ];
-  protected regions: { id: string; code: string; name: string; municipalities: number; activeMunicipalities: number; establishments: number; status: string }[] = [];
-  protected municipalities: { id: string; regionId: string; code: string; name: string; region: string; establishments: number; responsible: string; status: string }[] = [];
+  protected regions: { id: string; code: string; name: string; municipalities: number; activeMunicipalities: number; establishments: number; status: string; rawStatus: string; active: boolean; updatedAt: string }[] = [];
+  protected municipalities: { id: string; regionId: string; code: string; name: string; region: string; establishments: number; responsible: string; status: string; rawStatus: string; active: boolean; updatedAt: string }[] = [];
   protected establishmentNames: string[] = [];
-  protected facilities: { id: string; municipalityId: string; code: string; name: string; type: string }[] = [];
+  protected facilities: { id: string; municipalityId: string; municipality: string; code: string; name: string; type: string; status: string; rawStatus: string; active: boolean; updatedAt: string }[] = [];
+  protected territoryStatusTarget: { entityType: 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO'; id: string; name: string; rawStatus: string; updatedAt: string } | null = null;
+  protected territoryNextStatus = 'SUSPENDIDO';
+  protected territoryStatusReason = '';
   protected users: ManagedUserRecord[] = [];
   protected showUserForm = false;
   protected editingUser: ManagedUserRecord | null = null;
@@ -49,6 +52,7 @@ export class Territory implements OnInit {
   protected userForm = this.emptyUserForm();
   get regionalScope() { return this.roleContext.activeRoleId() === 'regional-superadmin'; }
   get globalScope() { return this.roleContext.activeRoleId() === 'superadmin'; }
+  get selectedMunicipality() { return this.municipalities.find(row => row.code === '0506') ?? this.municipalities[0]; }
 
   protected createKind: CreateTerritoryKind | null = null;
   protected formSubmitted = false;
@@ -128,6 +132,22 @@ export class Territory implements OnInit {
     });
   }
 
+  protected openTerritoryStatus(target: { id: string; name: string; rawStatus: string; updatedAt: string }, entityType: 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO') {
+    this.territoryStatusTarget = { ...target, entityType };
+    this.territoryNextStatus = ({ PRECONFIGURADO: 'CREADO', CREADO: 'EN_PILOTAJE', EN_PILOTAJE: 'ACTIVO', ACTIVO: 'SUSPENDIDO', SUSPENDIDO: 'ACTIVO', INACTIVO: 'ACTIVO' } as Record<string, string>)[target.rawStatus] ?? 'ACTIVO';
+    this.territoryStatusReason = '';
+  }
+
+  protected saveTerritoryStatus() {
+    const target = this.territoryStatusTarget;
+    if (!target || this.territoryStatusReason.trim().length < 10) return;
+    this.loading = true;
+    this.api.updateTerritorialStatus(target.entityType, target.id, this.territoryNextStatus, target.updatedAt, this.territoryStatusReason).pipe(finalize(() => this.loading = false)).subscribe({
+      next: updated => { this.territoryStatusTarget = null; this.notify.emit(`Estado territorial actualizado a ${this.statusLabel(updated.operationalStatus)}.`); this.loadCatalog(); },
+      error: () => this.notify.emit('No fue posible cambiar el estado. Verifique dependencias activas y recargue el catálogo.'),
+    });
+  }
+
   private emptyForm() {
     return { name: '', code: '', regionId: this.regions?.[0]?.id ?? '', municipalityId: this.municipalities?.[0]?.id ?? '', type: 'CIS', responsible: '', status: 'Preconfigurado', address: '', reason: '' };
   }
@@ -158,13 +178,24 @@ export class Territory implements OnInit {
       takeUntilDestroyed(this.destroyRef), finalize(() => this.loading = false),
     ).subscribe({
       next: ({ regions, catalog, users }) => {
-        this.municipalities = catalog.municipalities.map(row => ({ id: row.id, regionId: row.regionId, code: row.officialCode, name: row.name, region: row.regionName, establishments: row.facilityCount, responsible: 'Sin asignar', status: this.statusLabel(row.operationalStatus) }));
-        this.facilities = catalog.facilities.map(row => ({ id: row.id, municipalityId: row.municipalityId, code: row.code, name: row.name, type: row.type }));
+        this.municipalities = catalog.municipalities.map(row => ({ id: row.id, regionId: row.regionId, code: row.officialCode, name: row.name, region: row.regionName, establishments: row.facilityCount, responsible: 'Sin asignar', status: this.statusLabel(row.operationalStatus), rawStatus: row.operationalStatus, active: row.active, updatedAt: row.updatedAt }));
+        this.facilities = catalog.facilities.map(row => ({
+          id: row.id,
+          municipalityId: row.municipalityId,
+          municipality: this.municipalities.find(municipality => municipality.id === row.municipalityId)?.name ?? 'Municipio no disponible',
+          code: row.code,
+          name: row.name,
+          type: row.type,
+          status: this.statusLabel(row.operationalStatus),
+          rawStatus: row.operationalStatus,
+          active: row.active,
+          updatedAt: row.updatedAt,
+        }));
         this.establishmentNames = this.facilities.map(row => row.name);
         this.users = users;
         this.regions = regions.map(region => {
           const municipalities = this.municipalities.filter(row => row.regionId === region.id);
-          return { id: region.id, code: region.code, name: region.name, municipalities: municipalities.length, activeMunicipalities: municipalities.filter(row => row.status === 'Activa' || row.status === 'En pilotaje').length, establishments: municipalities.reduce((total, row) => total + row.establishments, 0), status: this.statusLabel(region.operationalStatus) };
+          return { id: region.id, code: region.code, name: region.name, municipalities: municipalities.length, activeMunicipalities: municipalities.filter(row => row.active).length, establishments: municipalities.reduce((total, row) => total + row.establishments, 0), status: this.statusLabel(region.operationalStatus), rawStatus: region.operationalStatus, active: region.active, updatedAt: region.updatedAt };
         });
         this.territoryForm.regionId ||= this.regions[0]?.id ?? '';
         this.territoryForm.municipalityId ||= this.municipalities[0]?.id ?? '';

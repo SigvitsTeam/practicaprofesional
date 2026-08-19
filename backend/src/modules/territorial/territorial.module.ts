@@ -9,6 +9,10 @@ import { TerritorialCatalogRepository } from './application/ports/territorial-ca
 import { TerritorialCatalogUseCase } from './application/territorial-catalog.use-case';
 import { PrismaTerritorialCatalogRepository } from './infrastructure/prisma-territorial-catalog.repository';
 import { TerritorialCatalogController } from './http/territorial-catalog.controller';
+import { HealthNetworkRepository } from './application/ports/health-network.repository';
+import { HealthNetworksUseCase } from './application/health-networks.use-case';
+import { PrismaHealthNetworkRepository } from './infrastructure/prisma-health-network.repository';
+import { HealthNetworksController } from './http/health-networks.controller';
 
 @Module({
   imports: [DatabaseModule],
@@ -16,10 +20,12 @@ import { TerritorialCatalogController } from './http/territorial-catalog.control
     CreateRegionUseCase,
     ListActiveRegionsUseCase,
     TerritorialCatalogUseCase,
+    HealthNetworksUseCase,
     { provide: RegionRepository, useClass: PrismaRegionRepository },
     { provide: TerritorialCatalogRepository, useClass: PrismaTerritorialCatalogRepository },
+    { provide: HealthNetworkRepository, useClass: PrismaHealthNetworkRepository },
   ],
-  controllers: [RegionsController, TerritorialCatalogController],
+  controllers: [RegionsController, TerritorialCatalogController, HealthNetworksController],
   exports: [CreateRegionUseCase, ListActiveRegionsUseCase],
 })
 export class TerritorialModule {}

@@ -56,7 +56,7 @@ export class PrismaRegionRepository implements RegionRepository {
 
   async listActive(regionIds?: readonly string[]): Promise<Region[]> {
     const regions = await this.prisma.client.region.findMany({
-      where: { active: true, ...(regionIds ? { id: { in: [...regionIds] } } : {}) },
+      where: { ...(regionIds ? { id: { in: [...regionIds] } } : {}) },
       orderBy: [{ name: 'asc' }, { code: 'asc' }],
     });
     return regions.map((region) => this.toDomain(region));

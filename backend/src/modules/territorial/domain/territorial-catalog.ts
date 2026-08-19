@@ -11,6 +11,7 @@ export interface MunicipalitySummary {
   mapValidated: boolean;
   active: boolean;
   facilityCount: number;
+  updatedAt: Date;
 }
 
 export interface FacilitySummary {
@@ -24,6 +25,7 @@ export interface FacilitySummary {
   operationalStatus: OperationalStatus;
   coordinatesValidated: boolean;
   active: boolean;
+  updatedAt: Date;
 }
 
 export interface CreateMunicipalityInput {
@@ -69,3 +71,18 @@ export class TerritorialScopeDeniedError extends Error {
     this.name = TerritorialScopeDeniedError.name;
   }
 }
+
+export type TerritorialEntityType = 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO';
+
+export interface TerritorialStatusContext {
+  id: string;
+  entityType: TerritorialEntityType;
+  regionId: string;
+  operationalStatus: OperationalStatus;
+  active: boolean;
+  updatedAt: Date;
+}
+
+export class TerritorialEntityNotFoundError extends Error {}
+export class TerritorialStatusTransitionError extends Error {}
+export class TerritorialConcurrencyError extends Error {}

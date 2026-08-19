@@ -105,10 +105,14 @@ async function verify(): Promise<void> {
           'territorial:catalog:read',
           'territorial:municipalities:create',
           'territorial:facilities:create',
+          'territorial:networks:read',
+          'territorial:networks:create',
+          'territorial:networks:update',
+          'territorial:status:update',
         ],
       ],
     );
-    if (territorialPermissions.rows[0]?.total !== 3)
+    if (territorialPermissions.rows[0]?.total !== 7)
       throw new Error('No están disponibles todos los permisos de administración territorial.');
     const userAdminPermissions = await directClient.query<{ total: number }>(
       `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,

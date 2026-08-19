@@ -2,10 +2,11 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { RuntimeConfigService } from './runtime-config.service';
 
-export interface RegionRecord { id: string; code: string; name: string; regionNumber?: string; type: string; operationalStatus: string; active: boolean }
-export interface MunicipalityRecord { id: string; regionId: string; regionName: string; officialCode: string; name: string; operationalStatus: string; mapValidated: boolean; active: boolean; facilityCount: number }
-export interface FacilityRecord { id: string; municipalityId: string; municipalityName: string; code: string; name: string; type: string; address?: string; operationalStatus: string; coordinatesValidated: boolean; active: boolean }
+export interface RegionRecord { id: string; code: string; name: string; regionNumber?: string; type: string; operationalStatus: string; active: boolean; updatedAt: string }
+export interface MunicipalityRecord { id: string; regionId: string; regionName: string; officialCode: string; name: string; operationalStatus: string; mapValidated: boolean; active: boolean; facilityCount: number; updatedAt: string }
+export interface FacilityRecord { id: string; municipalityId: string; municipalityName: string; code: string; name: string; type: string; address?: string; operationalStatus: string; coordinatesValidated: boolean; active: boolean; updatedAt: string }
 export interface TerritorialCatalog { municipalities: MunicipalityRecord[]; facilities: FacilityRecord[] }
+export interface HealthNetworkRecord { id: string; regionId: string; regionName: string; code: string; name: string; description?: string; operationalStatus: string; startDate: string; active: boolean; municipalities: { id: string; code: string; name: string; startDate: string }[]; updatedAt: string }
 
 @Injectable({ providedIn: 'root' })
 export class TerritorialApiService {
@@ -24,4 +25,9 @@ export class TerritorialApiService {
   createFacility(input: { municipalityId: string; code: string; name: string; type: string; address?: string; reason: string }) {
     return this.http.post<FacilityRecord>(`${this.base}/territories/facilities`, input);
   }
+  listNetworks() { return this.http.get<HealthNetworkRecord[]>(`${this.base}/territories/networks`); }
+  createNetwork(input: { regionId: string; code: string; name: string; description?: string; operationalStatus: string; startDate: string; municipalityIds: string[]; reason: string }) { return this.http.post<HealthNetworkRecord>(`${this.base}/territories/networks`, input); }
+  replaceNetworkMunicipalities(networkId: string, municipalityIds: string[], effectiveDate: string, expectedUpdatedAt: string, reason: string) { return this.http.put<HealthNetworkRecord>(`${this.base}/territories/networks/${networkId}/municipalities`, { municipalityIds, effectiveDate, expectedUpdatedAt, reason }); }
+  updateNetworkStatus(networkId: string, status: string, expectedUpdatedAt: string, reason: string) { return this.http.patch<HealthNetworkRecord>(`${this.base}/territories/networks/${networkId}/status`, { status, expectedUpdatedAt, reason }); }
+  updateTerritorialStatus(entityType: 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO', id: string, status: string, expectedUpdatedAt: string, reason: string) { return this.http.patch<{ id: string; operationalStatus: string; active: boolean; updatedAt: string }>(`${this.base}/territories/${entityType}/${id}/status`, { status, expectedUpdatedAt, reason }); }
 }

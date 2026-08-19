@@ -75,6 +75,29 @@ describe('Application (e2e)', () => {
     await request(app.getHttpServer()).post('/api/v1/territories/facilities').send({}).expect(401);
   });
 
+  it('protects the health network catalog', async () => {
+    await request(app.getHttpServer()).get('/api/v1/territories/networks').expect(401);
+  });
+
+  it('protects health network creation and membership changes', async () => {
+    await request(app.getHttpServer()).post('/api/v1/territories/networks').send({}).expect(401);
+    await request(app.getHttpServer())
+      .put('/api/v1/territories/networks/11111111-1111-4111-8111-111111111111/municipalities')
+      .send({})
+      .expect(401);
+    await request(app.getHttpServer())
+      .patch('/api/v1/territories/networks/11111111-1111-4111-8111-111111111111/status')
+      .send({})
+      .expect(401);
+  });
+
+  it('protects territorial status transitions', async () => {
+    await request(app.getHttpServer())
+      .patch('/api/v1/territories/MUNICIPIO/11111111-1111-4111-8111-111111111111/status')
+      .send({})
+      .expect(401);
+  });
+
   it('protects the institutional user catalog', async () => {
     await request(app.getHttpServer()).get('/api/v1/admin/users').expect(401);
   });
