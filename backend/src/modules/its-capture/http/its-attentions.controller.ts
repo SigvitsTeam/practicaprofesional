@@ -1,9 +1,14 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Get,
   Header,
+  NotFoundException,
+  Param,
+  Patch,
+  ParseUUIDPipe,
   Post,
   Query,
   Req,
@@ -19,6 +24,8 @@ import {
   type AuthorizationSubject,
 } from '../../authorization/domain/authorization.types';
 import { CreateAttentionUseCase } from '../application/create-attention.use-case';
+import { ListAttentionsUseCase } from '../application/list-attentions.use-case';
+import { UpdateAttentionUseCase } from '../application/update-attention.use-case';
 import { GetCaptureContextUseCase } from '../application/get-capture-context.use-case';
 import { GetMonthlyReportUseCase } from '../application/get-monthly-report.use-case';
 import { ItsAttentionRepository } from '../application/ports/its-attention.repository';
@@ -26,24 +33,52 @@ import { RenderIts1PdfUseCase } from '../application/render-its1-pdf.use-case';
 import { RenderIts2PdfUseCase } from '../application/render-its2-pdf.use-case';
 import {
   CaptureConfigurationError,
+  AttentionNotEditableError,
+  AttentionNotFoundError,
+  ConcurrentAttentionUpdateError,
+  type AttentionPage,
+  type AttentionRecord,
   type CaptureContext,
   InvalidAttentionError,
   type CreatedAttention,
 } from '../domain/its-attention';
 import { CreateAttentionDto } from './create-attention.dto';
 import { MonthlyReportQueryDto } from './monthly-report-query.dto';
+import { ListAttentionsQueryDto } from './list-attentions-query.dto';
+import { UpdateAttentionDto } from './update-attention.dto';
 import type { ItsMonthlyReport } from '../domain/its-monthly-report';
 
 @Controller('its1/attentions')
 export class ItsAttentionsController {
   constructor(
     private readonly createAttention: CreateAttentionUseCase,
+    private readonly listAttentions: ListAttentionsUseCase,
+    private readonly updateAttention: UpdateAttentionUseCase,
     private readonly getCaptureContext: GetCaptureContextUseCase,
     private readonly getMonthlyReport: GetMonthlyReportUseCase,
     private readonly repository: ItsAttentionRepository,
     private readonly renderIts1Pdf: RenderIts1PdfUseCase,
     private readonly renderIts2Pdf: RenderIts2PdfUseCase,
   ) {}
+
+  @Get()
+  @RequireAccess({
+    permission: 'its1:attentions:read',
+    dataLevel: DataLevel.Individual,
+    scope: 'OWN',
+    target: (request) => ({
+      facilityId:
+        typeof request.query.facilityId === 'string' ? request.query.facilityId : undefined,
+    }),
+  })
+  async list(@Query() query: ListAttentionsQueryDto): Promise<AttentionPage> {
+    try {
+      return await this.listAttentions.execute(query);
+    } catch (error: unknown) {
+      if (error instanceof InvalidAttentionError) throw new BadRequestException(error.message);
+      throw error;
+    }
+  }
 
   @Get('context')
   @RequireAccess({
@@ -147,6 +182,43 @@ export class ItsAttentionsController {
       if (error instanceof InvalidAttentionError) throw new BadRequestException(error.message);
       if (error instanceof CaptureConfigurationError)
         throw new ServiceUnavailableException(error.message);
+      throw error;
+    }
+  }
+
+  @Patch(':id')
+  @RequireAccess({
+    permission: 'its1:attentions:update',
+    dataLevel: DataLevel.Individual,
+    scope: 'OWN',
+    target: (request) => ({ facilityId: (request.body as UpdateAttentionDto).facilityId }),
+  })
+  async update(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() body: UpdateAttentionDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+    @Req() request: RequestWithContext,
+  ): Promise<AttentionRecord> {
+    try {
+      return await this.updateAttention.execute({
+        ...body,
+        id,
+        attentionDate: new Date(`${body.attentionDate}T00:00:00.000Z`),
+        expectedUpdatedAt: new Date(body.expectedUpdatedAt),
+        userId: subject.userId,
+        requestId: request.requestId,
+        diagnoses: body.diagnoses,
+      });
+    } catch (error: unknown) {
+      if (error instanceof InvalidAttentionError) throw new BadRequestException(error.message);
+      if (error instanceof CaptureConfigurationError)
+        throw new ServiceUnavailableException(error.message);
+      if (error instanceof AttentionNotFoundError) throw new NotFoundException(error.message);
+      if (
+        error instanceof AttentionNotEditableError ||
+        error instanceof ConcurrentAttentionUpdateError
+      )
+        throw new ConflictException(error.message);
       throw error;
     }
   }

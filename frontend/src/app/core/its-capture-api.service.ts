@@ -25,6 +25,29 @@ export interface CreateAttentionRequest {
   diagnoses: { diseaseId: string; caseType: 'NUEVO' | 'CONTROL' }[];
 }
 
+export interface ItsAttentionRecord {
+  id: string;
+  facilityId: string;
+  attentionDate: string;
+  patientRecordNumber: string;
+  originText: string;
+  sex: 'H' | 'M';
+  age: number;
+  populationType: { id: string; code: string; name: string };
+  isContact: boolean;
+  isPregnant: boolean;
+  possibleDuplicate: boolean;
+  observation?: string;
+  diagnoses: { diseaseId: string; diseaseName: string; caseType: 'NUEVO' | 'CONTROL' }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ItsAttentionPage {
+  items: ItsAttentionRecord[];
+  nextCursor?: string;
+}
+
 export interface ItsMonthlyReportResponse {
   facility: { id: string; code: string; name: string; municipalityName: string; regionName: string };
   year: number;
@@ -62,6 +85,45 @@ export interface Its2WorkflowReport {
   openObservations: { id: string; comment: string; createdAt: string }[];
 }
 
+export type MunicipalConsolidationStatus = 'BORRADOR' | 'ENVIADO_A_REGION' | 'DEVUELTO_POR_REGION' | 'APROBADO_REGION';
+export interface MunicipalConsolidationReport {
+  id: string; status: MunicipalConsolidationStatus; version: number;
+  municipality: { id: string; code: string; name: string }; regionId: string;
+  year: number; month: number; expectedFacilities: number;
+  sourceReports: { id: string; version: number; facility: { id: string; code: string; name: string } }[];
+  sourceAttentionCount: number; attentionTotalsComplete: boolean;
+  attentionsUnder15?: number; attentions15Plus?: number; currentComment?: string;
+  generatedAt: string; sentAt?: string; approvedAt?: string;
+  openObservations: { id: string; comment: string; createdAt: string }[];
+}
+export interface MunicipalConsolidationContext {
+  municipalities: { id: string; code: string; name: string; regionId: string; activeFacilities: number }[];
+}
+export type RegionalConsolidationStatus = 'BORRADOR' | 'ENVIADO_A_CENTRAL' | 'DEVUELTO_POR_CENTRAL' | 'APROBADO_CENTRAL';
+export interface RegionalConsolidationReport {
+  id: string; status: RegionalConsolidationStatus; version: number;
+  region: { id: string; code: string; name: string }; year: number; month: number;
+  expectedMunicipalities: number;
+  sourceReports: { id: string; version: number; municipality: { id: string; code: string; name: string } }[];
+  sourceAttentionCount: number; attentionTotalsComplete: boolean;
+  attentionsUnder15?: number; attentions15Plus?: number; currentComment?: string;
+  generatedAt: string; sentAt?: string; approvedAt?: string;
+  openObservations: { id: string; comment: string; createdAt: string }[];
+}
+export interface RegionalConsolidationContext {
+  regions: { id: string; code: string; name: string; activeMunicipalities: number }[];
+}
+export type NationalConsolidationStatus = 'BORRADOR' | 'CONSOLIDADO_NACIONAL' | 'CERRADO_OFICIAL' | 'REABIERTO_AUTORIZADO';
+export interface NationalConsolidationReport {
+  id: string; status: NationalConsolidationStatus; version: number; year: number; month: number;
+  periodStatus: 'ABIERTO' | 'CERRADO' | 'BLOQUEADO'; expectedRegions: number;
+  sourceReports: { id: string; version: number; region: { id: string; code: string; name: string } }[];
+  sourceAttentionCount: number; attentionTotalsComplete: boolean;
+  attentionsUnder15?: number; attentions15Plus?: number; currentComment?: string;
+  generatedAt: string; closedAt?: string;
+}
+export interface NationalConsolidationContext { activeRegions: number }
+
 @Injectable({ providedIn: 'root' })
 export class ItsCaptureApiService {
   private readonly http = inject(HttpClient);
@@ -71,6 +133,15 @@ export class ItsCaptureApiService {
 
   getContext() { return this.http.get<CaptureContextResponse>(`${this.endpoint}/context`); }
   createAttention(input: CreateAttentionRequest) { return this.http.post<{ id: string; possibleDuplicate: boolean }>(this.endpoint, input); }
+  listAttentions(facilityId: string, year: number, month: number, limit = 25, cursor?: string) {
+    return this.http.get<ItsAttentionPage>(this.endpoint, {
+      params: { facilityId, year, month, limit, ...(cursor ? { cursor } : {}) },
+    });
+  }
+  updateAttention(input: CreateAttentionRequest & { id: string; expectedUpdatedAt: string }) {
+    const { id, ...body } = input;
+    return this.http.patch<ItsAttentionRecord>(`${this.endpoint}/${id}`, body);
+  }
   getMonthlyReport(facilityId: string, year: number, month: number) {
     return this.http.get<ItsMonthlyReportResponse>(`${this.endpoint}/monthly-report`, {
       params: { facilityId, year, month },
@@ -105,5 +176,65 @@ export class ItsCaptureApiService {
   }
   approveIts2Report(reportId: string, comment?: string) {
     return this.http.post<Its2WorkflowReport>(`${this.reportsEndpoint}/${reportId}/approve`, { comment });
+  }
+  getCurrentMunicipalConsolidation(municipalityId: string, year: number, month: number) {
+    return this.http.get<MunicipalConsolidationReport | null>(`${this.runtimeConfig.apiUrl}/v1/its2/municipal-consolidations/current`, { params: { municipalityId, year, month } });
+  }
+  getMunicipalConsolidationContext() {
+    return this.http.get<MunicipalConsolidationContext>(`${this.runtimeConfig.apiUrl}/v1/its2/municipal-consolidations/context`);
+  }
+  prepareMunicipalConsolidation(municipalityId: string, year: number, month: number, comment?: string) {
+    return this.http.post<MunicipalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/municipal-consolidations/prepare`, { municipalityId, year, month, comment });
+  }
+  submitMunicipalConsolidation(reportId: string, comment?: string) {
+    return this.http.post<MunicipalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/municipal-consolidations/${reportId}/submit-region`, { comment });
+  }
+  getRegionalConsolidationInbox(year: number, month: number) {
+    return this.http.get<MunicipalConsolidationReport[]>(`${this.runtimeConfig.apiUrl}/v1/its2/municipal-consolidations/regional-inbox`, { params: { year, month } });
+  }
+  returnMunicipalConsolidation(reportId: string, comment: string) {
+    return this.http.post<MunicipalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/municipal-consolidations/${reportId}/return-municipality`, { comment });
+  }
+  approveMunicipalConsolidation(reportId: string, comment?: string) {
+    return this.http.post<MunicipalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/municipal-consolidations/${reportId}/approve-region`, { comment });
+  }
+  getRegionalConsolidationContext() {
+    return this.http.get<RegionalConsolidationContext>(`${this.runtimeConfig.apiUrl}/v1/its2/regional-consolidations/context`);
+  }
+  getCurrentRegionalConsolidation(regionId: string, year: number, month: number) {
+    return this.http.get<RegionalConsolidationReport | null>(`${this.runtimeConfig.apiUrl}/v1/its2/regional-consolidations/current`, { params: { regionId, year, month } });
+  }
+  prepareRegionalConsolidation(regionId: string, year: number, month: number, comment?: string) {
+    return this.http.post<RegionalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/regional-consolidations/prepare`, { regionId, year, month, comment });
+  }
+  submitRegionalConsolidation(reportId: string, comment?: string) {
+    return this.http.post<RegionalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/regional-consolidations/${reportId}/submit-central`, { comment });
+  }
+  getCentralConsolidationInbox(year: number, month: number) {
+    return this.http.get<RegionalConsolidationReport[]>(`${this.runtimeConfig.apiUrl}/v1/its2/regional-consolidations/central-inbox`, { params: { year, month } });
+  }
+  returnRegionalConsolidation(reportId: string, comment: string) {
+    return this.http.post<RegionalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/regional-consolidations/${reportId}/return-region`, { comment });
+  }
+  approveRegionalConsolidation(reportId: string, comment?: string) {
+    return this.http.post<RegionalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/regional-consolidations/${reportId}/approve-central`, { comment });
+  }
+  getNationalConsolidationContext() {
+    return this.http.get<NationalConsolidationContext>(`${this.runtimeConfig.apiUrl}/v1/its2/national-consolidations/context`);
+  }
+  getCurrentNationalConsolidation(year: number, month: number) {
+    return this.http.get<NationalConsolidationReport | null>(`${this.runtimeConfig.apiUrl}/v1/its2/national-consolidations/current`, { params: { year, month } });
+  }
+  prepareNationalConsolidation(year: number, month: number, comment?: string) {
+    return this.http.post<NationalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/national-consolidations/prepare`, { year, month, comment });
+  }
+  finalizeNationalConsolidation(reportId: string, comment?: string) {
+    return this.http.post<NationalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/national-consolidations/${reportId}/finalize`, { comment });
+  }
+  closeNationalConsolidation(reportId: string, reason: string) {
+    return this.http.post<NationalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/national-consolidations/${reportId}/close`, { reason });
+  }
+  reopenNationalConsolidation(reportId: string, reason: string) {
+    return this.http.post<NationalConsolidationReport>(`${this.runtimeConfig.apiUrl}/v1/its2/national-consolidations/${reportId}/reopen`, { reason });
   }
 }

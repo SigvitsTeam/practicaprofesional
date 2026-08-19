@@ -29,6 +29,7 @@ const protectedTables = [
   'reporte_its_detalle',
   'reporte_flujo_historial',
   'observaciones_reporte',
+  'reporte_fuentes',
 ] as const;
 
 function requiredEnvironment(name: string): string {
@@ -77,10 +78,44 @@ async function verify(): Promise<void> {
     }
     const workflowPermissions = await directClient.query<{ total: number }>(
       `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
-      [['its2:reports:read', 'its2:reports:prepare', 'its2:reports:submit', 'its2:reports:review']],
+      [
+        [
+          'its2:reports:read',
+          'its2:reports:prepare',
+          'its2:reports:submit',
+          'its2:reports:review',
+          'its2:municipal:prepare',
+          'its2:municipal:submit',
+          'its2:regional:review',
+          'its2:regional:prepare',
+          'its2:regional:submit',
+          'its2:central:review',
+          'its2:national:prepare',
+          'its2:national:close',
+          'its2:national:reopen',
+        ],
+      ],
     );
-    if (workflowPermissions.rows[0]?.total !== 4)
+    if (workflowPermissions.rows[0]?.total !== 13)
       throw new Error('No están disponibles todos los permisos del flujo ITS-2.');
+    const territorialPermissions = await directClient.query<{ total: number }>(
+      `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
+      [
+        [
+          'territorial:catalog:read',
+          'territorial:municipalities:create',
+          'territorial:facilities:create',
+        ],
+      ],
+    );
+    if (territorialPermissions.rows[0]?.total !== 3)
+      throw new Error('No están disponibles todos los permisos de administración territorial.');
+    const userAdminPermissions = await directClient.query<{ total: number }>(
+      `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
+      [['admin:users:read', 'admin:users:create', 'admin:users:update']],
+    );
+    if (userAdminPermissions.rows[0]?.total !== 3)
+      throw new Error('No están disponibles todos los permisos de administración de usuarios.');
     const operators = await directClient.query<{ roleCode: string; total: number }>(
       `SELECT r.codigo AS "roleCode", count(DISTINCT u.id) FILTER (WHERE ie.id IS NOT NULL)::int AS total
        FROM roles r
@@ -116,6 +151,8 @@ async function verify(): Promise<void> {
         rlsForced: deployment.hardened,
         publiclyReadable: deployment.publiclyReadable,
         its2WorkflowPermissions: workflowPermissions.rows[0].total,
+        territorialPermissions: territorialPermissions.rows[0].total,
+        userAdminPermissions: userAdminPermissions.rows[0].total,
         activeOperators: Object.fromEntries(
           operators.rows.map((operator) => [operator.roleCode, operator.total]),
         ),

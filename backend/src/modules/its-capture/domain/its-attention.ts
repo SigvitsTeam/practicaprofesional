@@ -50,6 +50,48 @@ export interface CreatedAttention {
   createdAt: Date;
 }
 
+export interface AttentionRecord {
+  id: string;
+  facilityId: string;
+  attentionDate: Date;
+  patientRecordNumber: string;
+  originText: string;
+  sex: BiologicalSex;
+  age: number;
+  populationType: { id: string; code: string; name: string };
+  isContact: boolean;
+  isPregnant: boolean;
+  possibleDuplicate: boolean;
+  observation?: string;
+  diagnoses: readonly {
+    diseaseId: string;
+    diseaseName: string;
+    caseType: DiagnosisCaseType;
+  }[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface AttentionPage {
+  items: readonly AttentionRecord[];
+  nextCursor?: string;
+}
+
+export interface AttentionCursor {
+  attentionDate: Date;
+  id: string;
+}
+
+export interface UpdateAttentionInput extends CreateAttentionInput {
+  id: string;
+  expectedUpdatedAt: Date;
+}
+
+export interface PersistAttentionUpdateInput extends PersistAttentionInput {
+  id: string;
+  expectedUpdatedAt: Date;
+}
+
 export interface CaptureContext {
   facilities: readonly {
     id: string;
@@ -76,3 +118,6 @@ export interface CaptureContext {
 
 export class InvalidAttentionError extends Error {}
 export class CaptureConfigurationError extends Error {}
+export class AttentionNotFoundError extends Error {}
+export class AttentionNotEditableError extends Error {}
+export class ConcurrentAttentionUpdateError extends Error {}

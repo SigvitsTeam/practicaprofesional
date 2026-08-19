@@ -60,6 +60,43 @@ describe('Application (e2e)', () => {
     });
   });
 
+  it('protects the territorial catalog before exposing configuration', async () => {
+    await request(app.getHttpServer()).get('/api/v1/territories/catalog').expect(401);
+  });
+
+  it('protects municipality creation before processing administrative data', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/territories/municipalities')
+      .send({})
+      .expect(401);
+  });
+
+  it('protects facility creation before processing administrative data', async () => {
+    await request(app.getHttpServer()).post('/api/v1/territories/facilities').send({}).expect(401);
+  });
+
+  it('protects the institutional user catalog', async () => {
+    await request(app.getHttpServer()).get('/api/v1/admin/users').expect(401);
+  });
+
+  it('protects atomic user provisioning before validating its payload', async () => {
+    await request(app.getHttpServer()).post('/api/v1/admin/users').send({}).expect(401);
+  });
+
+  it('protects user suspension and reactivation', async () => {
+    await request(app.getHttpServer())
+      .patch('/api/v1/admin/users/11111111-1111-4111-8111-111111111111/status')
+      .send({})
+      .expect(401);
+  });
+
+  it('protects historical role and territory changes', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/admin/users/11111111-1111-4111-8111-111111111111/access-changes')
+      .send({})
+      .expect(401);
+  });
+
   it('rejects malformed bearer credentials without contacting identity services', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/regions')
@@ -79,6 +116,26 @@ describe('Application (e2e)', () => {
 
   it('protects the ITS 1 capture context', async () => {
     await request(app.getHttpServer()).get('/api/v1/its1/attentions/context').expect(401);
+  });
+
+  it('protects paginated ITS 1 records before exposing individual data', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/its1/attentions')
+      .query({
+        facilityId: '11111111-1111-4111-8111-111111111111',
+        year: 2026,
+        month: 8,
+      })
+      .expect(401);
+  });
+
+  it('protects ITS 1 corrections before validating sensitive content', async () => {
+    await request(app.getHttpServer())
+      .patch('/api/v1/its1/attentions/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa')
+      .send({
+        facilityId: '11111111-1111-4111-8111-111111111111',
+      })
+      .expect(401);
   });
 
   it('protects the printable ITS 1 register', async () => {
@@ -114,6 +171,62 @@ describe('Application (e2e)', () => {
     await request(app.getHttpServer())
       .get('/api/v1/its2/reports/municipal-inbox')
       .query({ year: 2026, month: 8 })
+      .expect(401);
+  });
+
+  it('protects preparation of a municipal consolidation', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/its2/municipal-consolidations/prepare')
+      .send({
+        municipalityId: '11111111-1111-4111-8111-111111111111',
+        year: 2026,
+        month: 8,
+      })
+      .expect(401);
+  });
+
+  it('protects municipal consolidation context', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/its2/municipal-consolidations/context')
+      .expect(401);
+  });
+
+  it('protects the regional consolidation inbox', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/its2/municipal-consolidations/regional-inbox')
+      .query({ year: 2026, month: 8 })
+      .expect(401);
+  });
+
+  it('protects preparation of a regional consolidation', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/its2/regional-consolidations/prepare')
+      .send({
+        regionId: '11111111-1111-4111-8111-111111111111',
+        year: 2026,
+        month: 8,
+      })
+      .expect(401);
+  });
+
+  it('protects the central consolidation inbox', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/its2/regional-consolidations/central-inbox')
+      .query({ year: 2026, month: 8 })
+      .expect(401);
+  });
+
+  it('protects preparation of the national consolidation', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/its2/national-consolidations/prepare')
+      .send({ year: 2026, month: 8 })
+      .expect(401);
+  });
+
+  it('protects official national closure', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/its2/national-consolidations/11111111-1111-4111-8111-111111111111/close')
+      .send({ reason: 'Cierre institucional autorizado' })
       .expect(401);
   });
 });

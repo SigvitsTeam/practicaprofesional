@@ -14,7 +14,7 @@
         @case ('Captura ITS 1') { <app-capture-its1 (notify)="showNotice($event)" /> }
         @case ('Reporte ITS 2') { <app-report-its2 (notify)="showNotice($event)" /> }
         @case ('Bandeja de revisión') { <app-review-inbox (reportSelected)="selectReport($event)" (notify)="showNotice($event)" /> }
-        @case ('Consolidados') { <app-consolidated (navigate)="navigate($event)" /> }
+        @case ('Consolidados') { <app-consolidated (navigate)="navigate($event)" (notify)="showNotice($event)" /> }
         @case ('Mapas') { <app-maps (reportSelected)="selectReport($event)" (notify)="showNotice($event)" /> }
         @case ('Redes') { <app-networks (notify)="showNotice($event)" /> }
         @case ('Reportes y exportaciones') { <app-exports (notify)="showNotice($event)" /> }

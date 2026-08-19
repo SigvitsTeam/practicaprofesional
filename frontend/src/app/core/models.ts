@@ -2,6 +2,7 @@ export type ReportStatus = 'Aprobado' | 'En revisión' | 'Devuelto' | 'Pendiente
 
 export interface Report {
   workflowId?: string;
+  workflowLevel?: 'facility' | 'municipal' | 'regional';
   version?: number;
   name: string;
   code: string;

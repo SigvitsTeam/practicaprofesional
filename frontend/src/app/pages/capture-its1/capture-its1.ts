@@ -5,7 +5,7 @@ import { finalize } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { EstablishmentContext } from '../../core/establishment-context';
 import { RoleContext } from '../../core/role-context';
-import { CaptureContextResponse, ItsCaptureApiService } from '../../core/its-capture-api.service';
+import { CaptureContextResponse, CreateAttentionRequest, ItsAttentionRecord, ItsCaptureApiService } from '../../core/its-capture-api.service';
 import { EstablishmentSelector } from '../../shared/establishment-selector/establishment-selector';
 
 @Component({
@@ -24,6 +24,9 @@ export class CaptureIts1 implements OnInit {
   private readonly api = inject(ItsCaptureApiService);
   readonly contextLoading = signal(false);
   readonly saving = signal(false);
+  readonly recordsLoading = signal(false);
+  readonly records = signal<ItsAttentionRecord[]>([]);
+  readonly editing = signal<ItsAttentionRecord | null>(null);
   readonly captureContext = signal<CaptureContextResponse | null>(null);
   submitted = false;
 
@@ -54,6 +57,9 @@ export class CaptureIts1 implements OnInit {
         this.form.controls.pregnant.disable({ emitEvent: false });
       }
     });
+    this.form.controls.attentionDate.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.loadRecords());
   }
 
   ngOnInit() {
@@ -68,12 +74,14 @@ export class CaptureIts1 implements OnInit {
           id: item.id, code: item.code, name: item.name,
           type: item.type === 'POLICLINICO' ? 'Policlínico' : item.type as 'CIS' | 'UAPS',
         })));
+        this.loadRecords();
       },
       error: () => this.notify.emit('No fue posible cargar los catálogos autorizados.'),
     });
   }
 
   get diagnostics() { return this.form.controls.diagnostics as FormArray; }
+  get demoMode() { return this.auth.isDemo(); }
   get canSelectEstablishment() { return this.roleContext.activeRoleId() === 'coordination-digitizer'; }
   get activeUser() { return this.roleContext.activeRole(); }
   get isCorrectionRequested() { return this.context.selectedCode() === '2771'; }
@@ -92,6 +100,47 @@ export class CaptureIts1 implements OnInit {
 
   addDiagnostic() { this.diagnostics.push(this.createDiagnostic()); }
   removeDiagnostic(index: number) { if (this.diagnostics.length > 1) this.diagnostics.removeAt(index); }
+
+  selectRecord(record: ItsAttentionRecord) {
+    const context = this.captureContext();
+    if (!context) return;
+    this.editing.set(record);
+    this.form.patchValue({
+      attentionDate: record.attentionDate.slice(0, 10),
+      patientId: record.patientRecordNumber,
+      procedence: record.originText,
+      sex: record.sex === 'M' ? 'Mujer' : 'Hombre',
+      age: record.age,
+      populationType: record.populationType.name,
+      contact: record.isContact ? 'Sí' : 'No',
+      pregnant: record.isPregnant ? 'Sí' : 'No',
+      observations: record.observation ?? '',
+    });
+    this.diagnostics.clear();
+    for (const diagnosis of record.diagnoses) {
+      const classification = context.classifications.find(group =>
+        group.diseases.some(disease => disease.id === diagnosis.diseaseId));
+      this.diagnostics.push(this.formBuilder.group({
+        classification: [classification?.name ?? '', Validators.required],
+        disease: [diagnosis.diseaseName, Validators.required],
+        caseType: [diagnosis.caseType === 'CONTROL' ? 'Control' : 'Nuevo', Validators.required],
+      }));
+    }
+    if (!this.diagnostics.length) this.diagnostics.push(this.createDiagnostic());
+  }
+
+  clearForm() {
+    this.editing.set(null);
+    this.submitted = false;
+    this.form.reset({
+      attentionDate: new Date().toISOString().slice(0, 10),
+      patientId: '', procedence: '', sex: '', age: null, populationType: 'General',
+      contact: '', pregnant: 'No', observations: '',
+    });
+    this.form.controls.pregnant.disable({ emitEvent: false });
+    this.diagnostics.clear();
+    this.diagnostics.push(this.createDiagnostic());
+  }
 
   save() {
     this.submitted = true;
@@ -116,15 +165,41 @@ export class CaptureIts1 implements OnInit {
       this.notify.emit('La configuración de captura está incompleta. Recargue los catálogos.');
       return;
     }
-    this.saving.set(true);
-    this.api.createAttention({
+    const request: CreateAttentionRequest = {
       facilityId: facility.id, attentionDate: value.attentionDate!, patientRecordNumber: value.patientId!,
       originText: value.procedence!, sex: value.sex === 'Mujer' ? 'M' : 'H', age: value.age,
       populationTypeId: population.id, isContact: value.contact === 'Sí', isPregnant: value.pregnant === 'Sí',
       observation: value.observations || undefined, diagnoses: diagnoses.filter(item => item !== null),
-    }).pipe(finalize(() => this.saving.set(false))).subscribe({
-      next: result => this.notify.emit(result.possibleDuplicate ? 'Atención guardada con alerta de posible duplicado.' : 'Atención ITS 1 guardada correctamente.'),
+    };
+    const editing = this.editing();
+    const operation = editing
+      ? this.api.updateAttention({ ...request, id: editing.id, expectedUpdatedAt: editing.updatedAt })
+      : this.api.createAttention(request);
+    this.saving.set(true);
+    operation.pipe(finalize(() => this.saving.set(false))).subscribe({
+      next: result => {
+        this.notify.emit(editing
+          ? 'Corrección ITS 1 guardada y auditada.'
+          : result.possibleDuplicate ? 'Atención guardada con alerta de posible duplicado.' : 'Atención ITS 1 guardada correctamente.');
+        this.clearForm();
+        this.loadRecords();
+      },
       error: error => this.notify.emit(error?.error?.detail ?? 'No fue posible guardar la atención ITS 1.'),
+    });
+  }
+
+  loadRecords() {
+    if (this.auth.isDemo()) return;
+    const facilityId = this.context.selected().id;
+    const date = this.form.controls.attentionDate.value;
+    if (!facilityId || !date) return;
+    const [year, month] = date.split('-').map(Number);
+    this.recordsLoading.set(true);
+    this.api.listAttentions(facilityId, year, month).pipe(
+      takeUntilDestroyed(this.destroyRef), finalize(() => this.recordsLoading.set(false)),
+    ).subscribe({
+      next: page => this.records.set(page.items),
+      error: () => this.notify.emit('No fue posible cargar las atenciones del período.'),
     });
   }
 

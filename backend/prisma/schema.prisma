@@ -485,6 +485,7 @@ model ItsAttention {
   diagnoses             AttentionDiagnosis[]
 
   @@index([facilityId, attentionDate, status], map: "idx_atenciones_establecimiento_fecha")
+  @@index([facilityId, year, month, status, attentionDate, id], map: "idx_atenciones_lista_mensual")
   @@index([patientRecordNumber, attentionDate, facilityId], map: "idx_atenciones_posible_duplicado")
   @@index([regionId, municipalityId, year, month], map: "idx_atenciones_territorio_periodo")
   @@map("atenciones_its")
@@ -545,11 +546,27 @@ model ItsReport {
   details                 ItsReportDetail[]
   flowHistory             ReportFlowHistory[]
   observations            ReportObservation[]
+  consolidatedSources     ReportSource[]      @relation("ConsolidatedReportSources")
+  sourceForReports        ReportSource[]      @relation("SourceReportSources")
 
   @@unique([periodId, facilityId, version], map: "uq_reportes_periodo_establecimiento_version")
   @@index([level, status, isCurrentVersion], map: "idx_reportes_nivel_estado_actual")
   @@index([regionId, municipalityId, periodId], map: "idx_reportes_territorio_periodo")
   @@map("reportes_its")
+}
+
+model ReportSource {
+  id             String    @id @default(uuid()) @db.Uuid
+  reportId       String    @map("reporte_id") @db.Uuid
+  sourceReportId String    @map("reporte_fuente_id") @db.Uuid
+  sourceVersion  Int       @map("version_fuente")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  report         ItsReport @relation("ConsolidatedReportSources", fields: [reportId], references: [id], onDelete: Cascade)
+  sourceReport   ItsReport @relation("SourceReportSources", fields: [sourceReportId], references: [id], onDelete: Restrict)
+
+  @@unique([reportId, sourceReportId], map: "uq_reporte_fuente")
+  @@index([sourceReportId], map: "idx_reporte_fuente_origen")
+  @@map("reporte_fuentes")
 }
 
 model ItsReportDetail {

@@ -15,6 +15,8 @@ export enum DataLevel {
   Configuration = 'CONFIGURACION',
 }
 
+export type TerritorialScopeType = 'NACIONAL' | 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO';
+
 export interface GrantedTerritory {
   national: boolean;
   regionIds: readonly string[];

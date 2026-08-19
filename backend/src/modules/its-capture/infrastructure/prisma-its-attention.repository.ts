@@ -1,11 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { ItsAttentionRepository } from '../application/ports/its-attention.repository';
+import {
+  AttentionNotEditableError,
+  AttentionNotFoundError,
+  ConcurrentAttentionUpdateError,
+} from '../domain/its-attention';
 import type {
   CaptureContext,
   CaptureReferences,
   CreatedAttention,
+  AttentionCursor,
+  AttentionRecord,
   PersistAttentionInput,
+  PersistAttentionUpdateInput,
 } from '../domain/its-attention';
 import type { MonthlyReportSource } from '../domain/its-monthly-report';
 import type { Its1PrintRegister } from '../domain/its1-print-register';
@@ -180,6 +188,7 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
     facilityId: string;
     attentionDate: Date;
     patientRecordNumber: string;
+    excludeAttentionId?: string;
   }): Promise<boolean> {
     return this.prisma.client.itsAttention
       .count({
@@ -188,9 +197,128 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
           attentionDate: input.attentionDate,
           patientRecordNumber: input.patientRecordNumber,
           status: 'ACTIVO',
+          ...(input.excludeAttentionId ? { id: { not: input.excludeAttentionId } } : {}),
         },
       })
       .then((count) => count > 0);
+  }
+
+  async list(input: {
+    facilityId: string;
+    year: number;
+    month: number;
+    limit: number;
+    cursor?: AttentionCursor;
+  }): Promise<readonly AttentionRecord[]> {
+    const rows = await this.prisma.client.itsAttention.findMany({
+      where: {
+        facilityId: input.facilityId,
+        year: input.year,
+        month: input.month,
+        status: 'ACTIVO',
+        ...(input.cursor
+          ? {
+              OR: [
+                { attentionDate: { lt: input.cursor.attentionDate } },
+                { attentionDate: input.cursor.attentionDate, id: { lt: input.cursor.id } },
+              ],
+            }
+          : {}),
+      },
+      orderBy: [{ attentionDate: 'desc' }, { id: 'desc' }],
+      take: input.limit,
+      select: this.attentionRecordSelection,
+    });
+    return rows.map((row) => this.toAttentionRecord(row));
+  }
+
+  async update(input: PersistAttentionUpdateInput): Promise<AttentionRecord> {
+    return this.prisma.client.$transaction(async (transaction) => {
+      const existing = await transaction.itsAttention.findFirst({
+        where: { id: input.id, facilityId: input.facilityId, status: 'ACTIVO' },
+        select: {
+          updatedAt: true,
+          attentionDate: true,
+          possibleDuplicate: true,
+          monthlyPeriod: { select: { status: true } },
+        },
+      });
+      if (!existing) throw new AttentionNotFoundError('La atención ITS-1 no existe.');
+      if (existing.monthlyPeriod.status !== 'ABIERTO')
+        throw new AttentionNotEditableError('La atención pertenece a un período no editable.');
+      if (existing.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
+        throw new ConcurrentAttentionUpdateError(
+          'La atención fue modificada por otra persona. Recargue los datos antes de continuar.',
+        );
+
+      const updated = await transaction.itsAttention.updateMany({
+        where: {
+          id: input.id,
+          facilityId: input.facilityId,
+          status: 'ACTIVO',
+          updatedAt: input.expectedUpdatedAt,
+        },
+        data: {
+          programId: input.programId,
+          attentionDate: input.attentionDate,
+          epidemiologicalWeekId: input.epidemiologicalWeekId,
+          monthlyPeriodId: input.monthlyPeriodId,
+          year: input.attentionDate.getUTCFullYear(),
+          month: input.attentionDate.getUTCMonth() + 1,
+          regionId: input.regionId,
+          municipalityId: input.municipalityId,
+          patientRecordNumber: input.patientRecordNumber,
+          originText: input.originText,
+          sex: input.sex,
+          age: input.age,
+          ageGroupId: input.ageGroupId,
+          comparativeAgeGroupId: input.comparativeAgeGroupId,
+          populationTypeId: input.populationTypeId,
+          isContact: input.isContact,
+          isPregnant: input.isPregnant,
+          observation: input.observation,
+          possibleDuplicate: input.possibleDuplicate,
+        },
+      });
+      if (updated.count !== 1)
+        throw new ConcurrentAttentionUpdateError(
+          'La atención fue modificada por otra persona. Recargue los datos antes de continuar.',
+        );
+
+      await transaction.attentionDiagnosis.deleteMany({ where: { attentionId: input.id } });
+      await transaction.attentionDiagnosis.createMany({
+        data: input.diagnoses.map((diagnosis) => ({
+          attentionId: input.id,
+          diseaseId: diagnosis.diseaseId,
+          caseType: diagnosis.caseType,
+        })),
+      });
+      await transaction.auditEvent.create({
+        data: {
+          actorUserId: input.userId,
+          action: 'ITS1_ATENCION_ACTUALIZADA',
+          entity: 'atenciones_its',
+          entityId: input.id,
+          dataLevel: 'INDIVIDUAL',
+          requestId: input.requestId,
+          previousData: {
+            attentionDate: existing.attentionDate.toISOString().slice(0, 10),
+            possibleDuplicate: existing.possibleDuplicate,
+            updatedAt: existing.updatedAt.toISOString(),
+          },
+          newData: {
+            attentionDate: input.attentionDate.toISOString().slice(0, 10),
+            possibleDuplicate: input.possibleDuplicate,
+            diagnosesCount: input.diagnoses.length,
+          },
+        },
+      });
+      const result = await transaction.itsAttention.findUniqueOrThrow({
+        where: { id: input.id },
+        select: this.attentionRecordSelection,
+      });
+      return this.toAttentionRecord(result);
+    });
   }
 
   async create(input: PersistAttentionInput): Promise<CreatedAttention> {
@@ -388,6 +516,63 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
       attentions: attentions.map((attention) => ({
         ...attention,
         populationTypeCode: attention.populationType.code,
+      })),
+    };
+  }
+
+  private readonly attentionRecordSelection = {
+    id: true,
+    facilityId: true,
+    attentionDate: true,
+    patientRecordNumber: true,
+    originText: true,
+    sex: true,
+    age: true,
+    populationType: { select: { id: true, code: true, name: true } },
+    isContact: true,
+    isPregnant: true,
+    possibleDuplicate: true,
+    observation: true,
+    diagnoses: {
+      orderBy: { createdAt: 'asc' as const },
+      select: {
+        diseaseId: true,
+        caseType: true,
+        disease: { select: { name: true } },
+      },
+    },
+    createdAt: true,
+    updatedAt: true,
+  } as const;
+
+  private toAttentionRecord(row: {
+    id: string;
+    facilityId: string;
+    attentionDate: Date;
+    patientRecordNumber: string;
+    originText: string;
+    sex: 'H' | 'M';
+    age: number;
+    populationType: { id: string; code: string; name: string };
+    isContact: boolean;
+    isPregnant: boolean;
+    possibleDuplicate: boolean;
+    observation: string | null;
+    diagnoses: readonly {
+      diseaseId: string;
+      caseType: 'NUEVO' | 'CONTROL';
+      disease: { name: string };
+    }[];
+    createdAt: Date;
+    updatedAt: Date;
+  }): AttentionRecord {
+    return {
+      ...row,
+      observation: row.observation ?? undefined,
+      diagnoses: row.diagnoses.map((diagnosis) => ({
+        diseaseId: diagnosis.diseaseId,
+        diseaseName: diagnosis.disease.name,
+        caseType: diagnosis.caseType,
       })),
     };
   }

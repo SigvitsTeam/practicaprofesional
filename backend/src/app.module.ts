@@ -13,6 +13,7 @@ import { AuthorizationGuard } from './modules/authorization/http/authorization.g
 import { HealthModule } from './modules/health/health.module';
 import { ItsCaptureModule } from './modules/its-capture/its-capture.module';
 import { TerritorialModule } from './modules/territorial/territorial.module';
+import { UserAdminModule } from './modules/user-admin/user-admin.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { TerritorialModule } from './modules/territorial/territorial.module';
     HealthModule,
     AuthorizationModule,
     TerritorialModule,
+    UserAdminModule,
     ItsCaptureModule,
   ],
   providers: [

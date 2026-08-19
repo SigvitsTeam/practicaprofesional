@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, output } from '@angular/core';
 import { EstablishmentContext } from '../../core/establishment-context';
 
 @Component({
@@ -7,9 +7,11 @@ import { EstablishmentContext } from '../../core/establishment-context';
   styleUrl: './establishment-selector.css'
 })
 export class EstablishmentSelector {
+  readonly selected = output<void>();
   protected readonly context = inject(EstablishmentContext);
 
   changeEstablishment(event: Event) {
     this.context.select((event.target as HTMLSelectElement).value);
+    this.selected.emit();
   }
 }

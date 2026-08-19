@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MUNICIPAL_REPORTS, REGIONAL_REPORTS, REPORTS } from '../../core/mock-data';
 import { AuthService } from '../../core/auth.service';
-import { ItsCaptureApiService, Its2WorkflowReport } from '../../core/its-capture-api.service';
+import { ItsCaptureApiService, Its2WorkflowReport, MunicipalConsolidationReport, RegionalConsolidationReport } from '../../core/its-capture-api.service';
 import { Report } from '../../core/models';
 import { RoleContext } from '../../core/role-context';
 import { ReportTable } from '../../shared/report-table/report-table';
@@ -22,12 +22,31 @@ export class ReviewInbox implements OnInit {
   search = '';
   ngOnInit() { this.reload(); }
   reload() {
-    if (this.auth.isDemo() || this.roleContext.activeRoleId() !== 'municipal-coordinator') return;
+    if (this.auth.isDemo()) return;
+    const role = this.roleContext.activeRoleId();
     this.loading.set(true); this.loadError.set('');
-    this.api.getMunicipalIts2Inbox(2026, 8).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: reports => { this.liveReports.set(reports.map(report => this.toTableReport(report))); this.loading.set(false); },
-      error: () => { this.liveReports.set([]); this.loading.set(false); this.loadError.set('No fue posible cargar la bandeja municipal.'); },
-    });
+    if (role === 'municipal-coordinator') {
+      this.api.getMunicipalIts2Inbox(2026, 8).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: reports => { this.liveReports.set(reports.map(report => this.toTableReport(report))); this.loading.set(false); },
+        error: () => { this.liveReports.set([]); this.loading.set(false); this.loadError.set('No fue posible cargar la bandeja municipal.'); },
+      });
+      return;
+    }
+    if (role === 'regional-admin' || role === 'regional-superadmin') {
+      this.api.getRegionalConsolidationInbox(2026, 8).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: reports => { this.liveReports.set(reports.map(report => this.toMunicipalTableReport(report))); this.loading.set(false); },
+        error: () => { this.liveReports.set([]); this.loading.set(false); this.loadError.set('No fue posible cargar la bandeja regional.'); },
+      });
+      return;
+    }
+    if (role === 'central-validator') {
+      this.api.getCentralConsolidationInbox(2026, 8).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: reports => { this.liveReports.set(reports.map(report => this.toRegionalTableReport(report))); this.loading.set(false); },
+        error: () => { this.liveReports.set([]); this.loading.set(false); this.loadError.set('No fue posible cargar la bandeja central.'); },
+      });
+      return;
+    }
+    this.loading.set(false);
   }
   get sourceReports() {
     if (!this.auth.isDemo()) return this.liveReports();
@@ -53,6 +72,14 @@ export class ReviewInbox implements OnInit {
   }
   private toTableReport(report: Its2WorkflowReport): Report {
     const status = ({ ENVIADO_A_MUNICIPIO: 'En revisión', DEVUELTO_POR_MUNICIPIO: 'Devuelto', APROBADO_MUNICIPIO: 'Aprobado', BORRADOR: 'Pendiente' } as const)[report.status];
-    return { workflowId: report.id, version: report.version, name: report.facility.name, code: report.facility.code, status, total: report.totalAttentions, newCases: 0, controls: 0, alerts: report.openObservations.length, sent: report.sentAt ? new Date(report.sentAt).toLocaleString('es-HN') : '—' };
+    return { workflowId: report.id, workflowLevel: 'facility', version: report.version, name: report.facility.name, code: report.facility.code, status, total: report.totalAttentions, newCases: 0, controls: 0, alerts: report.openObservations.length, sent: report.sentAt ? new Date(report.sentAt).toLocaleString('es-HN') : '—' };
+  }
+  private toMunicipalTableReport(report: MunicipalConsolidationReport): Report {
+    const status = ({ ENVIADO_A_REGION: 'En revisión', DEVUELTO_POR_REGION: 'Devuelto', APROBADO_REGION: 'Aprobado', BORRADOR: 'Pendiente' } as const)[report.status];
+    return { workflowId: report.id, workflowLevel: 'municipal', version: report.version, name: report.municipality.name, code: report.municipality.code, status, total: report.sourceAttentionCount, newCases: 0, controls: 0, alerts: report.openObservations.length, sent: report.sentAt ? new Date(report.sentAt).toLocaleString('es-HN') : '—' };
+  }
+  private toRegionalTableReport(report: RegionalConsolidationReport): Report {
+    const status = ({ ENVIADO_A_CENTRAL: 'En revisión', DEVUELTO_POR_CENTRAL: 'Devuelto', APROBADO_CENTRAL: 'Aprobado', BORRADOR: 'Pendiente' } as const)[report.status];
+    return { workflowId: report.id, workflowLevel: 'regional', version: report.version, name: report.region.name, code: report.region.code, status, total: report.sourceAttentionCount, newCases: 0, controls: 0, alerts: report.openObservations.length, sent: report.sentAt ? new Date(report.sentAt).toLocaleString('es-HN') : '—' };
   }
 }

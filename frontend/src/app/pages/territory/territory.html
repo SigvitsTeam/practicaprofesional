@@ -6,6 +6,30 @@
   </div>
 </section>
 
+<section class="panel user-admin" aria-label="Administración de usuarios">
+  <div class="user-admin-heading"><div><span class="eyebrow">ACCESO INSTITUCIONAL</span><h2>Usuarios y alcance</h2><p>Los perfiles nuevos permanecen inactivos hasta vincular su identidad externa.</p></div><button class="btn primary" type="button" (click)="openUserCreate()">＋ Nuevo usuario</button></div>
+  <div class="table-wrap"><table><thead><tr><th>Usuario</th><th>Rol</th><th>Alcance</th><th>Acceso</th><th>Acciones</th></tr></thead><tbody>
+    @for (user of users; track user.id) {<tr><td><strong>{{ user.fullName }}</strong><small>{{ user.email }}</small></td><td>{{ user.role.name }}</td><td>{{ user.assignment.label }}</td><td><span class="region-status" [class.preconfigured]="!user.active">{{ user.active && user.hasExternalIdentity ? 'Activo' : user.hasExternalIdentity ? 'Suspendido' : 'Pendiente de identidad' }}</span></td><td class="user-actions"><button type="button" (click)="openUserEdit(user)">Cambiar acceso</button>@if (user.active || user.hasExternalIdentity) {<button type="button" (click)="openStatus(user)">{{ user.active ? 'Suspender' : 'Reactivar' }}</button>}</td></tr>}
+    @empty {<tr><td colspan="5">No hay usuarios visibles dentro del alcance actual.</td></tr>}
+  </tbody></table></div>
+</section>
+
+@if (showUserForm) {
+  <div class="form-modal-backdrop" role="presentation" (click)="showUserForm = false"><section class="form-modal user-dialog" role="dialog" aria-modal="true" aria-label="Administrar usuario institucional" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">{{ editingUser ? 'CAMBIO VERSIONADO' : 'ALTA CONTROLADA' }}</span><h2>{{ editingUser ? 'Cambiar rol o alcance' : 'Nuevo usuario institucional' }}</h2></div><button type="button" (click)="showUserForm = false">×</button></header><form (ngSubmit)="saveUser()"><div class="creation-form">
+    <label class="wide"><span>Nombre completo *</span><input name="userName" [(ngModel)]="userForm.fullName" [disabled]="!!editingUser" [class.invalid]="userFormSubmitted && !userForm.fullName.trim()"></label>
+    <label><span>Correo *</span><input name="userEmail" type="email" [(ngModel)]="userForm.email" [disabled]="!!editingUser" [class.invalid]="userFormSubmitted && !userForm.email.trim()"></label><label><span>Teléfono</span><input name="userPhone" [(ngModel)]="userForm.phone" [disabled]="!!editingUser"></label>
+    <label><span>Rol *</span><select name="userRole" [(ngModel)]="userForm.roleCode" (ngModelChange)="roleChanged()">@if (globalScope) {<option value="ADMIN_CENTRAL">Admin Central</option><option value="SUPERADMIN_REGIONAL">SuperAdmin Regional</option>}<option value="ADMIN_REGIONAL">Admin Regional</option><option value="COORDINADOR_MUNICIPAL">Coordinador Municipal</option><option value="DIGITADOR_COORDINACION">Digitador de Coordinación</option><option value="RESPONSABLE_ESTABLECIMIENTO">Responsable de Establecimiento</option><option value="SUPERVISOR_CONSULTA">Supervisor o Consulta</option></select></label>
+    <label><span>Tipo de alcance *</span><select name="userScope" [(ngModel)]="userForm.scopeType" (ngModelChange)="scopeChanged()">@if (globalScope) {<option value="NACIONAL">Nacional</option>}<option value="REGION">Región</option><option value="MUNICIPIO">Municipio</option><option value="ESTABLECIMIENTO">Establecimiento</option></select></label>
+    <label class="wide"><span>Territorio *</span><select name="userTarget" [(ngModel)]="userForm.targetId">@for (target of userTargets(); track target.id) {<option [value]="target.id">{{ target.name }}</option>}</select></label>
+    <label><span>Inicio de vigencia *</span><input name="userStart" type="date" [(ngModel)]="userForm.startDate"></label>
+    <label class="wide"><span>Motivo *</span><textarea name="userReason" [(ngModel)]="userForm.reason" [class.invalid]="userFormSubmitted && userForm.reason.trim().length < 10" maxlength="500"></textarea><small>@if (userFormSubmitted && userForm.reason.trim().length < 10) {Ingrese al menos 10 caracteres.}</small></label>
+  </div><footer><button class="btn secondary" type="button" (click)="showUserForm = false" [disabled]="loading">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading">{{ loading ? 'Guardando…' : editingUser ? 'Guardar cambio versionado' : 'Crear perfil pendiente' }}</button></footer></form></section></div>
+}
+
+@if (statusUser) {
+  <div class="form-modal-backdrop" (click)="statusUser = null"><section class="form-modal status-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">ACCIÓN SENSIBLE</span><h2>{{ statusUser.active ? 'Suspender' : 'Reactivar' }} usuario</h2><p>{{ statusUser.fullName }} · {{ statusUser.email }}</p></div><button type="button" (click)="statusUser = null">×</button></header><form (ngSubmit)="saveStatus()"><div class="creation-form"><label class="wide"><span>Motivo obligatorio</span><textarea name="statusReason" [(ngModel)]="statusReason" minlength="10" maxlength="500"></textarea><small>Se registrará en la bitácora administrativa.</small></label></div><footer><button class="btn secondary" type="button" (click)="statusUser = null">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading || statusReason.trim().length < 10">Confirmar</button></footer></form></section></div>
+}
+
 @if (globalScope) {
   <section class="global-territory-management" aria-label="Gestión nacional de regiones y municipios">
     <div class="global-management-heading">
@@ -108,16 +132,17 @@
         <div class="creation-form">
           <label class="wide"><span>Nombre oficial *</span><input name="territoryName" [(ngModel)]="territoryForm.name" [class.invalid]="formSubmitted && !territoryForm.name.trim()" autocomplete="off"><small>@if (formSubmitted && !territoryForm.name.trim()) {Ingrese el nombre oficial.}</small></label>
           <label><span>Código oficial *</span><input name="territoryCode" [(ngModel)]="territoryForm.code" [class.invalid]="formSubmitted && !territoryForm.code.trim()" autocomplete="off"><small>@if (formSubmitted && !territoryForm.code.trim()) {Ingrese un código.}</small></label>
-          @if (createKind !== 'region') {<label><span>Región sanitaria *</span><select name="territoryRegion" [(ngModel)]="territoryForm.region"><option>Cortés</option><option>Atlántida</option><option>Francisco Morazán</option></select></label>}
+          @if (createKind === 'municipality') {<label><span>Región sanitaria *</span><select name="territoryRegion" [(ngModel)]="territoryForm.regionId">@for (region of regions; track region.id) {<option [value]="region.id">{{ region.name }}</option>}</select></label>}
           @if (createKind === 'establishment') {
-            <label><span>Municipio *</span><select name="territoryMunicipality" [(ngModel)]="territoryForm.municipality"><option>Puerto Cortés</option><option>San Pedro Sula</option><option>Choloma</option></select></label>
+            <label><span>Municipio *</span><select name="territoryMunicipality" [(ngModel)]="territoryForm.municipalityId">@for (municipality of municipalities; track municipality.id) {<option [value]="municipality.id">{{ municipality.name }}</option>}</select></label>
             <label><span>Tipo de establecimiento *</span><select name="establishmentType" [(ngModel)]="territoryForm.type"><option>CIS</option><option>UAPS</option><option>Policlínico</option><option>Hospital</option></select></label>
             <label class="wide"><span>Dirección</span><input name="territoryAddress" [(ngModel)]="territoryForm.address" autocomplete="off"></label>
           }
           @if (createKind === 'municipality') {<label class="wide"><span>Responsable</span><input name="territoryResponsible" [(ngModel)]="territoryForm.responsible" placeholder="Se puede asignar posteriormente" autocomplete="off"></label>}
+          <label class="wide"><span>Motivo administrativo *</span><textarea name="territoryReason" [(ngModel)]="territoryForm.reason" [class.invalid]="formSubmitted && territoryForm.reason.trim().length < 10" maxlength="500" placeholder="Explique el motivo de la creación"></textarea><small>@if (formSubmitted && territoryForm.reason.trim().length < 10) {Ingrese al menos 10 caracteres para auditoría.}</small></label>
           <label><span>Estado inicial</span><select name="territoryStatus" [(ngModel)]="territoryForm.status">@if (createKind === 'region') {<option>Preconfigurada</option><option>Activa</option>} @else {<option>Preconfigurado</option><option>Activo</option>}<option>En pilotaje</option></select></label>
         </div>
-        <footer><button class="btn secondary" type="button" (click)="closeCreate()">Cancelar</button><button class="btn primary" type="submit">Guardar {{ createKind === 'region' ? 'región' : createKind === 'municipality' ? 'municipio' : 'establecimiento' }}</button></footer>
+        <footer><button class="btn secondary" type="button" (click)="closeCreate()" [disabled]="loading">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading">{{ loading ? 'Guardando…' : 'Guardar' }} {{ createKind === 'region' ? 'región' : createKind === 'municipality' ? 'municipio' : 'establecimiento' }}</button></footer>
       </form>
     </section>
   </div>

@@ -12,12 +12,37 @@ import { ItsReportWorkflowUseCase } from './application/its-report-workflow.use-
 import { ItsReportWorkflowRepository } from './application/ports/its-report-workflow.repository';
 import { ItsReportsController } from './http/its-reports.controller';
 import { PrismaItsReportWorkflowRepository } from './infrastructure/prisma-its-report-workflow.repository';
+import { ListAttentionsUseCase } from './application/list-attentions.use-case';
+import { UpdateAttentionUseCase } from './application/update-attention.use-case';
+import { MunicipalConsolidationUseCase } from './application/municipal-consolidation.use-case';
+import { MunicipalConsolidationRepository } from './application/ports/municipal-consolidation.repository';
+import { PrismaMunicipalConsolidationRepository } from './infrastructure/prisma-municipal-consolidation.repository';
+import { MunicipalConsolidationsController } from './http/municipal-consolidations.controller';
+import { RegionalConsolidationUseCase } from './application/regional-consolidation.use-case';
+import { RegionalConsolidationRepository } from './application/ports/regional-consolidation.repository';
+import { PrismaRegionalConsolidationRepository } from './infrastructure/prisma-regional-consolidation.repository';
+import { RegionalConsolidationsController } from './http/regional-consolidations.controller';
+import { NationalConsolidationUseCase } from './application/national-consolidation.use-case';
+import { NationalConsolidationRepository } from './application/ports/national-consolidation.repository';
+import { PrismaNationalConsolidationRepository } from './infrastructure/prisma-national-consolidation.repository';
+import { NationalConsolidationsController } from './http/national-consolidations.controller';
 
 @Module({
   imports: [DatabaseModule],
-  controllers: [ItsAttentionsController, ItsReportsController],
+  controllers: [
+    ItsAttentionsController,
+    ItsReportsController,
+    MunicipalConsolidationsController,
+    RegionalConsolidationsController,
+    NationalConsolidationsController,
+  ],
   providers: [
     CreateAttentionUseCase,
+    ListAttentionsUseCase,
+    UpdateAttentionUseCase,
+    MunicipalConsolidationUseCase,
+    RegionalConsolidationUseCase,
+    NationalConsolidationUseCase,
     GetCaptureContextUseCase,
     GetMonthlyReportUseCase,
     RenderIts2PdfUseCase,
@@ -25,6 +50,18 @@ import { PrismaItsReportWorkflowRepository } from './infrastructure/prisma-its-r
     ItsReportWorkflowUseCase,
     { provide: ItsAttentionRepository, useClass: PrismaItsAttentionRepository },
     { provide: ItsReportWorkflowRepository, useClass: PrismaItsReportWorkflowRepository },
+    {
+      provide: MunicipalConsolidationRepository,
+      useClass: PrismaMunicipalConsolidationRepository,
+    },
+    {
+      provide: RegionalConsolidationRepository,
+      useClass: PrismaRegionalConsolidationRepository,
+    },
+    {
+      provide: NationalConsolidationRepository,
+      useClass: PrismaNationalConsolidationRepository,
+    },
   ],
 })
 export class ItsCaptureModule {}
