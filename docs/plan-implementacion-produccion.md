@@ -101,9 +101,10 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 12. Analítica territorial agregada por región, municipio y establecimiento, filtrada por alcance y sin consultar ITS-1 individual.
 13. Mapa productivo conectado a catálogo y versiones ITS-2 vigentes; los datos simulados quedan limitados al modo demo.
 14. Carga diferida de pantallas operativas y administrativas para mantener el bundle inicial bajo presupuesto.
+15. Panel de inicio productivo con KPIs y prioridades calculados desde la analítica territorial vigente; mocks limitados al modo demo.
 
 ### Siguiente ejecución
 
 1. Completar invitación y vinculación segura con el proveedor de identidad externa.
-2. Sustituir datos simulados restantes en el panel de inicio y vistas secundarias.
+2. Sustituir datos simulados restantes en vistas administrativas y documentales secundarias.
 3. Aplicar las migraciones pendientes y ejecutar smoke/UAT sobre PostgreSQL de staging.
