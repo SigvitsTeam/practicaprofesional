@@ -41,8 +41,11 @@ class Repository extends ExportJobRepository {
   fail(): Promise<void> {
     return Promise.resolve();
   }
-  acquireDownload(): Promise<never> {
+  getOwnDownload(): Promise<never> {
     return Promise.reject(new Error('not implemented'));
+  }
+  recordDownloadServed(): Promise<void> {
+    return Promise.resolve();
   }
 }
 
@@ -106,5 +109,40 @@ describe('ExportJobsUseCase', () => {
         subject,
       ),
     ).toThrow(InvalidExportJobError);
+  });
+
+  it('queues a municipal consolidation only at municipal scope', async () => {
+    const repository = new Repository();
+    const result = await new ExportJobsUseCase(repository).create(
+      { ...base, reportType: 'MUNICIPAL_CONSOLIDATED' },
+      subject,
+    );
+    expect(result.reportType).toBe('MUNICIPAL_CONSOLIDATED');
+  });
+
+  it('rejects a consolidation whose type and scope do not match', () => {
+    expect(() =>
+      new ExportJobsUseCase(new Repository()).create(
+        { ...base, reportType: 'NATIONAL_CONSOLIDATED' },
+        subject,
+      ),
+    ).toThrow(InvalidExportJobError);
+  });
+
+  it('creates an ITS-1 job only through the individual-data command', async () => {
+    const repository = new Repository();
+    const result = await new ExportJobsUseCase(repository).createIts1(
+      {
+        idempotencyKey: base.idempotencyKey,
+        format: 'XLSX',
+        facilityId: 'facility-1',
+        year: 2026,
+        month: 8,
+        requestId: 'request-1',
+      },
+      subject,
+    );
+    expect(result.reportType).toBe('ITS1_REGISTER');
+    expect(repository.created?.scopeLevel).toBe('ESTABLECIMIENTO');
   });
 });

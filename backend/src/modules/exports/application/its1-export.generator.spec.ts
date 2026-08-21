@@ -1,0 +1,87 @@
+import ExcelJS from 'exceljs';
+import type { ItsAttentionRepository } from '../../its-capture/application/ports/its-attention.repository';
+import type { RenderIts1PdfUseCase } from '../../its-capture/application/render-its1-pdf.use-case';
+import type { Its1PrintRegister } from '../../its-capture/domain/its1-print-register';
+import type { ClaimedExportJob } from '../domain/export-job';
+import { Its1ExportGenerator } from './its1-export.generator';
+
+const register: Its1PrintRegister = {
+  facility: {
+    id: '33333333-3333-4333-8333-333333333333',
+    code: 'F01',
+    name: 'CIS Norte',
+    municipalityName: 'Puerto Cortés',
+    regionName: 'Cortés',
+  },
+  year: 2026,
+  month: 8,
+  responsibleName: 'Responsable',
+  diseases: [{ id: 'disease-1', code: 'A01', name: 'Sífilis', formatOrder: 1 }],
+  attentions: [
+    {
+      originText: '=unsafe',
+      patientRecordNumber: '@record',
+      sex: 'M',
+      age: 22,
+      populationTypeCode: 'GENERAL',
+      isContact: false,
+      isPregnant: false,
+      diagnoses: [
+        {
+          diseaseId: 'disease-1',
+          diseaseCode: 'A01',
+          diseaseName: 'Sífilis',
+          caseType: 'NUEVO',
+        },
+      ],
+    },
+  ],
+};
+const getIts1PrintRegister = jest.fn().mockResolvedValue(register);
+const renderPdfExecute = jest.fn().mockResolvedValue(new Uint8Array(Buffer.from('%PDF-its1')));
+const generator = new Its1ExportGenerator(
+  { getIts1PrintRegister } as unknown as ItsAttentionRepository,
+  { execute: renderPdfExecute } as unknown as RenderIts1PdfUseCase,
+);
+const job: ClaimedExportJob = {
+  id: '11111111-1111-4111-8111-111111111111',
+  requestedByUserId: '22222222-2222-4222-8222-222222222222',
+  reportType: 'ITS1_REGISTER',
+  format: 'XLSX',
+  scopeLevel: 'ESTABLECIMIENTO',
+  territoryId: register.facility.id,
+  year: 2026,
+  month: 8,
+  status: 'PROCESANDO',
+  attempts: 1,
+  maxAttempts: 3,
+  outputAvailable: false,
+  outputExpiresAt: null,
+  errorCode: null,
+  createdAt: new Date('2026-08-21T00:00:00Z'),
+  updatedAt: new Date('2026-08-21T00:00:00Z'),
+};
+
+describe('Its1ExportGenerator', () => {
+  it('generates a protected workbook and neutralizes individual text fields', async () => {
+    const contents = await generator.generate(job);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(contents);
+    const sheet = workbook.getWorksheet('ITS-1');
+    expect(sheet?.getCell('A7').value).toBe("'=unsafe");
+    expect(sheet?.getCell('B7').value).toBe("'@record");
+    expect(sheet?.model.sheetProtection?.sheet).toBe(true);
+    expect(getIts1PrintRegister).toHaveBeenCalledWith({
+      facilityId: register.facility.id,
+      userId: job.requestedByUserId,
+      year: 2026,
+      month: 8,
+    });
+  });
+
+  it('delegates PDF output to the official ITS-1 renderer', async () => {
+    const contents = await generator.generate({ ...job, format: 'PDF' });
+    expect(Buffer.from(contents).toString('ascii')).toBe('%PDF-its1');
+    expect(renderPdfExecute).toHaveBeenCalledWith(register);
+  });
+});

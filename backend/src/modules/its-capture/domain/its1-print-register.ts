@@ -11,7 +11,7 @@ export interface Its1PrintRegister {
   year: number;
   month: number;
   responsibleName: string;
-  diseases: { id: string; formatOrder: number }[];
+  diseases: { id: string; code?: string; name: string; formatOrder: number }[];
   attentions: {
     originText: string;
     patientRecordNumber: string;
@@ -20,6 +20,11 @@ export interface Its1PrintRegister {
     populationTypeCode: string;
     isContact: boolean;
     isPregnant: boolean;
-    diagnoses: { diseaseId: string; caseType: DiagnosisCaseType }[];
+    diagnoses: {
+      diseaseId: string;
+      diseaseCode?: string;
+      diseaseName: string;
+      caseType: DiagnosisCaseType;
+    }[];
   }[];
 }

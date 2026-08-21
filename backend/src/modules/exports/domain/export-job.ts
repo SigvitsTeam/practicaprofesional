@@ -41,9 +41,13 @@ export class ExportJobScopeError extends Error {}
 export class ExportJobConflictError extends Error {}
 export class ExportArtifactNotFoundError extends Error {}
 export class ExportArtifactExpiredError extends Error {}
+export class ExportArtifactAccessError extends Error {}
 
 export interface ExportArtifactDownload {
   storageKey: string;
   format: ExportFormat;
   filename: string;
+  reportType: string;
+  scopeLevel: ExportScopeLevel;
+  territoryId: string | null;
 }

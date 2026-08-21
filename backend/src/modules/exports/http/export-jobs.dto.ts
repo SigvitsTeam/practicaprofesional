@@ -13,10 +13,26 @@ export enum ExportScopeLevelDto {
 
 export class CreateExportJobDto {
   @IsUUID() idempotencyKey!: string;
-  @IsString() @IsIn(['TERRITORIAL_SUMMARY', 'ITS2_MONTHLY']) reportType!: string;
+  @IsString()
+  @IsIn([
+    'TERRITORIAL_SUMMARY',
+    'ITS2_MONTHLY',
+    'MUNICIPAL_CONSOLIDATED',
+    'REGIONAL_CONSOLIDATED',
+    'NATIONAL_CONSOLIDATED',
+  ])
+  reportType!: string;
   @IsEnum(ExportFormatDto) format!: ExportFormatDto;
   @IsEnum(ExportScopeLevelDto) scopeLevel!: ExportScopeLevelDto;
   @IsOptional() @IsUUID() territoryId?: string;
+  @IsInt() @Min(2000) @Max(2100) year!: number;
+  @IsInt() @Min(1) @Max(12) month!: number;
+}
+
+export class CreateIts1ExportJobDto {
+  @IsUUID() idempotencyKey!: string;
+  @IsEnum(ExportFormatDto) format!: ExportFormatDto;
+  @IsUUID() facilityId!: string;
   @IsInt() @Min(2000) @Max(2100) year!: number;
   @IsInt() @Min(1) @Max(12) month!: number;
 }

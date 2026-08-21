@@ -75,6 +75,15 @@ import { PrismaTerritorialAnalyticsRepository } from './infrastructure/prisma-te
       useClass: PrismaTerritorialAnalyticsRepository,
     },
   ],
-  exports: [TerritorialAnalyticsRepository, GetMonthlyReportUseCase, RenderIts2PdfUseCase],
+  exports: [
+    TerritorialAnalyticsRepository,
+    GetMonthlyReportUseCase,
+    RenderIts2PdfUseCase,
+    RenderIts1PdfUseCase,
+    ItsAttentionRepository,
+    MunicipalConsolidationRepository,
+    RegionalConsolidationRepository,
+    NationalConsolidationRepository,
+  ],
 })
 export class ItsCaptureModule {}

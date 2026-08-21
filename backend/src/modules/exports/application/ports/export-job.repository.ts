@@ -11,9 +11,11 @@ export abstract class ExportJobRepository {
   abstract claimNext(staleAfterMs: number): Promise<ClaimedExportJob | null>;
   abstract complete(jobId: string, storageKey: string, expiresAt: Date): Promise<void>;
   abstract fail(jobId: string, errorCode: string): Promise<void>;
-  abstract acquireDownload(
+  abstract getOwnDownload(jobId: string, userId: string): Promise<ExportArtifactDownload>;
+  abstract recordDownloadServed(
     jobId: string,
     userId: string,
     requestId: string,
-  ): Promise<ExportArtifactDownload>;
+    dataLevel: 'INDIVIDUAL' | 'AGREGADO',
+  ): Promise<void>;
 }

@@ -39,6 +39,15 @@ export class ExportJobsApiService {
   }) {
     return this.http.post<ExportJobRecord>(this.endpoint, input);
   }
+  createIts1(input: {
+    idempotencyKey: string;
+    format: 'XLSX' | 'PDF';
+    facilityId: string;
+    year: number;
+    month: number;
+  }) {
+    return this.http.post<ExportJobRecord>(`${this.endpoint}/its1`, input);
+  }
   download(jobId: string) {
     return this.http.get(`${this.endpoint}/${jobId}/download`, { responseType: 'blob' });
   }

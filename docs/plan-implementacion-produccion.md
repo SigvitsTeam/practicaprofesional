@@ -108,10 +108,11 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 19. Cola persistente de exportaciones con trabajos propios, alcance autorizado, idempotencia, estados, intentos, RLS, auditoría e interfaz productiva sin archivos ficticios.
 20. Worker independiente con reclamación atómica `SKIP LOCKED`, recuperación de trabajos estancados, reintentos acotados, generación territorial XLSX/PDF, publicación idempotente, descarga exclusiva del solicitante, vencimiento y auditoría.
 21. Generador ITS-2 mensual para establecimiento con XLSX estructurado, PDF sobre plantilla oficial, alcance validado, neutralización de fórmulas y ejecución fuera del proceso HTTP.
+22. Generadores de consolidados municipal, regional y nacional en XLSX/PDF, construidos desde versiones persistidas, con trazabilidad de fuentes, validación exacta de alcance y sin mutar el flujo de aprobación.
+23. Generador ITS-1 individual en XLSX de solo lectura y PDF oficial, con solicitud separada, permiso individual, alcance de establecimiento, revalidación al descargar y auditoría posterior al servicio exitoso.
 
 ### Siguiente ejecución
 
 1. Automatizar la invitación por correo mediante la API administrativa del proveedor, sin exponer su credencial al frontend.
-2. Implementar los generadores especializados pendientes (ITS-1 y consolidados municipal, regional y nacional) sobre la cola persistente.
-3. Sustituir datos simulados restantes en vistas documentales secundarias.
-4. Aplicar las migraciones pendientes y ejecutar smoke/UAT y pruebas de concurrencia sobre PostgreSQL de staging.
+2. Sustituir datos simulados restantes en vistas documentales secundarias.
+3. Aplicar las migraciones pendientes y ejecutar smoke/UAT y pruebas de concurrencia sobre PostgreSQL de staging.

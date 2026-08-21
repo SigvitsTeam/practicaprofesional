@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RoleContext } from '../../core/role-context';
 import { AuthService } from '../../core/auth.service';
 import { ExportJobsApiService, type ExportJobRecord } from '../../core/export-jobs-api.service';
+import { ItsCaptureApiService } from '../../core/its-capture-api.service';
 
 type ComparisonDimension = 'periods' | 'territories' | 'indicators';
 interface AnnualEvaluationConfig {
@@ -22,7 +23,7 @@ interface ExportOption {
   icon: string;
   title: string;
   detail: string;
-  action: 'annual' | 'generate' | 'planned';
+  action: 'annual' | 'generate' | 'planned' | 'its1';
   reportType?: string;
 }
 interface ExportJob {
@@ -47,6 +48,8 @@ export class Exports implements OnInit {
   private readonly roleContext = inject(RoleContext);
   private readonly auth = inject(AuthService);
   private readonly jobsApi = inject(ExportJobsApiService);
+  private readonly itsCaptureApi = inject(ItsCaptureApiService);
+  private its1FacilityId = '';
   protected liveJobs: ExportJobRecord[] = [];
   protected loading = false;
   protected showAnnualEvaluation = false;
@@ -93,17 +96,26 @@ export class Exports implements OnInit {
         this.notify.emit('No fue posible cargar la cola real de exportaciones.');
       },
     });
+    if (
+      ['establishment-manager', 'coordination-digitizer'].includes(this.roleContext.activeRoleId())
+    )
+      this.itsCaptureApi.getContext().subscribe({
+        next: (context) => {
+          this.its1FacilityId = context.facilities[0]?.id ?? '';
+        },
+        error: () => this.notify.emit('No fue posible resolver el establecimiento para ITS-1.'),
+      });
   }
 
   protected get exportOptions(): ExportOption[] {
     const role = this.roleContext.activeRoleId();
-    if (role === 'establishment-manager')
+    if (role === 'establishment-manager' || role === 'coordination-digitizer')
       return [
         {
           icon: '▦',
           title: 'ITS 1 del establecimiento',
-          detail: 'Generador especializado pendiente',
-          action: 'planned',
+          detail: 'Excel protegido · datos individuales autorizados',
+          action: 'its1',
         },
         {
           icon: '◇',
@@ -131,8 +143,9 @@ export class Exports implements OnInit {
         {
           icon: '▣',
           title: 'Consolidado nacional',
-          detail: 'Generador especializado pendiente',
-          action: 'planned',
+          detail: 'Excel · por región',
+          action: 'generate',
+          reportType: 'NATIONAL_CONSOLIDATED',
         },
         {
           icon: '◇',
@@ -165,8 +178,9 @@ export class Exports implements OnInit {
         {
           icon: '▣',
           title: 'Consolidado municipal',
-          detail: 'Generador especializado pendiente',
-          action: 'planned',
+          detail: 'Excel · establecimientos incluidos',
+          action: 'generate',
+          reportType: 'MUNICIPAL_CONSOLIDATED',
         },
         {
           icon: '↗',
@@ -192,8 +206,9 @@ export class Exports implements OnInit {
       {
         icon: '▣',
         title: 'Consolidado regional',
-        detail: 'Generador especializado pendiente',
-        action: 'planned',
+        detail: 'Excel · municipios incluidos',
+        action: 'generate',
+        reportType: 'REGIONAL_CONSOLIDATED',
       },
       {
         icon: '↗',
@@ -275,11 +290,43 @@ export class Exports implements OnInit {
 
   protected selectExport(option: ExportOption) {
     if (option.action === 'annual') this.openAnnualEvaluation();
-    else if (option.action === 'planned')
+    else if (option.action === 'its1') {
+      if (this.auth.isDemo())
+        this.notify.emit(`${option.title} agregado a la cola de demostración.`);
+      else this.queueIts1(option);
+    } else if (option.action === 'planned')
       this.notify.emit(`${option.title}: el generador especializado aún está pendiente.`);
     else if (this.auth.isDemo())
       this.notify.emit(`${option.title} agregado a la cola de demostración.`);
     else this.queueExport(option);
+  }
+
+  private queueIts1(option: ExportOption) {
+    if (!this.its1FacilityId) {
+      this.notify.emit('No hay un establecimiento individual autorizado disponible.');
+      return;
+    }
+    const now = new Date();
+    this.loading = true;
+    this.jobsApi
+      .createIts1({
+        idempotencyKey: crypto.randomUUID(),
+        format: 'XLSX',
+        facilityId: this.its1FacilityId,
+        year: now.getFullYear(),
+        month: now.getMonth() + 1,
+      })
+      .subscribe({
+        next: (job) => {
+          this.loading = false;
+          this.liveJobs = [job, ...this.liveJobs.filter((item) => item.id !== job.id)];
+          this.notify.emit(`${option.title} agregado a la cola protegida.`);
+        },
+        error: () => {
+          this.loading = false;
+          this.notify.emit('No fue posible solicitar ITS-1. Verifique permiso y establecimiento.');
+        },
+      });
   }
 
   protected download(job: ExportJob) {

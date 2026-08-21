@@ -134,6 +134,7 @@ describe('Application (e2e)', () => {
   it('protects export job creation and history', async () => {
     await request(app.getHttpServer()).get('/api/v1/exports/jobs').expect(401);
     await request(app.getHttpServer()).post('/api/v1/exports/jobs').send({}).expect(401);
+    await request(app.getHttpServer()).post('/api/v1/exports/jobs/its1').send({}).expect(401);
     await request(app.getHttpServer())
       .get('/api/v1/exports/jobs/11111111-1111-4111-8111-111111111111/download')
       .expect(401);

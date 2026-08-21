@@ -601,7 +601,7 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
       this.prisma.client.itsDisease.findMany({
         where: { active: true, classification: { active: true, program: { code: 'ITS' } } },
         orderBy: { formatOrder: 'asc' },
-        select: { id: true, formatOrder: true },
+        select: { id: true, code: true, name: true, formatOrder: true },
       }),
       this.prisma.client.itsAttention.findMany({
         where: {
@@ -619,7 +619,13 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
           populationType: { select: { code: true } },
           isContact: true,
           isPregnant: true,
-          diagnoses: { select: { diseaseId: true, caseType: true } },
+          diagnoses: {
+            select: {
+              diseaseId: true,
+              caseType: true,
+              disease: { select: { code: true, name: true } },
+            },
+          },
         },
       }),
     ]);
@@ -634,10 +640,19 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
       responsibleName: responsible.fullName,
       year: input.year,
       month: input.month,
-      diseases,
+      diseases: diseases.map((disease) => ({
+        ...disease,
+        code: disease.code ?? undefined,
+      })),
       attentions: attentions.map((attention) => ({
         ...attention,
         populationTypeCode: attention.populationType.code,
+        diagnoses: attention.diagnoses.map((diagnosis) => ({
+          diseaseId: diagnosis.diseaseId,
+          diseaseCode: diagnosis.disease.code ?? undefined,
+          diseaseName: diagnosis.disease.name,
+          caseType: diagnosis.caseType,
+        })),
       })),
     };
   }

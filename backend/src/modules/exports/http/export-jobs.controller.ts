@@ -26,13 +26,14 @@ import { ExportJobsUseCase } from '../application/export-jobs.use-case';
 import { DownloadExportArtifactUseCase } from '../application/download-export-artifact.use-case';
 import {
   ExportArtifactExpiredError,
+  ExportArtifactAccessError,
   ExportArtifactNotFoundError,
   ExportJobConflictError,
   ExportJobScopeError,
   InvalidExportJobError,
   type ExportJob,
 } from '../domain/export-job';
-import { CreateExportJobDto } from './export-jobs.dto';
+import { CreateExportJobDto, CreateIts1ExportJobDto } from './export-jobs.dto';
 
 @Controller('exports/jobs')
 export class ExportJobsController {
@@ -45,6 +46,30 @@ export class ExportJobsController {
   @RequireAccess({ permission: 'exports:jobs:read', dataLevel: DataLevel.Aggregated, scope: 'OWN' })
   list(@CurrentSubject() subject: AuthorizationSubject): Promise<ExportJob[]> {
     return this.jobs.listOwn(subject);
+  }
+
+  @Post('its1')
+  @RequireAccess({
+    permission: 'its1:attentions:read',
+    dataLevel: DataLevel.Individual,
+    scope: 'OWN',
+    target: (request) => ({
+      facilityId: (request.body as CreateIts1ExportJobDto).facilityId,
+    }),
+  })
+  async createIts1(
+    @Body() body: CreateIts1ExportJobDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+    @Req() request: RequestWithContext,
+  ): Promise<ExportJob> {
+    try {
+      return await this.jobs.createIts1({ ...body, requestId: request.requestId }, subject);
+    } catch (error: unknown) {
+      if (error instanceof ExportJobScopeError) throw new ForbiddenException(error.message);
+      if (error instanceof ExportJobConflictError) throw new ConflictException(error.message);
+      if (error instanceof InvalidExportJobError) throw new BadRequestException(error.message);
+      throw error;
+    }
   }
 
   @Get(':id/download')
@@ -67,6 +92,7 @@ export class ExportJobsController {
       response.setHeader('Content-Disposition', `attachment; filename="${artifact.filename}"`);
       return Buffer.from(artifact.contents);
     } catch (error: unknown) {
+      if (error instanceof ExportArtifactAccessError) throw new ForbiddenException(error.message);
       if (error instanceof ExportArtifactExpiredError) throw new GoneException(error.message);
       if (error instanceof ExportArtifactNotFoundError) throw new NotFoundException(error.message);
       throw error;

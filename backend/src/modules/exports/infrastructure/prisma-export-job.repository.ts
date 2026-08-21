@@ -50,7 +50,7 @@ export class PrismaExportJobRepository extends ExportJobRepository {
             action: 'EXPORT_JOB_QUEUED',
             entity: 'EXPORT_JOB',
             entityId: created.id,
-            dataLevel: 'AGREGADO',
+            dataLevel: input.reportType === 'ITS1_REGISTER' ? 'INDIVIDUAL' : 'AGREGADO',
             newData: {
               reportType: input.reportType,
               format: input.format,
@@ -154,35 +154,39 @@ export class PrismaExportJobRepository extends ExportJobRepository {
     });
   }
 
-  async acquireDownload(
+  async getOwnDownload(jobId: string, userId: string): Promise<ExportArtifactDownload> {
+    const job = await this.prisma.client.exportJob.findFirst({
+      where: { id: jobId, requestedByUserId: userId },
+    });
+    if (!job || job.status !== 'COMPLETADO' || !job.outputStorageKey)
+      throw new ExportArtifactNotFoundError('La exportación no está disponible.');
+    if (!job.outputExpiresAt || job.outputExpiresAt <= new Date())
+      throw new ExportArtifactExpiredError('El archivo de exportación expiró.');
+    return {
+      storageKey: job.outputStorageKey,
+      format: job.format,
+      filename: `SIGVITS-${job.reportType}-${job.year}-${String(job.month).padStart(2, '0')}.${job.format.toLowerCase()}`,
+      reportType: job.reportType,
+      scopeLevel: job.scopeLevel,
+      territoryId: job.territoryId,
+    };
+  }
+
+  async recordDownloadServed(
     jobId: string,
     userId: string,
     requestId: string,
-  ): Promise<ExportArtifactDownload> {
-    return this.prisma.client.$transaction(async (tx) => {
-      const job = await tx.exportJob.findFirst({
-        where: { id: jobId, requestedByUserId: userId },
-      });
-      if (!job || job.status !== 'COMPLETADO' || !job.outputStorageKey)
-        throw new ExportArtifactNotFoundError('La exportación no está disponible.');
-      if (!job.outputExpiresAt || job.outputExpiresAt <= new Date())
-        throw new ExportArtifactExpiredError('El archivo de exportación expiró.');
-      await tx.auditEvent.create({
-        data: {
-          actorUserId: userId,
-          action: 'EXPORT_ARTIFACT_DOWNLOAD_AUTHORIZED',
-          entity: 'EXPORT_JOB',
-          entityId: job.id,
-          dataLevel: 'AGREGADO',
-          newData: { format: job.format, reportType: job.reportType },
-          requestId,
-        },
-      });
-      return {
-        storageKey: job.outputStorageKey,
-        format: job.format,
-        filename: `SIGVITS-${job.reportType}-${job.year}-${String(job.month).padStart(2, '0')}.${job.format.toLowerCase()}`,
-      };
+    dataLevel: 'INDIVIDUAL' | 'AGREGADO',
+  ): Promise<void> {
+    await this.prisma.client.auditEvent.create({
+      data: {
+        actorUserId: userId,
+        action: 'EXPORT_ARTIFACT_SERVED',
+        entity: 'EXPORT_JOB',
+        entityId: jobId,
+        dataLevel,
+        requestId,
+      },
     });
   }
 
