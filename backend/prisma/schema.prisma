@@ -153,6 +153,7 @@ model ExportJob {
   attempts          Int              @default(0) @map("intentos")
   maxAttempts       Int              @default(3) @map("max_intentos")
   outputStorageKey  String?          @map("storage_key_salida") @db.VarChar(500)
+  outputExpiresAt   DateTime?        @map("salida_expira_at") @db.Timestamptz(3)
   errorCode         String?          @map("codigo_error") @db.VarChar(80)
   startedAt         DateTime?        @map("iniciado_at") @db.Timestamptz(3)
   finishedAt        DateTime?        @map("finalizado_at") @db.Timestamptz(3)

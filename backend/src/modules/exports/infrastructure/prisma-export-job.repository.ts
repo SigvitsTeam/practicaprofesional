@@ -4,7 +4,11 @@ import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { ExportJobRepository } from '../application/ports/export-job.repository';
 import {
   ExportJobConflictError,
+  ExportArtifactExpiredError,
+  ExportArtifactNotFoundError,
+  type ClaimedExportJob,
   type CreateExportJobInput,
+  type ExportArtifactDownload,
   type ExportJob,
 } from '../domain/export-job';
 
@@ -70,6 +74,118 @@ export class PrismaExportJobRepository extends ExportJobRepository {
     }
   }
 
+  async claimNext(staleAfterMs: number): Promise<ClaimedExportJob | null> {
+    const staleBefore = new Date(Date.now() - staleAfterMs);
+    const rows = await this.prisma.client.$queryRaw<
+      Array<{
+        id: string;
+        requestedByUserId: string;
+        reportType: string;
+        format: string;
+        scopeLevel: string;
+        territoryId: string | null;
+        year: number;
+        month: number;
+        status: string;
+        attempts: number;
+        maxAttempts: number;
+        outputStorageKey: string | null;
+        outputExpiresAt: Date | null;
+        errorCode: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+      }>
+    >(Prisma.sql`
+      WITH candidate AS (
+        SELECT "id"
+        FROM "trabajos_exportacion"
+        WHERE "intentos" < "max_intentos"
+          AND (
+            "estado" IN ('PENDIENTE', 'FALLIDO')
+            OR ("estado" = 'PROCESANDO' AND "iniciado_at" < ${staleBefore})
+          )
+        ORDER BY "created_at" ASC, "id" ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1
+      )
+      UPDATE "trabajos_exportacion" AS job
+      SET "estado" = 'PROCESANDO', "intentos" = job."intentos" + 1,
+          "iniciado_at" = NOW(), "finalizado_at" = NULL, "codigo_error" = NULL,
+          "updated_at" = NOW()
+      FROM candidate
+      WHERE job."id" = candidate."id"
+      RETURNING job."id", job."solicitado_por_usuario_id" AS "requestedByUserId",
+        job."tipo_reporte" AS "reportType", job."formato"::text AS "format",
+        job."nivel_alcance"::text AS "scopeLevel", job."territorio_id" AS "territoryId",
+        job."anio" AS "year", job."mes" AS "month", job."estado"::text AS "status",
+        job."intentos" AS "attempts", job."max_intentos" AS "maxAttempts",
+        job."storage_key_salida" AS "outputStorageKey", job."salida_expira_at" AS "outputExpiresAt",
+        job."codigo_error" AS "errorCode",
+        job."created_at" AS "createdAt", job."updated_at" AS "updatedAt"
+    `);
+    const row = rows[0];
+    if (!row) return null;
+    return {
+      ...this.toDomain(row),
+      requestedByUserId: row.requestedByUserId,
+      maxAttempts: row.maxAttempts,
+    };
+  }
+
+  async complete(jobId: string, storageKey: string, expiresAt: Date): Promise<void> {
+    const updated = await this.prisma.client.exportJob.updateMany({
+      where: { id: jobId, status: 'PROCESANDO' },
+      data: {
+        status: 'COMPLETADO',
+        outputStorageKey: storageKey,
+        outputExpiresAt: expiresAt,
+        errorCode: null,
+        finishedAt: new Date(),
+      },
+    });
+    if (updated.count !== 1)
+      throw new ExportJobConflictError('El trabajo ya no está en procesamiento.');
+  }
+
+  async fail(jobId: string, errorCode: string): Promise<void> {
+    await this.prisma.client.exportJob.updateMany({
+      where: { id: jobId, status: 'PROCESANDO' },
+      data: { status: 'FALLIDO', errorCode: errorCode.slice(0, 80), finishedAt: new Date() },
+    });
+  }
+
+  async acquireDownload(
+    jobId: string,
+    userId: string,
+    requestId: string,
+  ): Promise<ExportArtifactDownload> {
+    return this.prisma.client.$transaction(async (tx) => {
+      const job = await tx.exportJob.findFirst({
+        where: { id: jobId, requestedByUserId: userId },
+      });
+      if (!job || job.status !== 'COMPLETADO' || !job.outputStorageKey)
+        throw new ExportArtifactNotFoundError('La exportación no está disponible.');
+      if (!job.outputExpiresAt || job.outputExpiresAt <= new Date())
+        throw new ExportArtifactExpiredError('El archivo de exportación expiró.');
+      await tx.auditEvent.create({
+        data: {
+          actorUserId: userId,
+          action: 'EXPORT_ARTIFACT_DOWNLOAD_AUTHORIZED',
+          entity: 'EXPORT_JOB',
+          entityId: job.id,
+          dataLevel: 'AGREGADO',
+          newData: { format: job.format, reportType: job.reportType },
+          requestId,
+        },
+      });
+      return {
+        storageKey: job.outputStorageKey,
+        format: job.format,
+        filename: `SIGVITS-${job.reportType}-${job.year}-${String(job.month).padStart(2, '0')}.${job.format.toLowerCase()}`,
+      };
+    });
+  }
+
   private async findIdempotent(input: CreateExportJobInput): Promise<ExportJob | null> {
     const row = await this.prisma.client.exportJob.findUnique({
       where: {
@@ -105,6 +221,7 @@ export class PrismaExportJobRepository extends ExportJobRepository {
     status: string;
     attempts: number;
     outputStorageKey: string | null;
+    outputExpiresAt: Date | null;
     errorCode: string | null;
     createdAt: Date;
     updatedAt: Date;
@@ -119,7 +236,10 @@ export class PrismaExportJobRepository extends ExportJobRepository {
       month: row.month,
       status: row.status as ExportJob['status'],
       attempts: row.attempts,
-      outputAvailable: Boolean(row.outputStorageKey),
+      outputAvailable: Boolean(
+        row.outputStorageKey && row.outputExpiresAt && row.outputExpiresAt > new Date(),
+      ),
+      outputExpiresAt: row.outputExpiresAt,
       errorCode: row.errorCode,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,

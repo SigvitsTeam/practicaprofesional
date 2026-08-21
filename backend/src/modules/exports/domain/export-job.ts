@@ -13,6 +13,7 @@ export interface ExportJob {
   status: ExportJobStatus;
   attempts: number;
   outputAvailable: boolean;
+  outputExpiresAt: Date | null;
   errorCode: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -30,6 +31,19 @@ export interface CreateExportJobInput {
   requestId: string;
 }
 
+export interface ClaimedExportJob extends ExportJob {
+  requestedByUserId: string;
+  maxAttempts: number;
+}
+
 export class InvalidExportJobError extends Error {}
 export class ExportJobScopeError extends Error {}
 export class ExportJobConflictError extends Error {}
+export class ExportArtifactNotFoundError extends Error {}
+export class ExportArtifactExpiredError extends Error {}
+
+export interface ExportArtifactDownload {
+  storageKey: string;
+  format: ExportFormat;
+  filename: string;
+}

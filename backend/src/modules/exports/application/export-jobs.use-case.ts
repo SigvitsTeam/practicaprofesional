@@ -21,8 +21,10 @@ export class ExportJobsUseCase {
     input: Omit<CreateExportJobInput, 'requestedByUserId'>,
     subject: AuthorizationSubject,
   ): Promise<ExportJob> {
-    if (!/^[A-Z][A-Z0-9_]{2,79}$/.test(input.reportType))
+    if (!['TERRITORIAL_SUMMARY', 'ITS2_MONTHLY'].includes(input.reportType))
       throw new InvalidExportJobError('El tipo de reporte no es válido.');
+    if (input.reportType === 'ITS2_MONTHLY' && input.scopeLevel !== 'ESTABLECIMIENTO')
+      throw new InvalidExportJobError('El ITS-2 mensual requiere alcance de establecimiento.');
     if (input.year < 2000 || input.year > 2100 || input.month < 1 || input.month > 12)
       throw new InvalidExportJobError('El período solicitado no es válido.');
     const territoryId = input.territoryId ?? this.defaultTerritory(input.scopeLevel, subject);

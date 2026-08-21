@@ -46,6 +46,10 @@ export const environmentSchema = Joi.object({
   }),
   AUTH_CLOCK_TOLERANCE_SECONDS: Joi.number().integer().min(0).max(60).default(5),
   AUTH_JWKS_TIMEOUT_MS: Joi.number().integer().min(500).max(30_000).default(5_000),
+  EXPORT_STORAGE_DIRECTORY: Joi.string().min(1).max(500).default('.data/exports'),
+  EXPORT_WORKER_POLL_MS: Joi.number().integer().min(250).max(60_000).default(2_000),
+  EXPORT_JOB_STALE_MS: Joi.number().integer().min(60_000).max(86_400_000).default(900_000),
+  EXPORT_ARTIFACT_TTL_MS: Joi.number().integer().min(60_000).max(604_800_000).default(86_400_000),
   CORS_ORIGINS: Joi.string().default('http://localhost:4200'),
   REQUEST_BODY_LIMIT: Joi.string()
     .pattern(/^\d+(b|kb|mb)$/i)

@@ -16,6 +16,7 @@ CREATE TABLE "trabajos_exportacion" (
   "intentos" INTEGER NOT NULL DEFAULT 0,
   "max_intentos" INTEGER NOT NULL DEFAULT 3,
   "storage_key_salida" VARCHAR(500),
+  "salida_expira_at" TIMESTAMPTZ(3),
   "codigo_error" VARCHAR(80),
   "iniciado_at" TIMESTAMPTZ(3),
   "finalizado_at" TIMESTAMPTZ(3),

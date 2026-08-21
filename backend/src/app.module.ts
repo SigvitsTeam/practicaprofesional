@@ -5,7 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { GlobalHttpExceptionFilter } from './common/http/http-exception.filter';
 import { RequestIdMiddleware } from './common/http/request-id.middleware';
 import { RequestLoggingInterceptor } from './common/http/request-logging.interceptor';
-import { appConfig, authConfig, databaseConfig } from './config/app.config';
+import { appConfig, authConfig, databaseConfig, exportConfig } from './config/app.config';
 import { environmentSchema } from './config/environment.validation';
 import { AuthorizationModule } from './modules/authorization/authorization.module';
 import { AuthenticationGuard } from './modules/authorization/http/authentication.guard';
@@ -22,7 +22,7 @@ import { ExportsModule } from './modules/exports/exports.module';
       isGlobal: true,
       cache: true,
       expandVariables: false,
-      load: [appConfig, databaseConfig, authConfig],
+      load: [appConfig, databaseConfig, authConfig, exportConfig],
       validationSchema: environmentSchema,
       validationOptions: { abortEarly: false },
     }),

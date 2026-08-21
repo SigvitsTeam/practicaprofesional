@@ -1,6 +1,7 @@
 import type { AuthorizationSubject } from '../../authorization/domain/authorization.types';
 import {
   ExportJobScopeError,
+  InvalidExportJobError,
   type CreateExportJobInput,
   type ExportJob,
 } from '../domain/export-job';
@@ -25,10 +26,23 @@ class Repository extends ExportJobRepository {
       status: 'PENDIENTE',
       attempts: 0,
       outputAvailable: false,
+      outputExpiresAt: null,
       errorCode: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
+  }
+  claimNext(): Promise<null> {
+    return Promise.resolve(null);
+  }
+  complete(): Promise<void> {
+    return Promise.resolve();
+  }
+  fail(): Promise<void> {
+    return Promise.resolve();
+  }
+  acquireDownload(): Promise<never> {
+    return Promise.reject(new Error('not implemented'));
   }
 }
 
@@ -69,5 +83,28 @@ describe('ExportJobsUseCase', () => {
         subject,
       ),
     ).toThrow(ExportJobScopeError);
+  });
+
+  it('queues ITS-2 only for an authorized establishment', async () => {
+    const repository = new Repository();
+    const result = await new ExportJobsUseCase(repository).create(
+      {
+        ...base,
+        reportType: 'ITS2_MONTHLY',
+        scopeLevel: 'ESTABLECIMIENTO',
+        territoryId: 'facility-1',
+      },
+      subject,
+    );
+    expect(result.reportType).toBe('ITS2_MONTHLY');
+  });
+
+  it('rejects ITS-2 with a broader territorial scope', () => {
+    expect(() =>
+      new ExportJobsUseCase(new Repository()).create(
+        { ...base, reportType: 'ITS2_MONTHLY' },
+        subject,
+      ),
+    ).toThrow(InvalidExportJobError);
   });
 });

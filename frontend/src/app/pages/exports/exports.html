@@ -1,30 +1,292 @@
-<section class="export-catalog">@for (option of exportOptions; track option.title) {<button class="panel" (click)="selectExport(option)"><i>{{ option.icon }}</i><span><strong>{{ option.title }}</strong><small>{{ option.detail }}</small></span><b>›</b></button>}</section>
+<section class="export-catalog">
+  @for (option of exportOptions; track option.title) {
+    <button class="panel" (click)="selectExport(option)">
+      <i>{{ option.icon }}</i
+      ><span
+        ><strong>{{ option.title }}</strong
+        ><small>{{ option.detail }}</small></span
+      ><b>›</b>
+    </button>
+  }
+</section>
 @if (annualPreview; as preview) {
   <section class="annual-preview panel" aria-label="Vista previa de evaluación anual">
-    <header><div><span class="eyebrow">COMPARACIÓN CONFIGURADA</span><h2>{{ preview.reportType }}</h2><p>{{ preview.dimension === 'periods' ? 'Comparación por períodos de tiempo' : preview.dimension === 'territories' ? 'Comparación territorial' : 'Comparación de indicadores' }}</p></div><div><button class="btn secondary" type="button" (click)="openAnnualEvaluation()">Cambiar comparación</button><button class="btn primary" type="button" (click)="notify.emit(preview.format === 'Vista previa' ? 'Vista previa actualizada.' : preview.format + ' agregado a la cola.')">{{ preview.format === 'Vista previa' ? 'Actualizar' : 'Generar ' + preview.format }}</button></div></header>
-    <div class="preview-comparison"><article><i>A</i><span><small>{{ formatRange(preview.rangeAStart, preview.rangeAEnd) }}</small><strong>{{ preview.dimension === 'territories' ? preview.territoryA : preview.indicatorA }}</strong></span></article><b>VS</b><article><i>B</i><span><small>{{ formatRange(preview.rangeBStart, preview.rangeBEnd) }}</small><strong>{{ preview.dimension === 'territories' ? preview.territoryB : preview.indicatorB }}</strong></span></article></div>
-    <footer><span>Alcance autorizado: {{ territoryOptions[0] }}</span><span>Datos agregados · Sin acceso a registros ITS 1</span></footer>
+    <header>
+      <div>
+        <span class="eyebrow">COMPARACIÓN CONFIGURADA</span>
+        <h2>{{ preview.reportType }}</h2>
+        <p>
+          {{
+            preview.dimension === 'periods'
+              ? 'Comparación por períodos de tiempo'
+              : preview.dimension === 'territories'
+                ? 'Comparación territorial'
+                : 'Comparación de indicadores'
+          }}
+        </p>
+      </div>
+      <div>
+        <button class="btn secondary" type="button" (click)="openAnnualEvaluation()">
+          Cambiar comparación</button
+        ><button
+          class="btn primary"
+          type="button"
+          (click)="
+            notify.emit(
+              preview.format === 'Vista previa'
+                ? 'Vista previa actualizada.'
+                : preview.format + ' agregado a la cola.'
+            )
+          "
+        >
+          {{ preview.format === 'Vista previa' ? 'Actualizar' : 'Generar ' + preview.format }}
+        </button>
+      </div>
+    </header>
+    <div class="preview-comparison">
+      <article>
+        <i>A</i
+        ><span
+          ><small>{{ formatRange(preview.rangeAStart, preview.rangeAEnd) }}</small
+          ><strong>{{
+            preview.dimension === 'territories' ? preview.territoryA : preview.indicatorA
+          }}</strong></span
+        >
+      </article>
+      <b>VS</b>
+      <article>
+        <i>B</i
+        ><span
+          ><small>{{ formatRange(preview.rangeBStart, preview.rangeBEnd) }}</small
+          ><strong>{{
+            preview.dimension === 'territories' ? preview.territoryB : preview.indicatorB
+          }}</strong></span
+        >
+      </article>
+    </div>
+    <footer>
+      <span>Alcance autorizado: {{ territoryOptions[0] }}</span
+      ><span>Datos agregados · Sin acceso a registros ITS 1</span>
+    </footer>
   </section>
 }
-<article class="panel"><div class="table-toolbar"><div><h2>Trabajos de exportación recientes</h2><p>Solo se muestran solicitudes propias; la generación se procesa fuera del worker HTTP.</p></div><select><option>Todos los formatos</option><option>Excel</option><option>PDF</option></select></div><div class="table-wrap"><table><thead><tr><th>Reporte</th><th>Período</th><th>Formato</th><th>Plantilla</th><th>Estado</th><th>Solicitado por</th><th></th></tr></thead><tbody>@for (job of recentJobs; track job.report + job.period) {<tr><td><strong>{{ job.report }}</strong></td><td>{{ job.period }}</td><td><span class="file" [class.pdf]="job.format === 'PDF'">{{ job.format }}</span></td><td>{{ job.template }}</td><td><span class="job" [class.error]="job.status === 'Error'" [class.processing]="job.status === 'Generando'"><i></i>{{ job.status }}</span></td><td>{{ job.user }}</td><td><button class="download" [disabled]="!job.outputAvailable" (click)="notify.emit('Descarga registrada en auditoría.')">↓</button></td></tr>} @empty {<tr><td colspan="7">No hay trabajos de exportación solicitados.</td></tr>}</tbody></table></div></article><p class="footnote">● El nivel de detalle de cada archivo respeta el perfil y queda registrado en auditoría.</p>
+<article class="panel">
+  <div class="table-toolbar">
+    <div>
+      <h2>Trabajos de exportación recientes</h2>
+      <p>Solo se muestran solicitudes propias; la generación se procesa fuera del worker HTTP.</p>
+    </div>
+    <select>
+      <option>Todos los formatos</option>
+      <option>Excel</option>
+      <option>PDF</option>
+    </select>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Reporte</th>
+          <th>Período</th>
+          <th>Formato</th>
+          <th>Plantilla</th>
+          <th>Estado</th>
+          <th>Solicitado por</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (job of recentJobs; track job.id) {
+          <tr>
+            <td>
+              <strong>{{ job.report }}</strong>
+            </td>
+            <td>{{ job.period }}</td>
+            <td>
+              <span class="file" [class.pdf]="job.format === 'PDF'">{{ job.format }}</span>
+            </td>
+            <td>{{ job.template }}</td>
+            <td>
+              <span
+                class="job"
+                [class.error]="job.status === 'Error'"
+                [class.processing]="job.status === 'Generando'"
+                ><i></i>{{ job.status }}</span
+              >
+            </td>
+            <td>{{ job.user }}</td>
+            <td>
+              <button class="download" [disabled]="!job.outputAvailable" (click)="download(job)">
+                ↓
+              </button>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="7">No hay trabajos de exportación solicitados.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</article>
+<p class="footnote">
+  ● El nivel de detalle de cada archivo respeta el perfil y queda registrado en auditoría.
+</p>
 
 @if (showAnnualEvaluation) {
   <div class="annual-backdrop" (click)="closeAnnualEvaluation()">
-    <section class="annual-dialog" role="dialog" aria-modal="true" aria-label="Configurar evaluación anual" (click)="$event.stopPropagation()">
-      <header><div><span class="eyebrow">EVALUACIÓN ITS</span><h2>Configurar evaluación anual</h2><p>Seleccione qué desea comparar y defina los dos rangos de tiempo.</p></div><button type="button" aria-label="Cerrar" (click)="closeAnnualEvaluation()">×</button></header>
+    <section
+      class="annual-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Configurar evaluación anual"
+      (click)="$event.stopPropagation()"
+    >
+      <header>
+        <div>
+          <span class="eyebrow">EVALUACIÓN ITS</span>
+          <h2>Configurar evaluación anual</h2>
+          <p>Seleccione qué desea comparar y defina los dos rangos de tiempo.</p>
+        </div>
+        <button type="button" aria-label="Cerrar" (click)="closeAnnualEvaluation()">×</button>
+      </header>
       <form (ngSubmit)="generateAnnualEvaluation()" novalidate>
         <div class="annual-form">
-          <label><span>Tipo de informe</span><select name="reportType" [(ngModel)]="annualForm.reportType"><option>Comparativo anual</option><option>Informe anual general</option></select></label>
-          <label><span>Salida</span><select name="outputFormat" [(ngModel)]="annualForm.format"><option>Vista previa</option><option>Excel oficial</option><option>PDF</option></select></label>
+          <label
+            ><span>Tipo de informe</span
+            ><select name="reportType" [(ngModel)]="annualForm.reportType">
+              <option>Comparativo anual</option>
+              <option>Informe anual general</option>
+            </select></label
+          >
+          <label
+            ><span>Salida</span
+            ><select name="outputFormat" [(ngModel)]="annualForm.format">
+              <option>Vista previa</option>
+              <option>Excel oficial</option>
+              <option>PDF</option>
+            </select></label
+          >
 
-          <fieldset class="dimension-options"><legend>¿Qué desea comparar?</legend><div>@for (dimension of dimensions; track dimension.value) {<button type="button" [class.selected]="annualForm.dimension === dimension.value" [disabled]="dimension.value === 'territories' && !canCompareTerritories" (click)="setDimension(dimension.value)"><i>{{ annualForm.dimension === dimension.value ? '✓' : '' }}</i><span><strong>{{ dimension.label }}</strong><small>{{ dimension.value === 'territories' && !canCompareTerritories ? 'No disponible para su alcance' : dimension.detail }}</small></span></button>}</div></fieldset>
+          <fieldset class="dimension-options">
+            <legend>¿Qué desea comparar?</legend>
+            <div>
+              @for (dimension of dimensions; track dimension.value) {
+                <button
+                  type="button"
+                  [class.selected]="annualForm.dimension === dimension.value"
+                  [disabled]="dimension.value === 'territories' && !canCompareTerritories"
+                  (click)="setDimension(dimension.value)"
+                >
+                  <i>{{ annualForm.dimension === dimension.value ? '✓' : '' }}</i
+                  ><span
+                    ><strong>{{ dimension.label }}</strong
+                    ><small>{{
+                      dimension.value === 'territories' && !canCompareTerritories
+                        ? 'No disponible para su alcance'
+                        : dimension.detail
+                    }}</small></span
+                  >
+                </button>
+              }
+            </div>
+          </fieldset>
 
-          <section class="comparison-column"><div class="comparison-heading"><i>A</i><div><strong>Primera selección</strong><small>Base de comparación</small></div></div><label><span>Desde *</span><input type="month" name="rangeAStart" [(ngModel)]="annualForm.rangeAStart"></label><label><span>Hasta *</span><input type="month" name="rangeAEnd" [(ngModel)]="annualForm.rangeAEnd"></label>@if (annualForm.dimension === 'territories') {<label class="wide"><span>Territorio A</span><select name="territoryA" [(ngModel)]="annualForm.territoryA">@for (territory of territoryOptions; track territory) {<option>{{ territory }}</option>}</select></label>} @else {<label class="wide"><span>Indicador A</span><select name="indicatorA" [(ngModel)]="annualForm.indicatorA">@for (indicator of indicators; track indicator) {<option>{{ indicator }}</option>}</select></label>}</section>
-          <section class="comparison-column"><div class="comparison-heading"><i>B</i><div><strong>Segunda selección</strong><small>Período o elemento a contrastar</small></div></div><label><span>Desde *</span><input type="month" name="rangeBStart" [(ngModel)]="annualForm.rangeBStart"></label><label><span>Hasta *</span><input type="month" name="rangeBEnd" [(ngModel)]="annualForm.rangeBEnd"></label>@if (annualForm.dimension === 'territories') {<label class="wide"><span>Territorio B</span><select name="territoryB" [(ngModel)]="annualForm.territoryB">@for (territory of territoryOptions; track territory) {<option>{{ territory }}</option>}</select></label>} @else {<label class="wide"><span>Indicador B</span><select name="indicatorB" [(ngModel)]="annualForm.indicatorB">@for (indicator of indicators; track indicator) {<option>{{ indicator }}</option>}</select></label>}</section>
-          @if (formSubmitted && invalidRanges) {<div class="range-error">Revise los rangos: indique todas las fechas y asegúrese de que “Desde” no sea posterior a “Hasta”.</div>}
-          <div class="access-note"><i>i</i><span><strong>Comparación según su alcance</strong><small>Solo se muestran territorios y datos agregados permitidos para el rol activo.</small></span></div>
+          <section class="comparison-column">
+            <div class="comparison-heading">
+              <i>A</i>
+              <div><strong>Primera selección</strong><small>Base de comparación</small></div>
+            </div>
+            <label
+              ><span>Desde *</span
+              ><input type="month" name="rangeAStart" [(ngModel)]="annualForm.rangeAStart" /></label
+            ><label
+              ><span>Hasta *</span
+              ><input type="month" name="rangeAEnd" [(ngModel)]="annualForm.rangeAEnd"
+            /></label>
+            @if (annualForm.dimension === 'territories') {
+              <label class="wide"
+                ><span>Territorio A</span
+                ><select name="territoryA" [(ngModel)]="annualForm.territoryA">
+                  @for (territory of territoryOptions; track territory) {
+                    <option>{{ territory }}</option>
+                  }
+                </select></label
+              >
+            } @else {
+              <label class="wide"
+                ><span>Indicador A</span
+                ><select name="indicatorA" [(ngModel)]="annualForm.indicatorA">
+                  @for (indicator of indicators; track indicator) {
+                    <option>{{ indicator }}</option>
+                  }
+                </select></label
+              >
+            }
+          </section>
+          <section class="comparison-column">
+            <div class="comparison-heading">
+              <i>B</i>
+              <div>
+                <strong>Segunda selección</strong><small>Período o elemento a contrastar</small>
+              </div>
+            </div>
+            <label
+              ><span>Desde *</span
+              ><input type="month" name="rangeBStart" [(ngModel)]="annualForm.rangeBStart" /></label
+            ><label
+              ><span>Hasta *</span
+              ><input type="month" name="rangeBEnd" [(ngModel)]="annualForm.rangeBEnd"
+            /></label>
+            @if (annualForm.dimension === 'territories') {
+              <label class="wide"
+                ><span>Territorio B</span
+                ><select name="territoryB" [(ngModel)]="annualForm.territoryB">
+                  @for (territory of territoryOptions; track territory) {
+                    <option>{{ territory }}</option>
+                  }
+                </select></label
+              >
+            } @else {
+              <label class="wide"
+                ><span>Indicador B</span
+                ><select name="indicatorB" [(ngModel)]="annualForm.indicatorB">
+                  @for (indicator of indicators; track indicator) {
+                    <option>{{ indicator }}</option>
+                  }
+                </select></label
+              >
+            }
+          </section>
+          @if (formSubmitted && invalidRanges) {
+            <div class="range-error">
+              Revise los rangos: indique todas las fechas y asegúrese de que “Desde” no sea
+              posterior a “Hasta”.
+            </div>
+          }
+          <div class="access-note">
+            <i>i</i
+            ><span
+              ><strong>Comparación según su alcance</strong
+              ><small
+                >Solo se muestran territorios y datos agregados permitidos para el rol
+                activo.</small
+              ></span
+            >
+          </div>
         </div>
-        <footer><button class="btn secondary" type="button" (click)="closeAnnualEvaluation()">Cancelar</button><button class="btn primary" type="submit">{{ annualForm.format === 'Vista previa' ? 'Ver comparación' : 'Generar ' + annualForm.format }}</button></footer>
+        <footer>
+          <button class="btn secondary" type="button" (click)="closeAnnualEvaluation()">
+            Cancelar</button
+          ><button class="btn primary" type="submit">
+            {{
+              annualForm.format === 'Vista previa'
+                ? 'Ver comparación'
+                : 'Generar ' + annualForm.format
+            }}
+          </button>
+        </footer>
       </form>
     </section>
   </div>

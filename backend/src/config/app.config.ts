@@ -34,3 +34,12 @@ export const authConfig = registerAs('auth', () => ({
   clockToleranceSeconds: Number(process.env.AUTH_CLOCK_TOLERANCE_SECONDS ?? 5),
   jwksTimeoutMs: Number(process.env.AUTH_JWKS_TIMEOUT_MS ?? 5_000),
 }));
+
+export const exportConfig = registerAs('exports', () => ({
+  storageDirectory: process.env.EXPORT_STORAGE_DIRECTORY ?? '.data/exports',
+  workerPollMs: Number(process.env.EXPORT_WORKER_POLL_MS ?? 2_000),
+  staleAfterMs: Number(process.env.EXPORT_JOB_STALE_MS ?? 15 * 60_000),
+  artifactTtlMs: Number(process.env.EXPORT_ARTIFACT_TTL_MS ?? 24 * 60 * 60_000),
+}));
+
+export type ExportConfig = ReturnType<typeof exportConfig>;
