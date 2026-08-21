@@ -38,10 +38,20 @@ ALTER TABLE "trabajos_exportacion" FORCE ROW LEVEL SECURITY;
 REVOKE ALL ON TABLE "trabajos_exportacion" FROM anon, authenticated;
 
 INSERT INTO "permisos" ("codigo", "modulo", "accion", "descripcion") VALUES
+  ('auth:profile:read', 'auth', 'read_own_profile', 'Consultar roles, permisos y alcance propios.'),
   ('exports:jobs:read', 'exports', 'read_jobs', 'Consultar trabajos de exportación propios.'),
   ('exports:jobs:create', 'exports', 'create_jobs', 'Solicitar exportaciones agregadas dentro del alcance autorizado.');
 
 INSERT INTO "rol_permiso" ("rol_id", "permiso_id")
 SELECT r."id", p."id" FROM "roles" r CROSS JOIN "permisos" p
+WHERE r."codigo" IN ('SUPERADMIN', 'ADMIN_CENTRAL', 'SUPERADMIN_REGIONAL', 'ADMIN_REGIONAL', 'COORDINADOR_MUNICIPAL', 'DIGITADOR_COORDINACION', 'RESPONSABLE_ESTABLECIMIENTO', 'SUPERVISOR_CONSULTA')
+  AND p."codigo" = 'auth:profile:read';
+
+INSERT INTO "rol_permiso" ("rol_id", "permiso_id")
+SELECT r."id", p."id" FROM "roles" r CROSS JOIN "permisos" p
 WHERE r."codigo" IN ('SUPERADMIN', 'ADMIN_CENTRAL', 'SUPERADMIN_REGIONAL', 'ADMIN_REGIONAL', 'COORDINADOR_MUNICIPAL', 'RESPONSABLE_ESTABLECIMIENTO', 'SUPERVISOR_CONSULTA')
   AND p."codigo" IN ('exports:jobs:read', 'exports:jobs:create');
+
+INSERT INTO "rol_permiso" ("rol_id", "permiso_id")
+SELECT r."id", p."id" FROM "roles" r CROSS JOIN "permisos" p
+WHERE r."codigo" = 'DIGITADOR_COORDINACION' AND p."codigo" = 'exports:jobs:read';

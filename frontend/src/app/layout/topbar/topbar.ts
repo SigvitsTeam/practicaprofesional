@@ -6,22 +6,31 @@ import { ROLE_PROFILES } from '../../core/role-data';
 export class Topbar {
   readonly role = input.required<RoleProfile>();
   readonly darkMode = input(false);
+  readonly availableRoles = input<RoleProfile[]>([]);
+  readonly demoMode = input(false);
+  readonly userName = input('Usuario autenticado');
+  readonly userInitials = input('UA');
   readonly themeToggle = output<void>();
   readonly roleChange = output<RoleId>();
   readonly logout = output<void>();
-  protected readonly roles = ROLE_PROFILES;
+  protected readonly demoRoles = ROLE_PROFILES;
+  protected get roles() {
+    return this.demoMode() ? this.demoRoles : this.availableRoles();
+  }
 
   protected get notificationCount() {
-    return ({
-      superadmin: 3,
-      'central-validator': 2,
-      'regional-superadmin': 4,
-      'regional-admin': 3,
-      'municipal-coordinator': 6,
-      'coordination-digitizer': 3,
-      'establishment-manager': 2,
-      supervisor: 1,
-    } as Record<RoleId, number>)[this.role().id];
+    return (
+      {
+        superadmin: 3,
+        'central-validator': 2,
+        'regional-superadmin': 4,
+        'regional-admin': 3,
+        'municipal-coordinator': 6,
+        'coordination-digitizer': 3,
+        'establishment-manager': 2,
+        supervisor: 1,
+      } as Record<RoleId, number>
+    )[this.role().id];
   }
 
   changeRole(event: Event) {

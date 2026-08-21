@@ -104,6 +104,7 @@ export class PrismaIdentityRepository extends IdentityRepository {
 
     return {
       userId: identity.user.id,
+      displayName: identity.user.fullName,
       roles,
       permissions: [...permissions],
       territory: {

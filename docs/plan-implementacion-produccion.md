@@ -110,9 +110,10 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 21. Generador ITS-2 mensual para establecimiento con XLSX estructurado, PDF sobre plantilla oficial, alcance validado, neutralización de fórmulas y ejecución fuera del proceso HTTP.
 22. Generadores de consolidados municipal, regional y nacional en XLSX/PDF, construidos desde versiones persistidas, con trazabilidad de fuentes, validación exacta de alcance y sin mutar el flujo de aprobación.
 23. Generador ITS-1 individual en XLSX de solo lectura y PDF oficial, con solicitud separada, permiso individual, alcance de establecimiento, revalidación al descargar y auditoría posterior al servicio exitoso.
+24. Perfil institucional autenticado desde backend con roles/permisos/alcance vigentes, selector limitado a roles realmente asignados, identidad real en cabecera y eliminación de filtros, avisos y contexto ITS-1 ficticios en producción.
 
 ### Siguiente ejecución
 
 1. Automatizar la invitación por correo mediante la API administrativa del proveedor, sin exponer su credencial al frontend.
-2. Sustituir datos simulados restantes en vistas documentales secundarias.
+2. Conectar analítica e historial de Redes y filtros globales a consultas persistidas; mantener oculto cualquier control que todavía no afecte datos reales.
 3. Aplicar las migraciones pendientes y ejecutar smoke/UAT y pruebas de concurrencia sobre PostgreSQL de staging.

@@ -1,29 +1,132 @@
 @if (!auth.isAuthenticated()) {
   <app-login />
+} @else if (profileError) {
+  <main class="profile-error">
+    <h1>Perfil institucional no disponible</h1>
+    <p>{{ profileError }}</p>
+    <button class="btn primary" type="button" (click)="signOut()">Volver al acceso</button>
+  </main>
+} @else if (!profileReady) {
+  <main class="profile-loading"><p>Cargando rol y alcance institucional…</p></main>
 } @else {
-<main class="app-shell">
-  <app-sidebar [active]="active" [role]="role" (navigate)="navigate($event)" />
-  <section class="workspace">
-    <app-topbar [role]="role" [darkMode]="darkMode" (roleChange)="changeRole($event)" (themeToggle)="toggleTheme()" (logout)="signOut()" />
-    <div class="content">
-      <div class="page-heading"><div><p class="eyebrow">{{ meta.eyebrow }}</p><h1>{{ meta.title }}</h1><p>{{ meta.description }}</p></div>@if (showPrimaryAction) {<button class="btn primary" (click)="primaryAction()">＋ {{ primaryLabel() }}</button>}</div>
-      <div class="global-filter-slot" [hidden]="!showGlobalFilters" [attr.aria-hidden]="!showGlobalFilters"><app-global-filters [role]="role" /></div>
+  <main class="app-shell">
+    <app-sidebar [active]="active" [role]="role" (navigate)="navigate($event)" />
+    <section class="workspace">
+      <app-topbar
+        [role]="role"
+        [availableRoles]="availableRoleProfiles"
+        [demoMode]="auth.isDemo()"
+        [userName]="authenticatedUserName"
+        [userInitials]="authenticatedUserInitials"
+        [darkMode]="darkMode"
+        (roleChange)="changeRole($event)"
+        (themeToggle)="toggleTheme()"
+        (logout)="signOut()"
+      />
+      <div class="content">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow">{{ meta.eyebrow }}</p>
+            <h1>{{ meta.title }}</h1>
+            <p>{{ meta.description }}</p>
+          </div>
+          @if (showPrimaryAction) {
+            <button class="btn primary" (click)="primaryAction()">＋ {{ primaryLabel() }}</button>
+          }
+        </div>
+        <div
+          class="global-filter-slot"
+          [hidden]="!showGlobalFilters"
+          [attr.aria-hidden]="!showGlobalFilters"
+        >
+          <app-global-filters [role]="role" />
+        </div>
 
-      @switch (active) {
-        @case ('Inicio') { <app-role-dashboard [role]="role" (navigate)="navigate($event)" (notify)="showNotice($event)" /> }
-        @case ('Captura ITS 1') { @defer (on immediate) {<app-capture-its1 (notify)="showNotice($event)" />} @placeholder {<p class="page-loading">Cargando captura ITS 1…</p>} }
-        @case ('Reporte ITS 2') { @defer (on immediate) {<app-report-its2 (notify)="showNotice($event)" />} @placeholder {<p class="page-loading">Cargando reporte ITS 2…</p>} }
-        @case ('Bandeja de revisión') { @defer (on immediate) {<app-review-inbox #reviewInbox (reportSelected)="selectReport($event)" (notify)="showNotice($event)" />} @placeholder {<p class="page-loading">Cargando bandeja…</p>} }
-        @case ('Consolidados') { @defer (on immediate) {<app-consolidated (navigate)="navigate($event)" (notify)="showNotice($event)" />} @placeholder {<p class="page-loading">Cargando consolidados…</p>} }
-        @case ('Mapas') { @defer (on immediate) {<app-maps (reportSelected)="selectReport($event)" (notify)="showNotice($event)" />} @placeholder {<p class="page-loading">Cargando mapa…</p>} }
-        @case ('Redes') { @defer (on immediate) {<app-networks (notify)="showNotice($event)" />} @placeholder {<p class="page-loading">Cargando redes…</p>} }
-        @case ('Reportes y exportaciones') { @defer (on immediate) {<app-exports (notify)="showNotice($event)" />} @placeholder {<p class="page-loading">Cargando reportes…</p>} }
-        @case ('Administración') { @defer (on immediate) {<app-territory #territory (notify)="showNotice($event)" />} @placeholder {<p class="page-loading">Cargando administración…</p>} }
+        @switch (active) {
+          @case ('Inicio') {
+            <app-role-dashboard
+              [role]="role"
+              (navigate)="navigate($event)"
+              (notify)="showNotice($event)"
+            />
+          }
+          @case ('Captura ITS 1') {
+            @defer (on immediate) {
+              <app-capture-its1 (notify)="showNotice($event)" />
+            } @placeholder {
+              <p class="page-loading">Cargando captura ITS 1…</p>
+            }
+          }
+          @case ('Reporte ITS 2') {
+            @defer (on immediate) {
+              <app-report-its2 (notify)="showNotice($event)" />
+            } @placeholder {
+              <p class="page-loading">Cargando reporte ITS 2…</p>
+            }
+          }
+          @case ('Bandeja de revisión') {
+            @defer (on immediate) {
+              <app-review-inbox
+                #reviewInbox
+                (reportSelected)="selectReport($event)"
+                (notify)="showNotice($event)"
+              />
+            } @placeholder {
+              <p class="page-loading">Cargando bandeja…</p>
+            }
+          }
+          @case ('Consolidados') {
+            @defer (on immediate) {
+              <app-consolidated (navigate)="navigate($event)" (notify)="showNotice($event)" />
+            } @placeholder {
+              <p class="page-loading">Cargando consolidados…</p>
+            }
+          }
+          @case ('Mapas') {
+            @defer (on immediate) {
+              <app-maps (reportSelected)="selectReport($event)" (notify)="showNotice($event)" />
+            } @placeholder {
+              <p class="page-loading">Cargando mapa…</p>
+            }
+          }
+          @case ('Redes') {
+            @defer (on immediate) {
+              <app-networks (notify)="showNotice($event)" />
+            } @placeholder {
+              <p class="page-loading">Cargando redes…</p>
+            }
+          }
+          @case ('Reportes y exportaciones') {
+            @defer (on immediate) {
+              <app-exports (notify)="showNotice($event)" />
+            } @placeholder {
+              <p class="page-loading">Cargando reportes…</p>
+            }
+          }
+          @case ('Administración') {
+            @defer (on immediate) {
+              <app-territory #territory (notify)="showNotice($event)" />
+            } @placeholder {
+              <p class="page-loading">Cargando administración…</p>
+            }
+          }
+        }
+      </div>
+    </section>
+
+    @if (selectedReport) {
+      @defer (on immediate) {
+        <app-report-drawer
+          [report]="selectedReport"
+          (close)="selectedReport = null"
+          (action)="handleDrawerAction($event)"
+        />
+      } @placeholder {
+        <p class="page-loading drawer-loading">Cargando detalle…</p>
       }
-    </div>
-  </section>
-
-  @if (selectedReport) {@defer (on immediate) {<app-report-drawer [report]="selectedReport" (close)="selectedReport = null" (action)="handleDrawerAction($event)" />} @placeholder {<p class="page-loading drawer-loading">Cargando detalle…</p>}}
-  @if (notice) {<div class="toast"><b>✓</b>{{ notice }}</div>}
-</main>
+    }
+    @if (notice) {
+      <div class="toast"><b>✓</b>{{ notice }}</div>
+    }
+  </main>
 }

@@ -7,9 +7,11 @@ import { AuthenticationGuard } from './http/authentication.guard';
 import { AuthorizationGuard } from './http/authorization.guard';
 import { JwksTokenVerifier } from './infrastructure/jwks-token-verifier';
 import { PrismaIdentityRepository } from './infrastructure/prisma-identity.repository';
+import { CurrentProfileController } from './http/current-profile.controller';
 
 @Module({
   imports: [DatabaseModule],
+  controllers: [CurrentProfileController],
   providers: [
     AuthorizationPolicy,
     AuthenticationGuard,

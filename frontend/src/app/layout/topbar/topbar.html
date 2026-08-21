@@ -1,9 +1,49 @@
 <header class="topbar">
-  <div class="breadcrumb"><span>Honduras</span><b>›</b><strong>{{ role().scopeLabel }}</strong></div>
+  <div class="breadcrumb">
+    <span>{{ demoMode() ? 'Honduras' : 'SIGVITS' }}</span
+    ><b>›</b
+    ><strong>{{ demoMode() ? role().scopeLabel : 'Alcance institucional autorizado' }}</strong>
+  </div>
   <div class="top-actions">
-    <label class="role-switcher"><span>Vista</span><select aria-label="Vista de usuario" (change)="changeRole($event)">@for (item of roles; track item.id) {<option [value]="item.id" [selected]="item.id === role().id">{{ item.roleName }}</option>}</select></label>
-    <button class="theme-toggle" type="button" (click)="themeToggle.emit()" [attr.aria-label]="darkMode() ? 'Activar modo claro' : 'Activar modo oscuro'" [title]="darkMode() ? 'Modo claro' : 'Modo oscuro'"><span>{{ darkMode() ? '☀' : '☾' }}</span></button>
-    <button class="notification" [attr.aria-label]="notificationCount + ' notificaciones pendientes'" [title]="notificationCount + ' notificaciones pendientes'">{{ notificationCount }}<i></i></button>
-    <button class="user logout-button" type="button" (click)="logout.emit()" title="Cerrar sesión"><div class="avatar">{{ role().initials }}</div><div><strong>{{ role().userName }}</strong><span>{{ role().roleName }}</span></div><b>Salir</b></button>
+    @if (roles.length > 1) {
+      <label class="role-switcher"
+        ><span>Rol asignado</span
+        ><select aria-label="Rol institucional" (change)="changeRole($event)">
+          @for (item of roles; track item.id) {
+            <option [value]="item.id" [selected]="item.id === role().id">
+              {{ item.roleName }}
+            </option>
+          }
+        </select></label
+      >
+    } @else {
+      <span class="role-switcher">{{ role().roleName }}</span>
+    }
+    <button
+      class="theme-toggle"
+      type="button"
+      (click)="themeToggle.emit()"
+      [attr.aria-label]="darkMode() ? 'Activar modo claro' : 'Activar modo oscuro'"
+      [title]="darkMode() ? 'Modo claro' : 'Modo oscuro'"
+    >
+      <span>{{ darkMode() ? '☀' : '☾' }}</span>
+    </button>
+    @if (demoMode()) {
+      <button
+        class="notification"
+        [attr.aria-label]="notificationCount + ' notificaciones pendientes'"
+        [title]="notificationCount + ' notificaciones pendientes'"
+      >
+        {{ notificationCount }}<i></i>
+      </button>
+    }
+    <button class="user logout-button" type="button" (click)="logout.emit()" title="Cerrar sesión">
+      <div class="avatar">{{ userInitials() }}</div>
+      <div>
+        <strong>{{ userName() }}</strong
+        ><span>{{ role().roleName }}</span>
+      </div>
+      <b>Salir</b>
+    </button>
   </div>
 </header>

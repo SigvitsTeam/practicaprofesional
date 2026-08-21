@@ -60,6 +60,10 @@ describe('Application (e2e)', () => {
     });
   });
 
+  it('protects the current institutional profile', async () => {
+    await request(app.getHttpServer()).get('/api/v1/auth/me').expect(401);
+  });
+
   it('protects the territorial catalog before exposing configuration', async () => {
     await request(app.getHttpServer()).get('/api/v1/territories/catalog').expect(401);
   });

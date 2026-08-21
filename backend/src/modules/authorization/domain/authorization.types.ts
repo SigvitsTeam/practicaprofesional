@@ -26,6 +26,7 @@ export interface GrantedTerritory {
 
 export interface AuthorizationSubject {
   userId: string;
+  displayName?: string;
   roles: readonly RoleCode[];
   permissions: readonly string[];
   territory: GrantedTerritory;

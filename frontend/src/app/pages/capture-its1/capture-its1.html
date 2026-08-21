@@ -1,63 +1,327 @@
-@if (canSelectEstablishment) {<app-establishment-selector (selected)="loadRecords()" />}
+@if (canSelectEstablishment) {
+  <app-establishment-selector (selected)="loadRecords()" />
+}
 
 @if (editing()) {
-  <section class="editing-banner"><div><strong>Editando {{ editing()!.patientRecordNumber }}</strong><p>La corrección usa control de versión. Si otra persona modifica el registro, se solicitará recargar antes de guardar.</p></div><div class="editing-actions"><button type="button" class="btn danger" (click)="openCancel()">Anular atención</button><button type="button" class="btn secondary" (click)="clearForm()">Cancelar edición</button></div></section>
+  <section class="editing-banner">
+    <div>
+      <strong>Editando {{ editing()!.patientRecordNumber }}</strong>
+      <p>
+        La corrección usa control de versión. Si otra persona modifica el registro, se solicitará
+        recargar antes de guardar.
+      </p>
+    </div>
+    <div class="editing-actions">
+      <button type="button" class="btn danger" (click)="openCancel()">Anular atención</button
+      ><button type="button" class="btn secondary" (click)="clearForm()">Cancelar edición</button>
+    </div>
+  </section>
 }
 
 @if (cancelling()) {
-  <div class="cancel-modal-backdrop" (click)="closeCancel()"><section class="cancel-modal" role="dialog" aria-modal="true" aria-label="Anular atención ITS 1" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">ACCIÓN IRREVERSIBLE</span><h2>Anular atención ITS 1</h2><p>{{ cancelling()!.patientRecordNumber }} · {{ cancelling()!.attentionDate.slice(0, 10) }}</p></div><button type="button" aria-label="Cerrar" (click)="closeCancel()">×</button></header><div><p>El registro dejará de participar en ITS 2. Si existe un borrador, se invalidará para obligar a recalcularlo.</p><label><span>Motivo obligatorio</span><textarea [value]="cancelReason()" (input)="cancelReason.set($any($event.target).value)" maxlength="500"></textarea><small>Mínimo 10 caracteres. La operación quedará auditada.</small></label></div><footer><button class="btn secondary" type="button" (click)="closeCancel()">Conservar registro</button><button class="btn danger" type="button" [disabled]="saving() || cancelReason().trim().length < 10" (click)="confirmCancel()">{{ saving() ? 'Anulando…' : 'Confirmar anulación' }}</button></footer></section></div>
+  <div class="cancel-modal-backdrop" (click)="closeCancel()">
+    <section
+      class="cancel-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Anular atención ITS 1"
+      (click)="$event.stopPropagation()"
+    >
+      <header>
+        <div>
+          <span class="eyebrow">ACCIÓN IRREVERSIBLE</span>
+          <h2>Anular atención ITS 1</h2>
+          <p>
+            {{ cancelling()!.patientRecordNumber }} · {{ cancelling()!.attentionDate.slice(0, 10) }}
+          </p>
+        </div>
+        <button type="button" aria-label="Cerrar" (click)="closeCancel()">×</button>
+      </header>
+      <div>
+        <p>
+          El registro dejará de participar en ITS 2. Si existe un borrador, se invalidará para
+          obligar a recalcularlo.
+        </p>
+        <label
+          ><span>Motivo obligatorio</span
+          ><textarea
+            [value]="cancelReason()"
+            (input)="cancelReason.set($any($event.target).value)"
+            maxlength="500"
+          ></textarea
+          ><small>Mínimo 10 caracteres. La operación quedará auditada.</small></label
+        >
+      </div>
+      <footer>
+        <button class="btn secondary" type="button" (click)="closeCancel()">
+          Conservar registro</button
+        ><button
+          class="btn danger"
+          type="button"
+          [disabled]="saving() || cancelReason().trim().length < 10"
+          (click)="confirmCancel()"
+        >
+          {{ saving() ? 'Anulando…' : 'Confirmar anulación' }}
+        </button>
+      </footer>
+    </section>
+  </div>
 }
 
 @if (isCorrectionRequested) {
-  <section class="correction-banner"><i>↩</i><div><strong>Corrección solicitada por coordinación</strong><p>Verifique la procedencia y el segundo diagnóstico. Observación enviada el 29 jul, 09:18 por Dra. Ana Martínez.</p></div><span>DEVUELTO</span></section>
+  <section class="correction-banner">
+    <i>↩</i>
+    <div>
+      <strong>Corrección solicitada por coordinación</strong>
+      <p>
+        Verifique la procedencia y el segundo diagnóstico. Observación enviada el 29 jul, 09:18 por
+        Dra. Ana Martínez.
+      </p>
+    </div>
+    <span>DEVUELTO</span>
+  </section>
 }
 
 <form class="capture-layout" [formGroup]="form" (ngSubmit)="save()">
   <div class="form-stack">
     <article class="panel form-card">
-      <div class="section-heading"><div><h2>Datos de la atención</h2><p>Información correspondiente a {{ context.selected().name }}.</p></div><span class="secure">● Registro individual protegido</span></div>
+      <div class="section-heading">
+        <div>
+          <h2>Datos de la atención</h2>
+          <p>Información correspondiente a {{ context.selected().name }}.</p>
+        </div>
+        <span class="secure">● Registro individual protegido</span>
+      </div>
       <div class="form-grid">
-        <label><span>Fecha de atención *</span><input type="date" formControlName="attentionDate"><small>La semana mostrada es una vista previa.</small></label>
-        <label><span>Semana epidemiológica</span><input [value]="weekPreview" disabled></label>
-        <label><span>N.º expediente / ID paciente *</span><input formControlName="patientId" placeholder="Ej. EXP-2026-01842"><small class="field-error">@if (potentialDuplicate) {Posible duplicado en la fecha seleccionada.}</small></label>
-        <label><span>Sexo *</span><select formControlName="sex"><option value="">Seleccione</option><option>Hombre</option><option>Mujer</option></select></label>
-        <label><span>Edad *</span><input type="number" formControlName="age" min="0" max="120" placeholder="Años"></label>
-        <label><span>Tipo de población *</span><select formControlName="populationType"><option>General</option><option>Trabajador(a) sexual</option></select></label>
-        <label><span>Contacto *</span><select formControlName="contact"><option value="">Seleccione</option><option>Sí</option><option>No</option></select></label>
-        <label><span>Embarazada *</span><select formControlName="pregnant"><option>Sí</option><option>No</option></select><small>Disponible únicamente para sexo Mujer.</small></label>
+        <label
+          ><span>Fecha de atención *</span
+          ><input type="date" formControlName="attentionDate" /><small
+            >La semana mostrada es una vista previa.</small
+          ></label
+        >
+        <label><span>Semana epidemiológica</span><input [value]="weekPreview" disabled /></label>
+        <label
+          ><span>N.º expediente / ID paciente *</span
+          ><input formControlName="patientId" placeholder="Ej. EXP-2026-01842" /><small
+            class="field-error"
+          >
+            @if (potentialDuplicate) {
+              Posible duplicado en la fecha seleccionada.
+            }
+          </small></label
+        >
+        <label
+          ><span>Sexo *</span
+          ><select formControlName="sex">
+            <option value="">Seleccione</option>
+            <option>Hombre</option>
+            <option>Mujer</option>
+          </select></label
+        >
+        <label
+          ><span>Edad *</span
+          ><input type="number" formControlName="age" min="0" max="120" placeholder="Años"
+        /></label>
+        <label
+          ><span>Tipo de población *</span
+          ><select formControlName="populationType">
+            <option>General</option>
+            <option>Trabajador(a) sexual</option>
+          </select></label
+        >
+        <label
+          ><span>Contacto *</span
+          ><select formControlName="contact">
+            <option value="">Seleccione</option>
+            <option>Sí</option>
+            <option>No</option>
+          </select></label
+        >
+        <label
+          ><span>Embarazada *</span
+          ><select formControlName="pregnant">
+            <option>Sí</option>
+            <option>No</option></select
+          ><small>Disponible únicamente para sexo Mujer.</small></label
+        >
       </div>
     </article>
 
     <article class="panel form-card">
-      <div class="section-heading"><div><h2>Procedencia</h2><p>Escriba manualmente la comunidad, barrio, colonia o dirección proporcionada.</p></div></div>
-      <div class="form-grid single-field"><label class="wide"><span>Procedencia *</span><input formControlName="procedence" placeholder="Ej. Barrio El Centro, 2 cuadras al norte del parque"><small>Registre manualmente la referencia proporcionada por la persona.</small></label></div>
+      <div class="section-heading">
+        <div>
+          <h2>Procedencia</h2>
+          <p>Escriba manualmente la comunidad, barrio, colonia o dirección proporcionada.</p>
+        </div>
+      </div>
+      <div class="form-grid single-field">
+        <label class="wide"
+          ><span>Procedencia *</span
+          ><input
+            formControlName="procedence"
+            placeholder="Ej. Barrio El Centro, 2 cuadras al norte del parque"
+          /><small>Registre manualmente la referencia proporcionada por la persona.</small></label
+        >
+      </div>
     </article>
 
     <article class="panel form-card">
-      <div class="section-heading"><div><h2>Diagnósticos</h2><p>Una atención puede incluir uno o varios diagnósticos.</p></div><button type="button" class="text-button" (click)="addDiagnostic()">＋ Agregar diagnóstico</button></div>
+      <div class="section-heading">
+        <div>
+          <h2>Diagnósticos</h2>
+          <p>Una atención puede incluir uno o varios diagnósticos.</p>
+        </div>
+        <button type="button" class="text-button" (click)="addDiagnostic()">
+          ＋ Agregar diagnóstico
+        </button>
+      </div>
       <div class="diagnostic-list" formArrayName="diagnostics">
         @for (diagnostic of diagnostics.controls; track $index) {
-          <div class="diagnostic-row" [formGroupName]="$index"><span class="diagnostic-number">{{ $index + 1 }}</span><label><span>Clasificación *</span><select formControlName="classification"><option>Sindrómico</option><option>Clínico</option><option>C/E</option><option>Etiológico</option></select></label><label><span>Enfermedad *</span><select formControlName="disease"><option value="">Seleccione</option>@for (disease of availableDiseases(); track disease) {<option>{{ disease }}</option>}</select></label><label><span>Tipo de caso *</span><select formControlName="caseType"><option>Nuevo</option><option>Control</option></select></label><button type="button" class="remove-diagnostic" [disabled]="diagnostics.length === 1" (click)="removeDiagnostic($index)" aria-label="Eliminar diagnóstico">×</button></div>
+          <div class="diagnostic-row" [formGroupName]="$index">
+            <span class="diagnostic-number">{{ $index + 1 }}</span
+            ><label
+              ><span>Clasificación *</span
+              ><select formControlName="classification">
+                <option>Sindrómico</option>
+                <option>Clínico</option>
+                <option>C/E</option>
+                <option>Etiológico</option>
+              </select></label
+            ><label
+              ><span>Enfermedad *</span
+              ><select formControlName="disease">
+                <option value="">Seleccione</option>
+                @for (disease of availableDiseases(); track disease) {
+                  <option>{{ disease }}</option>
+                }
+              </select></label
+            ><label
+              ><span>Tipo de caso *</span
+              ><select formControlName="caseType">
+                <option>Nuevo</option>
+                <option>Control</option>
+              </select></label
+            ><button
+              type="button"
+              class="remove-diagnostic"
+              [disabled]="diagnostics.length === 1"
+              (click)="removeDiagnostic($index)"
+              aria-label="Eliminar diagnóstico"
+            >
+              ×
+            </button>
+          </div>
         }
       </div>
-      <div class="form-grid observations-grid"><label class="wide"><span>Observaciones de la atención</span><textarea formControlName="observations" placeholder="Información relevante para la captura o corrección"></textarea></label></div>
+      <div class="form-grid observations-grid">
+        <label class="wide"
+          ><span>Observaciones de la atención</span
+          ><textarea
+            formControlName="observations"
+            placeholder="Información relevante para la captura o corrección"
+          ></textarea>
+        </label>
+      </div>
     </article>
 
-    @if (submitted && form.invalid) {<div class="form-alert"><b>!</b><span>Hay campos obligatorios pendientes. Revise la información resaltada.</span></div>}
-    <div class="form-actions"><button type="button" class="btn secondary" (click)="clearForm()">Limpiar</button><button type="submit" class="btn primary" [disabled]="saving() || contextLoading()">{{ saving() ? 'Guardando…' : editing() || isCorrectionRequested ? 'Guardar corrección' : 'Guardar atención ITS 1' }}</button></div>
+    @if (submitted && form.invalid) {
+      <div class="form-alert">
+        <b>!</b><span>Hay campos obligatorios pendientes. Revise la información resaltada.</span>
+      </div>
+    }
+    <div class="form-actions">
+      <button type="button" class="btn secondary" (click)="clearForm()">Limpiar</button
+      ><button type="submit" class="btn primary" [disabled]="saving() || contextLoading()">
+        {{
+          saving()
+            ? 'Guardando…'
+            : editing() || isCorrectionRequested
+              ? 'Guardar corrección'
+              : 'Guardar atención ITS 1'
+        }}
+      </button>
+    </div>
   </div>
 
   <aside class="side-stack">
-    <article class="panel context-card"><div class="section-heading"><div><h2>Contexto automático</h2></div></div><dl><div><dt>Región</dt><dd>Región Sanitaria de Cortés</dd></div><div><dt>Municipio</dt><dd>Puerto Cortés</dd></div><div><dt>Establecimiento</dt><dd>{{ context.selected().name }}</dd></div><div><dt>Código</dt><dd>{{ context.selected().code }}</dd></div><div><dt>Usuario que registra</dt><dd>{{ activeUser.userName }} · {{ activeUser.roleName }}</dd></div><div><dt>Período</dt><dd>Julio 2026</dd></div></dl></article>
-    <article class="panel recent"><div class="section-heading"><div><h2>Registros recientes</h2><p>{{ context.selected().name }} · período activo</p></div></div><div class="recent-table">
-      @if (demoMode) {
-        @for (record of recentRecords; track record.id) {<button type="button"><span><strong>{{ record.id }}</strong><small>{{ record.date }} · {{ record.diagnosis }}</small></span><em>{{ record.status }}</em></button>}
-      } @else if (recordsLoading()) {
-        <p class="records-state">Cargando registros…</p>
-      } @else {
-        @for (record of records(); track record.id) {<button type="button" (click)="selectRecord(record)"><span><strong>{{ record.patientRecordNumber }}</strong><small>{{ record.attentionDate.slice(0, 10) }} · {{ record.diagnoses[0]?.diseaseName ?? 'Sin diagnóstico' }}</small></span><em>{{ record.possibleDuplicate ? 'Revisar' : 'Editar' }}</em></button>} @empty {<p class="records-state">No hay atenciones registradas en este período.</p>}
-      }
-    </div></article>
-    <article class="panel workflow-card"><div class="section-heading"><div><h2>Flujo de corrección</h2></div></div><ol><li class="done"><i>✓</i><span>Observación recibida</span></li><li [class.active]="isCorrectionRequested"><i>2</i><span>Corrección por digitador</span></li><li><i>3</i><span>Reenvío a coordinación</span></li></ol></article>
+    <article class="panel context-card">
+      <div class="section-heading">
+        <div><h2>Contexto automático</h2></div>
+      </div>
+      <dl>
+        <div>
+          <dt>Región</dt>
+          <dd>{{ currentRegionName }}</dd>
+        </div>
+        <div>
+          <dt>Municipio</dt>
+          <dd>{{ currentMunicipalityName }}</dd>
+        </div>
+        <div>
+          <dt>Establecimiento</dt>
+          <dd>{{ context.selected().name }}</dd>
+        </div>
+        <div>
+          <dt>Código</dt>
+          <dd>{{ context.selected().code || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Usuario que registra</dt>
+          <dd>{{ currentUserName }} · {{ activeUser.roleName }}</dd>
+        </div>
+        <div>
+          <dt>Período</dt>
+          <dd>{{ activePeriod }}</dd>
+        </div>
+      </dl>
+    </article>
+    <article class="panel recent">
+      <div class="section-heading">
+        <div>
+          <h2>Registros recientes</h2>
+          <p>{{ context.selected().name }} · período activo</p>
+        </div>
+      </div>
+      <div class="recent-table">
+        @if (demoMode) {
+          @for (record of recentRecords; track record.id) {
+            <button type="button">
+              <span
+                ><strong>{{ record.id }}</strong
+                ><small>{{ record.date }} · {{ record.diagnosis }}</small></span
+              ><em>{{ record.status }}</em>
+            </button>
+          }
+        } @else if (recordsLoading()) {
+          <p class="records-state">Cargando registros…</p>
+        } @else {
+          @for (record of records(); track record.id) {
+            <button type="button" (click)="selectRecord(record)">
+              <span
+                ><strong>{{ record.patientRecordNumber }}</strong
+                ><small
+                  >{{ record.attentionDate.slice(0, 10) }} ·
+                  {{ record.diagnoses[0]?.diseaseName ?? 'Sin diagnóstico' }}</small
+                ></span
+              ><em>{{ record.possibleDuplicate ? 'Revisar' : 'Editar' }}</em>
+            </button>
+          } @empty {
+            <p class="records-state">No hay atenciones registradas en este período.</p>
+          }
+        }
+      </div>
+    </article>
+    <article class="panel workflow-card">
+      <div class="section-heading">
+        <div><h2>Flujo de corrección</h2></div>
+      </div>
+      <ol>
+        <li class="done"><i>✓</i><span>Observación recibida</span></li>
+        <li [class.active]="isCorrectionRequested">
+          <i>2</i><span>Corrección por digitador</span>
+        </li>
+        <li><i>3</i><span>Reenvío a coordinación</span></li>
+      </ol>
+    </article>
   </aside>
 </form>
