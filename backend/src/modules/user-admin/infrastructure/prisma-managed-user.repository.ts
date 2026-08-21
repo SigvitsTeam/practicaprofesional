@@ -10,6 +10,7 @@ import {
   ManagedUserConflictError,
   ManagedUserInvariantError,
   ManagedUserNotFoundError,
+  type LinkExternalIdentityInput,
   type CreateManagedUserInput,
   type ManagedUser,
   type ManagedUserContext,
@@ -228,6 +229,86 @@ export class PrismaManagedUserRepository extends ManagedUserRepository {
         null,
       updatedAt: row.updatedAt,
     };
+  }
+
+  async linkExternalIdentity(input: LinkExternalIdentityInput): Promise<ManagedUser> {
+    try {
+      const idempotent = await this.prisma.client.$transaction(
+        async (tx) => {
+          const user = await tx.appUser.findUnique({
+            where: { id: input.userId },
+            select: {
+              id: true,
+              email: true,
+              active: true,
+              updatedAt: true,
+              externalIdentities: { select: { issuer: true, subject: true } },
+            },
+          });
+          if (!user) throw new ManagedUserNotFoundError('El usuario no existe.');
+          const claimed = await tx.externalIdentity.findUnique({
+            where: { issuer_subject: { issuer: input.issuer, subject: input.subject } },
+            select: { userId: true },
+          });
+          const sameIdentity = user.externalIdentities.some(
+            (identity) => identity.issuer === input.issuer && identity.subject === input.subject,
+          );
+          if (sameIdentity && claimed?.userId === user.id && user.active === input.activate)
+            return true;
+          if (user.externalIdentities.length > 0)
+            throw new ManagedUserInvariantError(
+              'El perfil ya está vinculado a otra identidad externa.',
+            );
+          if (claimed)
+            throw new ManagedUserConflictError(
+              'La identidad externa ya está vinculada a otro perfil.',
+            );
+          const updated = await tx.appUser.updateMany({
+            where: { id: user.id, updatedAt: input.expectedUpdatedAt },
+            data: { active: input.activate, updatedAt: new Date() },
+          });
+          if (updated.count !== 1)
+            throw new ManagedUserConcurrencyError(
+              'El usuario cambió mientras vinculaba la identidad. Recargue e intente nuevamente.',
+            );
+          await tx.externalIdentity.create({
+            data: {
+              userId: user.id,
+              issuer: input.issuer,
+              subject: input.subject,
+              emailSnapshot: user.email,
+            },
+          });
+          await tx.auditEvent.create({
+            data: {
+              actorUserId: input.actorUserId,
+              action: 'USER_EXTERNAL_IDENTITY_LINKED',
+              entity: 'USER',
+              entityId: user.id,
+              dataLevel: 'CONFIGURACION',
+              previousData: { hasExternalIdentity: false, active: user.active },
+              newData: {
+                hasExternalIdentity: true,
+                active: input.activate,
+                issuer: input.issuer,
+              },
+              reason: input.reason,
+              requestId: input.requestId,
+            },
+          });
+          return false;
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+      if (idempotent) return this.requiredCurrentUser(input.userId);
+    } catch (error: unknown) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
+        throw new ManagedUserConflictError(
+          'La identidad externa ya fue vinculada por otra operación.',
+        );
+      this.mapTransactionConflict(error);
+    }
+    return this.requiredCurrentUser(input.userId);
   }
 
   async countActiveSuperAdmins(): Promise<number> {

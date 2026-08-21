@@ -33,6 +33,7 @@ import {
 import {
   ChangeManagedUserAccessDto,
   CreateManagedUserDto,
+  LinkExternalIdentityDto,
   UpdateManagedUserStatusDto,
 } from './managed-users.dto';
 
@@ -103,6 +104,23 @@ export class ManagedUsersController {
   ): Promise<ManagedUser> {
     return this.handle(() =>
       this.users.changeAccess(id, { ...body, requestId: request.requestId }, subject),
+    );
+  }
+
+  @Post(':id/external-identity')
+  @RequireAccess({
+    permission: 'admin:users:link',
+    dataLevel: DataLevel.Configuration,
+    scope: 'OWN',
+  })
+  linkExternalIdentity(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: LinkExternalIdentityDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+    @Req() request: RequestWithContext,
+  ): Promise<ManagedUser> {
+    return this.handle(() =>
+      this.users.linkExternalIdentity(id, { ...body, requestId: request.requestId }, subject),
     );
   }
 

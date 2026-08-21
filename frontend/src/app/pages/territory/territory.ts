@@ -40,6 +40,8 @@ export class Territory implements OnInit {
   protected editingUser: ManagedUserRecord | null = null;
   protected statusUser: ManagedUserRecord | null = null;
   protected statusReason = '';
+  protected identityUser: ManagedUserRecord | null = null;
+  protected identityForm = { externalSubject: '', activate: true, reason: '' };
   protected userFormSubmitted = false;
   protected userForm = this.emptyUserForm();
   get regionalScope() { return this.roleContext.activeRoleId() === 'regional-superadmin'; }
@@ -169,6 +171,28 @@ export class Territory implements OnInit {
   }
 
   protected openStatus(user: ManagedUserRecord) { this.statusUser = user; this.statusReason = ''; }
+  protected openIdentityLink(user: ManagedUserRecord) {
+    this.identityUser = user;
+    this.identityForm = { externalSubject: '', activate: true, reason: '' };
+  }
+  protected saveIdentityLink() {
+    const user = this.identityUser;
+    if (!user || !this.identityForm.externalSubject.trim() || this.identityForm.reason.trim().length < 10) return;
+    this.loading = true;
+    this.userApi.linkExternalIdentity(user.id, {
+      externalSubject: this.identityForm.externalSubject,
+      activate: this.identityForm.activate,
+      expectedUpdatedAt: user.updatedAt,
+      reason: this.identityForm.reason,
+    }).pipe(finalize(() => this.loading = false)).subscribe({
+      next: updated => {
+        this.users = this.users.map(item => item.id === updated.id ? updated : item);
+        this.identityUser = null;
+        this.notify.emit(`Identidad externa vinculada a “${updated.fullName}”${updated.active ? ' y acceso activado' : ''}.`);
+      },
+      error: () => this.notify.emit('No fue posible vincular la identidad. Verifique el identificador externo, la versión y que no esté asignado a otro perfil.'),
+    });
+  }
   protected saveStatus() {
     const user = this.statusUser;
     if (!user || this.statusReason.trim().length < 10) return;

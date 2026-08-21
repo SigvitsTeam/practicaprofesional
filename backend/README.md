@@ -171,16 +171,31 @@ Requiere `BOOTSTRAP_ADMIN_ISSUER`, `BOOTSTRAP_ADMIN_SUBJECT`, `BOOTSTRAP_ADMIN_E
 `SUPERADMIN`, crea alcance nacional y registra el evento de auditoría. No crea ni almacena
 contraseñas; el usuario debe existir previamente en el proveedor de identidad.
 
-Los usuarios siguientes se vinculan de forma idempotente con `npm run db:provision-user`. Antes
-de ejecutarlo, cree la identidad en Supabase Auth y configure `PROVISION_USER_SUBJECT`,
-`PROVISION_USER_EMAIL`, `PROVISION_USER_NAME`, `PROVISION_USER_ROLE`, `PROVISION_SCOPE_TYPE` y,
-salvo para alcance nacional, `PROVISION_SCOPE_CODE`. El proceso valida el actor, rol y territorio,
-y audita la asignación.
+Los usuarios siguientes se crean primero como perfiles inactivos desde Administración. Tras crear
+o invitar la cuenta en el proveedor, un SuperAdmin autorizado vincula su `subject` inmutable con
+`POST /api/v1/admin/users/:id/external-identity`. El servidor fija el `issuer` desde `AUTH_ISSUER`:
+el cliente no puede elegirlo y nunca se vincula por coincidencia de correo. La vinculación y la
+activación opcional son una única transacción serializable, con versión esperada, motivo,
+unicidad, auditoría y reintento idempotente.
+
+`npm run db:provision-user` se conserva como procedimiento operativo controlado para recuperación
+o aprovisionamiento inicial. Requiere que la identidad ya exista en el proveedor y las variables
+`PROVISION_USER_SUBJECT`, `PROVISION_USER_EMAIL`, `PROVISION_USER_NAME`, `PROVISION_USER_ROLE`,
+`PROVISION_SCOPE_TYPE` y, salvo para alcance nacional, `PROVISION_SCOPE_CODE`.
 
 El estado de un período mensual se administra con `npm run db:set-period-status`, usando
 `PERIOD_YEAR`, `PERIOD_MONTH`, `PERIOD_STATUS`, `PERIOD_REASON` y `PERIOD_ACTOR_EMAIL`. Solo un
 SuperAdmin o Admin Central puede ejecutar la transición, los períodos cerrados no se reabren y
 cada cambio queda auditado.
+
+## Cola de exportaciones
+
+`POST /api/v1/exports/jobs` registra una solicitud agregada con alcance territorial validado y
+clave UUID de idempotencia. `GET /api/v1/exports/jobs` devuelve como máximo los 50 trabajos más
+recientes del usuario autenticado. La tabla `trabajos_exportacion` conserva estado, intentos y
+referencia futura al artefacto; está protegida con RLS forzado y sin acceso directo para roles de
+Supabase. El procesamiento XLSX/PDF se ejecutará en un worker independiente que reclamará trabajos
+pendientes, por lo que la API HTTP nunca debe generar archivos pesados en línea.
 
 ## Flujo autenticado ITS-2
 

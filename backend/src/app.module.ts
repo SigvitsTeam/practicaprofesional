@@ -14,6 +14,7 @@ import { HealthModule } from './modules/health/health.module';
 import { ItsCaptureModule } from './modules/its-capture/its-capture.module';
 import { TerritorialModule } from './modules/territorial/territorial.module';
 import { UserAdminModule } from './modules/user-admin/user-admin.module';
+import { ExportsModule } from './modules/exports/exports.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { UserAdminModule } from './modules/user-admin/user-admin.module';
     TerritorialModule,
     UserAdminModule,
     ItsCaptureModule,
+    ExportsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

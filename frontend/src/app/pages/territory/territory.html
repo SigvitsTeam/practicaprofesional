@@ -9,7 +9,7 @@
 <section class="panel user-admin" aria-label="Administración de usuarios">
   <div class="user-admin-heading"><div><span class="eyebrow">ACCESO INSTITUCIONAL</span><h2>Usuarios y alcance</h2><p>Los perfiles nuevos permanecen inactivos hasta vincular su identidad externa.</p></div><button class="btn primary" type="button" (click)="openUserCreate()">＋ Nuevo usuario</button></div>
   <div class="table-wrap"><table><thead><tr><th>Usuario</th><th>Rol</th><th>Alcance</th><th>Acceso</th><th>Acciones</th></tr></thead><tbody>
-    @for (user of users; track user.id) {<tr><td><strong>{{ user.fullName }}</strong><small>{{ user.email }}</small></td><td>{{ user.role.name }}</td><td>{{ user.assignment.label }}</td><td><span class="region-status" [class.preconfigured]="!user.active">{{ user.active && user.hasExternalIdentity ? 'Activo' : user.hasExternalIdentity ? 'Suspendido' : 'Pendiente de identidad' }}</span></td><td class="user-actions"><button type="button" (click)="openUserEdit(user)">Cambiar acceso</button>@if (user.active || user.hasExternalIdentity) {<button type="button" (click)="openStatus(user)">{{ user.active ? 'Suspender' : 'Reactivar' }}</button>}</td></tr>}
+    @for (user of users; track user.id) {<tr><td><strong>{{ user.fullName }}</strong><small>{{ user.email }}</small></td><td>{{ user.role.name }}</td><td>{{ user.assignment.label }}</td><td><span class="region-status" [class.preconfigured]="!user.active">{{ user.active && user.hasExternalIdentity ? 'Activo' : user.hasExternalIdentity ? 'Suspendido' : 'Pendiente de identidad' }}</span></td><td class="user-actions"><button type="button" (click)="openUserEdit(user)">Cambiar acceso</button>@if (!user.hasExternalIdentity) {<button type="button" (click)="openIdentityLink(user)">Vincular identidad</button>}@if (user.active || user.hasExternalIdentity) {<button type="button" (click)="openStatus(user)">{{ user.active ? 'Suspender' : 'Reactivar' }}</button>}</td></tr>}
     @empty {<tr><td colspan="5">No hay usuarios visibles dentro del alcance actual.</td></tr>}
   </tbody></table></div>
 </section>
@@ -28,6 +28,14 @@
 
 @if (statusUser) {
   <div class="form-modal-backdrop" (click)="statusUser = null"><section class="form-modal status-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">ACCIÓN SENSIBLE</span><h2>{{ statusUser.active ? 'Suspender' : 'Reactivar' }} usuario</h2><p>{{ statusUser.fullName }} · {{ statusUser.email }}</p></div><button type="button" (click)="statusUser = null">×</button></header><form (ngSubmit)="saveStatus()"><div class="creation-form"><label class="wide"><span>Motivo obligatorio</span><textarea name="statusReason" [(ngModel)]="statusReason" minlength="10" maxlength="500"></textarea><small>Se registrará en la bitácora administrativa.</small></label></div><footer><button class="btn secondary" type="button" (click)="statusUser = null">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading || statusReason.trim().length < 10">Confirmar</button></footer></form></section></div>
+}
+
+@if (identityUser) {
+  <div class="form-modal-backdrop" (click)="identityUser = null"><section class="form-modal status-dialog" role="dialog" aria-modal="true" aria-label="Vincular identidad externa" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">IDENTIDAD VERIFICADA</span><h2>Vincular identidad externa</h2><p>{{ identityUser.fullName }} · {{ identityUser.email }}</p></div><button type="button" (click)="identityUser = null">×</button></header><form (ngSubmit)="saveIdentityLink()"><div class="creation-form">
+    <label class="wide"><span>Subject inmutable del proveedor *</span><input name="externalSubject" [(ngModel)]="identityForm.externalSubject" maxlength="255" autocomplete="off"><small>Copie el identificador exacto desde el directorio institucional. No se vincula por coincidencia de correo.</small></label>
+    <label class="wide"><span>Motivo administrativo *</span><textarea name="identityReason" [(ngModel)]="identityForm.reason" minlength="10" maxlength="500"></textarea></label>
+    <label class="wide"><span><input name="activateIdentityUser" type="checkbox" [(ngModel)]="identityForm.activate"> Activar el acceso en la misma operación atómica</span></label>
+  </div><footer><button class="btn secondary" type="button" (click)="identityUser = null">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading || !identityForm.externalSubject.trim() || identityForm.reason.trim().length < 10">{{ loading ? 'Vinculando…' : 'Vincular identidad' }}</button></footer></form></section></div>
 }
 
 @if (territoryStatusTarget) {

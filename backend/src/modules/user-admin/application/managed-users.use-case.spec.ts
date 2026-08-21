@@ -4,10 +4,12 @@ import {
   type TerritorialScopeType,
 } from '../../authorization/domain/authorization.types';
 import {
+  InvalidManagedUserError,
   ManagedUserInvariantError,
   ManagedUserRoleError,
   ManagedUserScopeError,
   type CreateManagedUserInput,
+  type LinkExternalIdentityInput,
   type ManagedUser,
 } from '../domain/managed-user';
 import { ManagedUsersUseCase } from './managed-users.use-case';
@@ -83,6 +85,19 @@ class Repository extends ManagedUserRepository {
   changeAccess(input: CreateManagedUserInput & { userId: string }): Promise<ManagedUser> {
     return this.create(input).then((user) => ({ ...user, id: input.userId }));
   }
+  linkExternalIdentity(input: LinkExternalIdentityInput): Promise<ManagedUser> {
+    return this.create({
+      ...basePersisted,
+      actorUserId: input.actorUserId,
+      requestId: input.requestId,
+      reason: input.reason,
+    }).then((user) => ({
+      ...user,
+      id: input.userId,
+      active: input.activate,
+      hasExternalIdentity: true,
+    }));
+  }
 }
 
 const basePersisted: CreateManagedUserInput = {
@@ -127,7 +142,13 @@ describe('ManagedUsersUseCase', () => {
 
   beforeEach(() => {
     repository = new Repository();
-    useCase = new ManagedUsersUseCase(repository);
+    useCase = new ManagedUsersUseCase(repository, {
+      issuer: 'https://identity.example.org',
+      audience: 'sigvits-api',
+      jwksUrl: 'https://identity.example.org/.well-known/jwks.json',
+      clockToleranceSeconds: 5,
+      jwksTimeoutMs: 5_000,
+    });
   });
 
   it('crea pendiente de identidad y normaliza el perfil dentro del alcance', async () => {
@@ -196,5 +217,38 @@ describe('ManagedUsersUseCase', () => {
         regional,
       ),
     ).rejects.toBeInstanceOf(ManagedUserInvariantError);
+  });
+
+  it('vincula y activa una identidad externa usando el issuer configurado', async () => {
+    repository.context.hasExternalIdentity = false;
+    repository.context.active = false;
+    const result = await useCase.linkExternalIdentity(
+      'user-2',
+      {
+        externalSubject: 'provider-user-123',
+        activate: true,
+        expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+        reason: 'Identidad verificada en el directorio institucional',
+        requestId: 'request-link-1',
+      },
+      regional,
+    );
+    expect(result).toMatchObject({ active: true, hasExternalIdentity: true });
+  });
+
+  it('rechaza identificadores externos con espacios o caracteres de control', async () => {
+    await expect(
+      useCase.linkExternalIdentity(
+        'user-2',
+        {
+          externalSubject: 'subject con espacios',
+          activate: true,
+          expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+          reason: 'Identidad verificada en el directorio institucional',
+          requestId: 'request-link-2',
+        },
+        regional,
+      ),
+    ).rejects.toBeInstanceOf(InvalidManagedUserError);
   });
 });

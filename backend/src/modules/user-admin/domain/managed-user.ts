@@ -32,6 +32,17 @@ export interface ManagedUserContext {
   updatedAt: Date;
 }
 
+export interface LinkExternalIdentityInput {
+  userId: string;
+  issuer: string;
+  subject: string;
+  activate: boolean;
+  expectedUpdatedAt: Date;
+  actorUserId: string;
+  requestId: string;
+  reason: string;
+}
+
 export interface CreateManagedUserInput {
   fullName: string;
   email: string;

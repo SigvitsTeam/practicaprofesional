@@ -1,6 +1,8 @@
-import { Component, inject, output } from '@angular/core';
+import { Component, OnInit, inject, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RoleContext } from '../../core/role-context';
+import { AuthService } from '../../core/auth.service';
+import { ExportJobsApiService, type ExportJobRecord } from '../../core/export-jobs-api.service';
 
 type ComparisonDimension = 'periods' | 'territories' | 'indicators';
 interface AnnualEvaluationConfig {
@@ -8,13 +10,17 @@ interface AnnualEvaluationConfig {
   rangeAStart: string; rangeAEnd: string; rangeBStart: string; rangeBEnd: string;
   territoryA: string; territoryB: string; indicatorA: string; indicatorB: string; format: string;
 }
-interface ExportOption { icon: string; title: string; detail: string; action: 'annual' | 'generate'; }
-interface ExportJob { report: string; period: string; format: 'XLSX' | 'PDF'; template: string; status: 'Generado' | 'Generando' | 'Error'; user: string; }
+interface ExportOption { icon: string; title: string; detail: string; action: 'annual' | 'generate'; reportType?: string; }
+interface ExportJob { report: string; period: string; format: 'XLSX' | 'PDF'; template: string; status: 'Generado' | 'Generando' | 'Error'; user: string; outputAvailable: boolean; }
 
 @Component({ selector: 'app-exports', imports: [FormsModule], templateUrl: './exports.html', styleUrl: './exports.css' })
-export class Exports {
+export class Exports implements OnInit {
   readonly notify = output<string>();
   private readonly roleContext = inject(RoleContext);
+  private readonly auth = inject(AuthService);
+  private readonly jobsApi = inject(ExportJobsApiService);
+  protected liveJobs: ExportJobRecord[] = [];
+  protected loading = false;
   protected showAnnualEvaluation = false;
   protected formSubmitted = false;
 
@@ -27,50 +33,84 @@ export class Exports {
   protected annualForm = this.emptyAnnualForm();
   protected annualPreview: AnnualEvaluationConfig | null = null;
 
+  ngOnInit() {
+    if (this.auth.isDemo()) return;
+    this.loading = true;
+    this.jobsApi.list().subscribe({
+      next: jobs => { this.liveJobs = jobs; this.loading = false; },
+      error: () => { this.loading = false; this.notify.emit('No fue posible cargar la cola real de exportaciones.'); },
+    });
+  }
+
   protected get exportOptions(): ExportOption[] {
     const role = this.roleContext.activeRoleId();
     if (role === 'establishment-manager') return [
-      { icon: '▦', title: 'ITS 1 del establecimiento', detail: 'Excel protegido · CIS Linda Coello', action: 'generate' },
-      { icon: '◇', title: 'ITS 2 mensual', detail: 'Excel y PDF oficial', action: 'generate' },
+      { icon: '▦', title: 'ITS 1 del establecimiento', detail: 'Excel protegido · alcance asignado', action: 'generate', reportType: 'ITS1_ESTABLISHMENT' },
+      { icon: '◇', title: 'ITS 2 mensual', detail: 'Excel oficial', action: 'generate', reportType: 'ITS2_MONTHLY' },
       { icon: '↗', title: 'Evaluación anual propia', detail: 'General y comparativa', action: 'annual' },
-      { icon: '⌖', title: 'Resumen territorial propio', detail: 'Procedencias agregadas', action: 'generate' },
+      { icon: '⌖', title: 'Resumen territorial propio', detail: 'Procedencias agregadas', action: 'generate', reportType: 'TERRITORIAL_SUMMARY' },
     ];
     if (role === 'central-validator' || role === 'superadmin') return [
-      { icon: '▣', title: 'Consolidado nacional', detail: 'Excel y PDF · por región', action: 'generate' },
-      { icon: '◇', title: 'Consolidados regionales', detail: 'Paquete de revisión', action: 'generate' },
+      { icon: '▣', title: 'Consolidado nacional', detail: 'Excel · por región', action: 'generate', reportType: 'NATIONAL_CONSOLIDATED' },
+      { icon: '◇', title: 'Consolidados regionales', detail: 'Paquete de revisión', action: 'generate', reportType: 'REGIONAL_CONSOLIDATED' },
       { icon: '↗', title: 'Evaluación anual nacional', detail: 'General y comparativa', action: 'annual' },
-      { icon: '⌖', title: 'Reporte territorial nacional', detail: 'Indicadores agregados', action: 'generate' },
+      { icon: '⌖', title: 'Reporte territorial nacional', detail: 'Indicadores agregados', action: 'generate', reportType: 'TERRITORIAL_SUMMARY' },
     ];
     if (role === 'municipal-coordinator') return [
-      { icon: '◇', title: 'ITS 2 por establecimiento', detail: 'Excel oficial · datos agregados', action: 'generate' },
-      { icon: '▣', title: 'Consolidado municipal', detail: 'Excel y PDF', action: 'generate' },
+      { icon: '◇', title: 'ITS 2 por establecimiento', detail: 'Excel oficial · datos agregados', action: 'generate', reportType: 'ITS2_BY_ESTABLISHMENT' },
+      { icon: '▣', title: 'Consolidado municipal', detail: 'Excel', action: 'generate', reportType: 'MUNICIPAL_CONSOLIDATED' },
       { icon: '↗', title: 'Evaluación anual municipal', detail: 'General y comparativa', action: 'annual' },
-      { icon: '⌖', title: 'Reporte territorial municipal', detail: 'Establecimientos y procedencias', action: 'generate' },
+      { icon: '⌖', title: 'Reporte territorial municipal', detail: 'Establecimientos y procedencias', action: 'generate', reportType: 'TERRITORIAL_SUMMARY' },
     ];
     return [
-      { icon: '◇', title: 'Consolidados municipales', detail: 'Excel oficial · datos agregados', action: 'generate' },
-      { icon: '▣', title: 'Consolidado regional', detail: 'Excel y PDF', action: 'generate' },
+      { icon: '◇', title: 'Consolidados municipales', detail: 'Excel oficial · datos agregados', action: 'generate', reportType: 'MUNICIPAL_CONSOLIDATED' },
+      { icon: '▣', title: 'Consolidado regional', detail: 'Excel', action: 'generate', reportType: 'REGIONAL_CONSOLIDATED' },
       { icon: '↗', title: 'Evaluación anual regional', detail: 'General y comparativa', action: 'annual' },
-      { icon: '⌖', title: 'Reporte territorial regional', detail: 'Municipios y Redes', action: 'generate' },
+      { icon: '⌖', title: 'Reporte territorial regional', detail: 'Municipios y Redes', action: 'generate', reportType: 'TERRITORIAL_SUMMARY' },
     ];
   }
 
   protected get recentJobs(): ExportJob[] {
+    if (!this.auth.isDemo()) return this.liveJobs.map(job => ({ report: job.reportType.replaceAll('_', ' '), period: `${String(job.month).padStart(2, '0')}/${job.year}`, format: job.format, template: 'Vigente', status: ({ PENDIENTE: 'Generando', PROCESANDO: 'Generando', COMPLETADO: 'Generado', FALLIDO: 'Error' } as const)[job.status], user: this.auth.user()?.name ?? 'Usuario actual', outputAvailable: job.outputAvailable }));
     const role = this.roleContext.activeRole();
     const level = this.roleContext.activeRoleId() === 'establishment-manager' ? 'CIS Linda Coello' : this.roleContext.activeRoleId() === 'municipal-coordinator' ? 'Puerto Cortés' : ['superadmin', 'central-validator'].includes(this.roleContext.activeRoleId()) ? 'Honduras' : 'Región de Cortés';
     return [
-      { report: `Consolidado · ${level}`, period: 'Julio 2026', format: 'XLSX', template: 'v3.2', status: 'Generado', user: role.userName },
-      { report: 'Evaluación anual comparativa', period: '2025 vs 2026', format: 'PDF', template: 'v1.4', status: 'Generando', user: role.userName },
-      { report: `Reporte territorial · ${level}`, period: 'Julio 2026', format: 'PDF', template: 'v1.0', status: 'Generado', user: role.userName },
+      { report: `Consolidado · ${level}`, period: 'Julio 2026', format: 'XLSX', template: 'v3.2', status: 'Generado', user: role.userName, outputAvailable: true },
+      { report: 'Evaluación anual comparativa', period: '2025 vs 2026', format: 'PDF', template: 'v1.4', status: 'Generando', user: role.userName, outputAvailable: false },
+      { report: `Reporte territorial · ${level}`, period: 'Julio 2026', format: 'PDF', template: 'v1.0', status: 'Generado', user: role.userName, outputAvailable: true },
     ];
   }
 
   protected selectExport(option: ExportOption) {
     if (option.action === 'annual') this.openAnnualEvaluation();
-    else this.notify.emit(`${option.title} agregado a la cola de generación.`);
+    else if (this.auth.isDemo()) this.notify.emit(`${option.title} agregado a la cola de demostración.`);
+    else this.queueExport(option);
+  }
+
+  private queueExport(option: ExportOption) {
+    const scope = this.currentScope();
+    if (!scope || !option.reportType) { this.notify.emit('No hay un territorio autorizado disponible para esta exportación.'); return; }
+    this.loading = true;
+    const now = new Date();
+    this.jobsApi.create({ idempotencyKey: crypto.randomUUID(), reportType: option.reportType, format: 'XLSX', scopeLevel: scope.level, ...(scope.territoryId ? { territoryId: scope.territoryId } : {}), year: now.getFullYear(), month: now.getMonth() + 1 }).subscribe({ next: job => { this.loading = false; this.liveJobs = [job, ...this.liveJobs.filter(item => item.id !== job.id)]; this.notify.emit(`${option.title} agregado a la cola persistente.`); }, error: () => { this.loading = false; this.notify.emit('No fue posible crear el trabajo de exportación. Verifique alcance y permisos.'); } });
+  }
+
+  private currentScope(): { level: string; territoryId?: string } | null {
+    const role = this.roleContext.activeRoleId();
+    if (['superadmin', 'central-validator'].includes(role)) return { level: 'NACIONAL' };
+    if (['regional-superadmin', 'regional-admin', 'supervisor'].includes(role)) return { level: 'REGION' };
+    if (role === 'municipal-coordinator') return { level: 'MUNICIPIO' };
+    return { level: 'ESTABLECIMIENTO' };
   }
 
   protected get territoryOptions() {
+    if (!this.auth.isDemo()) {
+      const role = this.roleContext.activeRoleId();
+      if (['superadmin', 'central-validator'].includes(role)) return ['Honduras'];
+      if (['regional-superadmin', 'regional-admin', 'supervisor'].includes(role)) return ['Región autorizada'];
+      if (role === 'municipal-coordinator') return ['Municipio autorizado'];
+      return ['Establecimiento autorizado'];
+    }
     switch (this.roleContext.activeRoleId()) {
       case 'superadmin':
       case 'central-validator': return ['Honduras', 'Región de Cortés', 'Región de Atlántida', 'Región de Francisco Morazán'];

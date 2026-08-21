@@ -124,6 +124,18 @@ describe('Application (e2e)', () => {
       .expect(401);
   });
 
+  it('protects external identity linking before validating its payload', async () => {
+    await request(app.getHttpServer())
+      .post('/api/v1/admin/users/11111111-1111-4111-8111-111111111111/external-identity')
+      .send({})
+      .expect(401);
+  });
+
+  it('protects export job creation and history', async () => {
+    await request(app.getHttpServer()).get('/api/v1/exports/jobs').expect(401);
+    await request(app.getHttpServer()).post('/api/v1/exports/jobs').send({}).expect(401);
+  });
+
   it('rejects malformed bearer credentials without contacting identity services', async () => {
     await request(app.getHttpServer())
       .get('/api/v1/regions')

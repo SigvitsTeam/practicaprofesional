@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
+import type { ConfigType } from '@nestjs/config';
+import { authConfig } from '../../../config/app.config';
 import {
   RoleCode,
   type AuthorizationSubject,
@@ -28,7 +30,10 @@ const HIERARCHY: Record<RoleCode, number> = {
 
 @Injectable()
 export class ManagedUsersUseCase {
-  constructor(private readonly repository: ManagedUserRepository) {}
+  constructor(
+    private readonly repository: ManagedUserRepository,
+    @Inject(authConfig.KEY) private readonly authentication: ConfigType<typeof authConfig>,
+  ) {}
 
   list(subject: AuthorizationSubject): Promise<ManagedUser[]> {
     return this.repository.list(
@@ -181,6 +186,48 @@ export class ManagedUsersUseCase {
       requestId: input.requestId,
       reason: this.reason(input.reason),
       expectedUpdatedAt: this.timestamp(input.expectedUpdatedAt),
+    });
+  }
+
+  async linkExternalIdentity(
+    userId: string,
+    input: {
+      externalSubject: string;
+      activate: boolean;
+      expectedUpdatedAt: string;
+      reason: string;
+      requestId: string;
+    },
+    subject: AuthorizationSubject,
+  ): Promise<ManagedUser> {
+    await this.requiredManageableUser(userId, subject);
+    if (userId === subject.userId)
+      throw new ManagedUserInvariantError('No puede modificar su propia identidad externa.');
+    const issuer = this.authentication.issuer?.trim();
+    if (!issuer)
+      throw new ManagedUserInvariantError(
+        'El proveedor de identidad externo no está configurado en el servidor.',
+      );
+    const externalSubject = input.externalSubject.trim();
+    if (
+      !externalSubject ||
+      externalSubject.length > 255 ||
+      /\s/.test(externalSubject) ||
+      [...externalSubject].some((character) => {
+        const code = character.codePointAt(0) ?? 0;
+        return code < 32 || code === 127;
+      })
+    )
+      throw new InvalidManagedUserError('El identificador externo no es válido.');
+    return this.repository.linkExternalIdentity({
+      userId,
+      issuer,
+      subject: externalSubject,
+      activate: input.activate,
+      expectedUpdatedAt: this.timestamp(input.expectedUpdatedAt),
+      actorUserId: subject.userId,
+      requestId: input.requestId,
+      reason: this.reason(input.reason),
     });
   }
 

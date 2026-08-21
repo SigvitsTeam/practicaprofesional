@@ -3,6 +3,7 @@ import type {
   CreateManagedUserInput,
   ManagedUser,
   ManagedUserContext,
+  LinkExternalIdentityInput,
 } from '../../domain/managed-user';
 
 export abstract class ManagedUserRepository {
@@ -25,4 +26,5 @@ export abstract class ManagedUserRepository {
   abstract changeAccess(
     input: CreateManagedUserInput & { userId: string; expectedUpdatedAt: Date },
   ): Promise<ManagedUser>;
+  abstract linkExternalIdentity(input: LinkExternalIdentityInput): Promise<ManagedUser>;
 }

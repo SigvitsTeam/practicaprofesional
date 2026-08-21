@@ -48,3 +48,10 @@ export class CreateManagedUserDto {
   @IsDateString({ strict: true }) startDate!: string;
   @IsString() @MinLength(10) @MaxLength(500) reason!: string;
 }
+
+export class LinkExternalIdentityDto {
+  @IsString() @MinLength(1) @MaxLength(255) externalSubject!: string;
+  @IsBoolean() activate!: boolean;
+  @IsISO8601() expectedUpdatedAt!: string;
+  @IsString() @MinLength(10) @MaxLength(500) reason!: string;
+}

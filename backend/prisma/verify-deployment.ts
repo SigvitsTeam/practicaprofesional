@@ -30,6 +30,7 @@ const protectedTables = [
   'reporte_flujo_historial',
   'observaciones_reporte',
   'reporte_fuentes',
+  'trabajos_exportacion',
 ] as const;
 
 function requiredEnvironment(name: string): string {
@@ -141,10 +142,16 @@ async function verify(): Promise<void> {
       throw new Error('No están disponibles todos los permisos de administración territorial.');
     const userAdminPermissions = await directClient.query<{ total: number }>(
       `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
-      [['admin:users:read', 'admin:users:create', 'admin:users:update']],
+      [['admin:users:read', 'admin:users:create', 'admin:users:update', 'admin:users:link']],
     );
-    if (userAdminPermissions.rows[0]?.total !== 3)
+    if (userAdminPermissions.rows[0]?.total !== 4)
       throw new Error('No están disponibles todos los permisos de administración de usuarios.');
+    const exportPermissions = await directClient.query<{ total: number }>(
+      `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
+      [['exports:jobs:read', 'exports:jobs:create']],
+    );
+    if (exportPermissions.rows[0]?.total !== 2)
+      throw new Error('No están disponibles todos los permisos de trabajos de exportación.');
     const operators = await directClient.query<{ roleCode: string; total: number }>(
       `SELECT r.codigo AS "roleCode", count(DISTINCT u.id) FILTER (WHERE ie.id IS NOT NULL)::int AS total
        FROM roles r

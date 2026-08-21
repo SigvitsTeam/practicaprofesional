@@ -94,6 +94,25 @@ enum ReportObservationStatus {
   RECHAZADA
 }
 
+enum ExportJobStatus {
+  PENDIENTE
+  PROCESANDO
+  COMPLETADO
+  FALLIDO
+}
+
+enum ExportFormat {
+  XLSX
+  PDF
+}
+
+enum ExportScopeLevel {
+  NACIONAL
+  REGION
+  MUNICIPIO
+  ESTABLECIMIENTO
+}
+
 model AppUser {
   id                   String                      @id @default(uuid()) @db.Uuid
   fullName             String                      @map("nombre_completo") @db.VarChar(160)
@@ -114,9 +133,37 @@ model AppUser {
   closedReports        ItsReport[]                 @relation("ClosedReports")
   reportFlowEvents     ReportFlowHistory[]
   reportObservations   ReportObservation[]
+  exportJobs           ExportJob[]
 
   @@index([active], map: "idx_usuarios_activo")
   @@map("usuarios")
+}
+
+model ExportJob {
+  id                String           @id @default(uuid()) @db.Uuid
+  requestedByUserId String           @map("solicitado_por_usuario_id") @db.Uuid
+  idempotencyKey    String           @map("idempotency_key") @db.Uuid
+  reportType        String           @map("tipo_reporte") @db.VarChar(80)
+  format            ExportFormat     @map("formato")
+  scopeLevel        ExportScopeLevel @map("nivel_alcance")
+  territoryId       String?          @map("territorio_id") @db.Uuid
+  year              Int             @map("anio")
+  month             Int             @map("mes")
+  status            ExportJobStatus  @default(PENDIENTE) @map("estado")
+  attempts          Int              @default(0) @map("intentos")
+  maxAttempts       Int              @default(3) @map("max_intentos")
+  outputStorageKey  String?          @map("storage_key_salida") @db.VarChar(500)
+  errorCode         String?          @map("codigo_error") @db.VarChar(80)
+  startedAt         DateTime?        @map("iniciado_at") @db.Timestamptz(3)
+  finishedAt        DateTime?        @map("finalizado_at") @db.Timestamptz(3)
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+  requestedBy       AppUser          @relation(fields: [requestedByUserId], references: [id], onDelete: Restrict)
+
+  @@unique([requestedByUserId, idempotencyKey], map: "uq_exportacion_usuario_idempotencia")
+  @@index([status, createdAt], map: "idx_exportaciones_estado_fecha")
+  @@index([requestedByUserId, createdAt], map: "idx_exportaciones_usuario_fecha")
+  @@map("trabajos_exportacion")
 }
 
 model ExternalIdentity {
