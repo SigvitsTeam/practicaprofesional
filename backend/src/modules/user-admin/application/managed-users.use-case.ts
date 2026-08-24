@@ -16,6 +16,7 @@ import {
   type ManagedUserContext,
 } from '../domain/managed-user';
 import { ManagedUserRepository } from './ports/managed-user.repository';
+import { IdentityInvitationGateway } from './ports/identity-invitation.gateway';
 
 const HIERARCHY: Record<RoleCode, number> = {
   [RoleCode.SuperAdmin]: 100,
@@ -33,6 +34,7 @@ export class ManagedUsersUseCase {
   constructor(
     private readonly repository: ManagedUserRepository,
     @Inject(authConfig.KEY) private readonly authentication: ConfigType<typeof authConfig>,
+    private readonly invitations: IdentityInvitationGateway,
   ) {}
 
   list(subject: AuthorizationSubject): Promise<ManagedUser[]> {
@@ -223,6 +225,34 @@ export class ManagedUsersUseCase {
       userId,
       issuer,
       subject: externalSubject,
+      activate: input.activate,
+      expectedUpdatedAt: this.timestamp(input.expectedUpdatedAt),
+      actorUserId: subject.userId,
+      requestId: input.requestId,
+      reason: this.reason(input.reason),
+    });
+  }
+
+  async invite(
+    userId: string,
+    input: { activate: boolean; expectedUpdatedAt: string; reason: string; requestId: string },
+    subject: AuthorizationSubject,
+  ): Promise<ManagedUser> {
+    const context = await this.requiredManageableUser(userId, subject);
+    if (userId === subject.userId)
+      throw new ManagedUserInvariantError('No puede modificar su propia identidad externa.');
+    if (context.hasExternalIdentity)
+      throw new ManagedUserInvariantError('El perfil ya tiene una identidad externa vinculada.');
+    const issuer = this.authentication.issuer?.trim();
+    if (!issuer)
+      throw new ManagedUserInvariantError(
+        'El proveedor de identidad externo no está configurado en el servidor.',
+      );
+    const invited = await this.invitations.invite(context.email);
+    return this.repository.linkExternalIdentity({
+      userId,
+      issuer,
+      subject: invited.subject,
       activate: input.activate,
       expectedUpdatedAt: this.timestamp(input.expectedUpdatedAt),
       actorUserId: subject.userId,

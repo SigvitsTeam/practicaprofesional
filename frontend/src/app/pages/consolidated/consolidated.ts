@@ -21,6 +21,8 @@ export class Consolidated implements OnInit {
   protected readonly regionalConsolidation = signal<RegionalConsolidationReport | null>(null);
   protected readonly regionalReports = signal<RegionalConsolidationReport[]>([]);
   protected readonly nationalConsolidation = signal<NationalConsolidationReport | null>(null);
+  private readonly year = new Date().getFullYear();
+  private readonly month = new Date().getMonth() + 1;
   private municipalityId = '';
   private activeFacilities = 0;
   private regionId = '';
@@ -50,7 +52,7 @@ export class Consolidated implements OnInit {
     this.loading.set(true); this.loadError.set('');
     forkJoin({
       context: this.api.getMunicipalConsolidationContext(),
-      reports: this.api.getMunicipalIts2Inbox(2026, 8),
+      reports: this.api.getMunicipalIts2Inbox(this.year, this.month),
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: ({ context, reports }) => {
         this.facilityReports.set(reports);
@@ -62,7 +64,7 @@ export class Consolidated implements OnInit {
           this.loadError.set('No hay reportes del municipio para determinar el contexto activo.');
           return;
         }
-        this.api.getCurrentMunicipalConsolidation(this.municipalityId, 2026, 8).pipe(
+        this.api.getCurrentMunicipalConsolidation(this.municipalityId, this.year, this.month).pipe(
           takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false)),
         ).subscribe({
           next: report => this.consolidation.set(report),
@@ -77,8 +79,8 @@ export class Consolidated implements OnInit {
     this.loading.set(true); this.loadError.set('');
     forkJoin({
       context: this.api.getNationalConsolidationContext(),
-      reports: this.api.getCentralConsolidationInbox(2026, 8),
-      current: this.api.getCurrentNationalConsolidation(2026, 8),
+      reports: this.api.getCentralConsolidationInbox(this.year, this.month),
+      current: this.api.getCurrentNationalConsolidation(this.year, this.month),
     }).pipe(takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false))).subscribe({
       next: ({ context, reports, current }) => {
         this.activeRegions = context.activeRegions;
@@ -93,7 +95,7 @@ export class Consolidated implements OnInit {
     this.loading.set(true); this.loadError.set('');
     forkJoin({
       context: this.api.getRegionalConsolidationContext(),
-      reports: this.api.getRegionalConsolidationInbox(2026, 8),
+      reports: this.api.getRegionalConsolidationInbox(this.year, this.month),
     }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: ({ context, reports }) => {
         this.municipalReports.set(reports);
@@ -101,7 +103,7 @@ export class Consolidated implements OnInit {
         this.regionId = region?.id ?? '';
         this.activeMunicipalities = region?.activeMunicipalities ?? 0;
         if (!this.regionId) { this.loading.set(false); this.loadError.set('No hay una región activa asignada.'); return; }
-        this.api.getCurrentRegionalConsolidation(this.regionId, 2026, 8).pipe(
+        this.api.getCurrentRegionalConsolidation(this.regionId, this.year, this.month).pipe(
           takeUntilDestroyed(this.destroyRef), finalize(() => this.loading.set(false)),
         ).subscribe({
           next: report => this.regionalConsolidation.set(report),
@@ -115,7 +117,7 @@ export class Consolidated implements OnInit {
   prepare() {
     if (!this.municipalityId || this.loading()) return;
     this.loading.set(true);
-    this.api.prepareMunicipalConsolidation(this.municipalityId, 2026, 8).pipe(
+    this.api.prepareMunicipalConsolidation(this.municipalityId, this.year, this.month).pipe(
       finalize(() => this.loading.set(false)),
     ).subscribe({
       next: report => { this.consolidation.set(report); this.notify.emit(`Consolidado municipal versión ${report.version} preparado y auditado.`); },
@@ -136,7 +138,7 @@ export class Consolidated implements OnInit {
   prepareRegional() {
     if (!this.regionId || this.loading()) return;
     this.loading.set(true);
-    this.api.prepareRegionalConsolidation(this.regionId, 2026, 8).pipe(finalize(() => this.loading.set(false))).subscribe({
+    this.api.prepareRegionalConsolidation(this.regionId, this.year, this.month).pipe(finalize(() => this.loading.set(false))).subscribe({
       next: report => { this.regionalConsolidation.set(report); this.notify.emit(`Consolidado regional versión ${report.version} preparado y auditado.`); },
       error: error => this.notify.emit(error.error?.detail ?? 'No fue posible preparar el consolidado regional.'),
     });
@@ -154,7 +156,7 @@ export class Consolidated implements OnInit {
 
   prepareNational() {
     this.loading.set(true);
-    this.api.prepareNationalConsolidation(2026, 8).pipe(finalize(() => this.loading.set(false))).subscribe({
+    this.api.prepareNationalConsolidation(this.year, this.month).pipe(finalize(() => this.loading.set(false))).subscribe({
       next: report => { this.nationalConsolidation.set(report); this.notify.emit(`Consolidado nacional versión ${report.version} preparado.`); },
       error: error => this.notify.emit(error.error?.detail ?? 'No fue posible preparar el consolidado nacional.'),
     });

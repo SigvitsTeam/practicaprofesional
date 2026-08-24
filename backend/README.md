@@ -150,6 +150,10 @@ El backend acepta únicamente access tokens asimétricos `ES256` o `RS256`. Conf
 `AUTH_ISSUER`, `AUTH_AUDIENCE` y `AUTH_JWKS_URL`; no se admite el secreto JWT legado dentro de la
 aplicación. Los endpoints administrativos niegan por defecto cualquier ruta sin política explícita.
 
+Para enviar invitaciones desde Administración configure `AUTH_ADMIN_SECRET` exclusivamente en el
+backend, junto con `AUTH_INVITATION_REDIRECT_URL` y `AUTH_ADMIN_TIMEOUT_MS`. El secreto debe ser la
+clave de servicio de Supabase y nunca debe publicarse en Angular, archivos versionados ni logs.
+
 ```text
 JWT verificado -> identidad externa -> usuario activo -> roles vigentes
                -> permisos activos -> asignaciones territoriales vigentes -> caso de uso

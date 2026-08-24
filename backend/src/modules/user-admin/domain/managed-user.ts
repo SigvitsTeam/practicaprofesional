@@ -25,6 +25,7 @@ export interface ManagedUser {
 
 export interface ManagedUserContext {
   id: string;
+  email: string;
   active: boolean;
   hasExternalIdentity: boolean;
   roleCode: RoleCode;
@@ -65,3 +66,4 @@ export class ManagedUserRoleError extends Error {}
 export class ManagedUserNotFoundError extends Error {}
 export class ManagedUserConcurrencyError extends Error {}
 export class ManagedUserInvariantError extends Error {}
+export class IdentityInvitationError extends Error {}

@@ -41,6 +41,8 @@ export class Territory implements OnInit {
   protected statusUser: ManagedUserRecord | null = null;
   protected statusReason = '';
   protected identityUser: ManagedUserRecord | null = null;
+  protected invitationUser: ManagedUserRecord | null = null;
+  protected invitationForm = { activate: true, reason: '' };
   protected identityForm = { externalSubject: '', activate: true, reason: '' };
   protected userFormSubmitted = false;
   protected userForm = this.emptyUserForm();
@@ -174,6 +176,27 @@ export class Territory implements OnInit {
   protected openIdentityLink(user: ManagedUserRecord) {
     this.identityUser = user;
     this.identityForm = { externalSubject: '', activate: true, reason: '' };
+  }
+  protected openInvitation(user: ManagedUserRecord) {
+    this.invitationUser = user;
+    this.invitationForm = { activate: true, reason: '' };
+  }
+  protected sendInvitation() {
+    const user = this.invitationUser;
+    if (!user || this.invitationForm.reason.trim().length < 10) return;
+    this.loading = true;
+    this.userApi.invite(user.id, {
+      activate: this.invitationForm.activate,
+      expectedUpdatedAt: user.updatedAt,
+      reason: this.invitationForm.reason,
+    }).pipe(finalize(() => this.loading = false)).subscribe({
+      next: updated => {
+        this.users = this.users.map(item => item.id === updated.id ? updated : item);
+        this.invitationUser = null;
+        this.notify.emit(`Invitación enviada a “${updated.email}” e identidad vinculada.`);
+      },
+      error: error => this.notify.emit(error.error?.message ?? 'No fue posible enviar la invitación institucional.'),
+    });
   }
   protected saveIdentityLink() {
     const user = this.identityUser;

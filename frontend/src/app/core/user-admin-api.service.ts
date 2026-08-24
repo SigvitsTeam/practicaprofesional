@@ -19,4 +19,5 @@ export class UserAdminApiService {
   updateStatus(userId: string, active: boolean, expectedUpdatedAt: string, reason: string) { return this.http.patch<ManagedUserRecord>(`${this.endpoint}/${userId}/status`, { active, expectedUpdatedAt, reason }); }
   changeAccess(userId: string, input: { roleCode: string; scopeType: string; regionId?: string; municipalityId?: string; facilityId?: string; startDate: string; expectedUpdatedAt: string; reason: string }) { return this.http.post<ManagedUserRecord>(`${this.endpoint}/${userId}/access-changes`, input); }
   linkExternalIdentity(userId: string, input: { externalSubject: string; activate: boolean; expectedUpdatedAt: string; reason: string }) { return this.http.post<ManagedUserRecord>(`${this.endpoint}/${userId}/external-identity`, input); }
+  invite(userId: string, input: { activate: boolean; expectedUpdatedAt: string; reason: string }) { return this.http.post<ManagedUserRecord>(`${this.endpoint}/${userId}/invitation`, input); }
 }

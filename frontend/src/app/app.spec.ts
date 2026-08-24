@@ -164,7 +164,7 @@ describe('App', () => {
     expect(compiled.querySelector('.network-catalog')).toBeTruthy();
     expect(compiled.textContent).toContain('＋ Nueva Red');
     expect(compiled.textContent).toContain('Producción consolidada');
-    expect(compiled.textContent).toContain('Pendiente API analítica');
+    expect(compiled.textContent).toContain('Atenciones ·');
     expect(Array.from(compiled.querySelectorAll('.network-filterbar label')).some(label => label.querySelector('span')?.textContent?.trim() === 'Región')).toBe(true);
 
     fixture.componentInstance.changeRole('regional-superadmin');
@@ -175,7 +175,7 @@ describe('App', () => {
     expect(compiled.textContent).toContain('＋ Nueva Red');
   });
 
-  it('should give the regional admin a read-only network view with filters and exports', async () => {
+  it('should give the regional admin a read-only network view with real filters', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('regional-admin');
     fixture.componentInstance.navigate('Redes');
@@ -188,8 +188,9 @@ describe('App', () => {
     expect(compiled.textContent).toContain('SOLO CONSULTA');
     expect(compiled.querySelector('h1')?.textContent).toContain('Consolidado por Redes');
     expect(compiled.textContent).not.toContain('＋ Nueva Red');
-    expect(compiled.textContent).toContain('↓ Excel');
-    expect(compiled.textContent).toContain('↓ PDF');
+    expect(compiled.textContent).not.toContain('↓ Excel');
+    expect(compiled.textContent).not.toContain('↓ PDF');
+    expect(compiled.textContent).toContain('Reportes recibidos');
     expect(Array.from(compiled.querySelectorAll('.filters label')).some(label => label.querySelector('span')?.textContent?.trim() === 'Red')).toBe(true);
 
     expect(compiled.querySelector('.network-catalog')).toBeTruthy();
@@ -203,7 +204,7 @@ describe('App', () => {
     fixture.detectChanges();
     await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Pendiente API analítica');
+    expect(compiled.textContent).toContain('Atenciones ·');
     expect(compiled.textContent).not.toContain('Número de expediente');
   });
 

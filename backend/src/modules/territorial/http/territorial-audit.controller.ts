@@ -1,4 +1,11 @@
-import { Controller, ForbiddenException, Get, NotFoundException, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  ForbiddenException,
+  Get,
+  NotFoundException,
+  Query,
+} from '@nestjs/common';
 import {
   DataLevel,
   type AuthorizationSubject,
@@ -28,12 +35,16 @@ export class TerritorialAuditController {
     @CurrentSubject() subject: AuthorizationSubject,
   ): Promise<TerritorialAuditPage> {
     try {
-      return await this.audit.listMunicipalityEvents(
-        query.municipalityId,
-        query.limit,
-        query.cursor,
-        subject,
-      );
+      if (!!query.municipalityId === !!query.networkId)
+        throw new BadRequestException('Debe indicar exactamente un municipio o una red.');
+      return query.networkId
+        ? await this.audit.listNetworkEvents(query.networkId, query.limit, query.cursor, subject)
+        : await this.audit.listMunicipalityEvents(
+            query.municipalityId!,
+            query.limit,
+            query.cursor,
+            subject,
+          );
     } catch (error: unknown) {
       if (error instanceof TerritorialAuditTargetNotFoundError)
         throw new NotFoundException(error.message);

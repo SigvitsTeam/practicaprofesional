@@ -33,6 +33,7 @@
     "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
     "test:cov": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
     "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json --runInBand",
+    "load:critical": "k6 run test/load/critical-read-paths.k6.js",
     "check": "npm run format:check && npm run lint && npm test && npm run test:e2e && npm run build"
   },
   "dependencies": {

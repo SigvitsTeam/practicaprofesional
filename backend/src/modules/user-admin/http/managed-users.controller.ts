@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  BadGatewayException,
   Body,
   ConflictException,
   Controller,
@@ -22,6 +23,7 @@ import { RequireAccess } from '../../authorization/http/require-access.decorator
 import { ManagedUsersUseCase } from '../application/managed-users.use-case';
 import {
   InvalidManagedUserError,
+  IdentityInvitationError,
   ManagedUserConcurrencyError,
   ManagedUserConflictError,
   ManagedUserInvariantError,
@@ -34,6 +36,7 @@ import {
   ChangeManagedUserAccessDto,
   CreateManagedUserDto,
   LinkExternalIdentityDto,
+  InviteManagedUserDto,
   UpdateManagedUserStatusDto,
 } from './managed-users.dto';
 
@@ -69,6 +72,7 @@ export class ManagedUsersController {
       if (error instanceof ManagedUserScopeError || error instanceof ManagedUserRoleError)
         throw new ForbiddenException(error.message);
       if (error instanceof InvalidManagedUserError) throw new BadRequestException(error.message);
+      if (error instanceof IdentityInvitationError) throw new BadGatewayException(error.message);
       throw error;
     }
   }
@@ -124,6 +128,23 @@ export class ManagedUsersController {
     );
   }
 
+  @Post(':id/invitation')
+  @RequireAccess({
+    permission: 'admin:users:link',
+    dataLevel: DataLevel.Configuration,
+    scope: 'OWN',
+  })
+  invite(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: InviteManagedUserDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+    @Req() request: RequestWithContext,
+  ): Promise<ManagedUser> {
+    return this.handle(() =>
+      this.users.invite(id, { ...body, requestId: request.requestId }, subject),
+    );
+  }
+
   private async handle(operation: () => Promise<ManagedUser>): Promise<ManagedUser> {
     try {
       return await operation();
@@ -138,6 +159,7 @@ export class ManagedUsersController {
       if (error instanceof ManagedUserScopeError || error instanceof ManagedUserRoleError)
         throw new ForbiddenException(error.message);
       if (error instanceof InvalidManagedUserError) throw new BadRequestException(error.message);
+      if (error instanceof IdentityInvitationError) throw new BadGatewayException(error.message);
       throw error;
     }
   }

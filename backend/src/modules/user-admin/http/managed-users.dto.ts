@@ -55,3 +55,9 @@ export class LinkExternalIdentityDto {
   @IsISO8601() expectedUpdatedAt!: string;
   @IsString() @MinLength(10) @MaxLength(500) reason!: string;
 }
+
+export class InviteManagedUserDto {
+  @IsBoolean() activate!: boolean;
+  @IsISO8601() expectedUpdatedAt!: string;
+  @IsString() @MinLength(10) @MaxLength(500) reason!: string;
+}

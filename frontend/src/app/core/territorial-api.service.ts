@@ -33,6 +33,11 @@ export class TerritorialApiService {
     if (cursor) params['cursor'] = cursor;
     return this.http.get<TerritorialAuditPage>(`${this.base}/territories/audit-events`, { params });
   }
+  listNetworkAudit(networkId: string, cursor?: string) {
+    const params: Record<string, string> = { networkId, limit: '25' };
+    if (cursor) params['cursor'] = cursor;
+    return this.http.get<TerritorialAuditPage>(`${this.base}/territories/audit-events`, { params });
+  }
   createNetwork(input: { regionId: string; code: string; name: string; description?: string; operationalStatus: string; startDate: string; municipalityIds: string[]; reason: string }) { return this.http.post<HealthNetworkRecord>(`${this.base}/territories/networks`, input); }
   replaceNetworkMunicipalities(networkId: string, municipalityIds: string[], effectiveDate: string, expectedUpdatedAt: string, reason: string) { return this.http.put<HealthNetworkRecord>(`${this.base}/territories/networks/${networkId}/municipalities`, { municipalityIds, effectiveDate, expectedUpdatedAt, reason }); }
   updateNetworkStatus(networkId: string, status: string, expectedUpdatedAt: string, reason: string) { return this.http.patch<HealthNetworkRecord>(`${this.base}/territories/networks/${networkId}/status`, { status, expectedUpdatedAt, reason }); }

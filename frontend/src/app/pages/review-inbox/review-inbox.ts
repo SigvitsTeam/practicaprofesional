@@ -29,6 +29,9 @@ export class ReviewInbox implements OnInit {
   private readonly liveReports = signal<Report[]>([]);
   protected readonly loading = signal(false);
   protected readonly loadError = signal('');
+  protected readonly year = new Date().getFullYear();
+  protected readonly month = new Date().getMonth() + 1;
+  protected get isDemo() { return this.auth.isDemo(); }
   search = '';
   ngOnInit() {
     this.reload();
@@ -40,7 +43,7 @@ export class ReviewInbox implements OnInit {
     this.loadError.set('');
     if (role === 'municipal-coordinator') {
       this.api
-        .getMunicipalIts2Inbox(2026, 8)
+        .getMunicipalIts2Inbox(this.year, this.month)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: (reports) => {
@@ -57,7 +60,7 @@ export class ReviewInbox implements OnInit {
     }
     if (role === 'regional-admin' || role === 'regional-superadmin') {
       this.api
-        .getRegionalConsolidationInbox(2026, 8)
+        .getRegionalConsolidationInbox(this.year, this.month)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: (reports) => {
@@ -74,7 +77,7 @@ export class ReviewInbox implements OnInit {
     }
     if (role === 'central-validator') {
       this.api
-        .getCentralConsolidationInbox(2026, 8)
+        .getCentralConsolidationInbox(this.year, this.month)
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe({
           next: (reports) => {

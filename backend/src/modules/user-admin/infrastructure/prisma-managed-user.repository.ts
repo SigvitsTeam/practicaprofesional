@@ -219,6 +219,7 @@ export class PrismaManagedUserRepository extends ManagedUserRepository {
     const assignment = row.assignments[0];
     return {
       id: row.id,
+      email: row.email,
       active: row.active,
       hasExternalIdentity: row.externalIdentities.length > 0,
       roleCode: row.roles[0].role.code as RoleCode,

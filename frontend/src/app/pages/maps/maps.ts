@@ -135,7 +135,7 @@ export class Maps implements OnInit {
     this.loading.set(true);
     this.loadError.set('');
     this.api
-      .getTerritorialAnalytics(level, 2026, 8)
+      .getTerritorialAnalytics(level, new Date().getFullYear(), new Date().getMonth() + 1)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.set(false)),

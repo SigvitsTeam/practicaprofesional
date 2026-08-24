@@ -111,9 +111,11 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 22. Generadores de consolidados municipal, regional y nacional en XLSX/PDF, construidos desde versiones persistidas, con trazabilidad de fuentes, validación exacta de alcance y sin mutar el flujo de aprobación.
 23. Generador ITS-1 individual en XLSX de solo lectura y PDF oficial, con solicitud separada, permiso individual, alcance de establecimiento, revalidación al descargar y auditoría posterior al servicio exitoso.
 24. Perfil institucional autenticado desde backend con roles/permisos/alcance vigentes, selector limitado a roles realmente asignados, identidad real en cabecera y eliminación de filtros, avisos y contexto ITS-1 ficticios en producción.
+25. Analítica de Redes compuesta desde agregados municipales persistidos, con filtros efectivos, consolidado sin ITS-1 individual e historial administrativo paginado y restringido por alcance regional.
+26. Período operativo mensual resuelto dinámicamente en captura ITS-2, bandejas, consolidados, mapas y Redes; acciones visuales sin implementación retiradas de producción.
+27. Invitación institucional por correo desde backend mediante API administrativa de Supabase, con secreto exclusivo de servidor, timeout, vínculo del identificador inmutable, activación opcional, control de jerarquía/alcance y auditoría transaccional.
+28. Escenario k6 parametrizable hasta 1,000 usuarios virtuales con umbrales de error/p95 y matriz UAT de extremo a extremo, recuperación, privacidad, exportaciones, restauración y evidencia de release.
 
 ### Siguiente ejecución
 
-1. Automatizar la invitación por correo mediante la API administrativa del proveedor, sin exponer su credencial al frontend.
-2. Conectar analítica e historial de Redes y filtros globales a consultas persistidas; mantener oculto cualquier control que todavía no afecte datos reales.
-3. Aplicar las migraciones pendientes y ejecutar smoke/UAT y pruebas de concurrencia sobre PostgreSQL de staging.
+1. Aplicar las migraciones pendientes y ejecutar smoke/UAT y pruebas de concurrencia sobre PostgreSQL de staging.

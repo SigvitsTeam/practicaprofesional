@@ -33,6 +33,9 @@ export const authConfig = registerAs('auth', () => ({
   jwksUrl: process.env.AUTH_JWKS_URL,
   clockToleranceSeconds: Number(process.env.AUTH_CLOCK_TOLERANCE_SECONDS ?? 5),
   jwksTimeoutMs: Number(process.env.AUTH_JWKS_TIMEOUT_MS ?? 5_000),
+  adminSecret: process.env.AUTH_ADMIN_SECRET,
+  invitationRedirectUrl: process.env.AUTH_INVITATION_REDIRECT_URL,
+  adminTimeoutMs: Number(process.env.AUTH_ADMIN_TIMEOUT_MS ?? 5_000),
 }));
 
 export const exportConfig = registerAs('exports', () => ({

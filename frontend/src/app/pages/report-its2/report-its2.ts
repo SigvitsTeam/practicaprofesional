@@ -25,8 +25,9 @@ export class ReportIts2 implements OnInit {
   protected readonly workflowReport = signal<Its2WorkflowReport | null>(null);
   protected readonly loading = signal(false);
   protected readonly loadError = signal('');
-  protected readonly year = 2026;
-  protected readonly month = 8;
+  protected readonly year = new Date().getFullYear();
+  protected readonly month = new Date().getMonth() + 1;
+  protected readonly periodLabel = new Intl.DateTimeFormat('es-HN', { month: 'long', year: 'numeric' }).format(new Date(this.year, this.month - 1, 1));
   private contextReady = false;
   protected attentionsUnder15: number | null = null;
   protected attentions15Plus: number | null = null;

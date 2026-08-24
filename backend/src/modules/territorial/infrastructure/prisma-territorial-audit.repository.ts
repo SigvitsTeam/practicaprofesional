@@ -17,15 +17,50 @@ export class PrismaTerritorialAuditRepository extends TerritorialAuditRepository
     return row?.regionId ?? null;
   }
 
+  async findNetworkRegion(networkId: string): Promise<string | null> {
+    const row = await this.prisma.client.healthNetwork.findUnique({
+      where: { id: networkId },
+      select: { regionId: true },
+    });
+    return row?.regionId ?? null;
+  }
+
   async listMunicipalityEvents(input: {
     municipalityId: string;
     limit: number;
     cursor?: string;
   }): Promise<TerritorialAuditPage> {
+    return this.listEvents({
+      entityId: input.municipalityId,
+      entities: ['MUNICIPALITY', 'MUNICIPIO'],
+      limit: input.limit,
+      cursor: input.cursor,
+    });
+  }
+
+  async listNetworkEvents(input: {
+    networkId: string;
+    limit: number;
+    cursor?: string;
+  }): Promise<TerritorialAuditPage> {
+    return this.listEvents({
+      entityId: input.networkId,
+      entities: ['HEALTH_NETWORK', 'RED_SALUD'],
+      limit: input.limit,
+      cursor: input.cursor,
+    });
+  }
+
+  private async listEvents(input: {
+    entityId: string;
+    entities: string[];
+    limit: number;
+    cursor?: string;
+  }): Promise<TerritorialAuditPage> {
     const rows = await this.prisma.client.auditEvent.findMany({
       where: {
-        entityId: input.municipalityId,
-        entity: { in: ['MUNICIPALITY', 'MUNICIPIO'] },
+        entityId: input.entityId,
+        entity: { in: input.entities },
         dataLevel: 'CONFIGURACION',
       },
       select: {

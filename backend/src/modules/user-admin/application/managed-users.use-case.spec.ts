@@ -14,11 +14,13 @@ import {
 } from '../domain/managed-user';
 import { ManagedUsersUseCase } from './managed-users.use-case';
 import { ManagedUserRepository } from './ports/managed-user.repository';
+import { IdentityInvitationGateway } from './ports/identity-invitation.gateway';
 
 class Repository extends ManagedUserRepository {
   created?: CreateManagedUserInput;
   context = {
     id: 'user-2',
+    email: 'maria@example.org',
     active: true,
     hasExternalIdentity: true,
     roleCode: RoleCode.MunicipalCoordinator,
@@ -139,16 +141,25 @@ describe('ManagedUsersUseCase', () => {
   };
   let repository: Repository;
   let useCase: ManagedUsersUseCase;
+  const invite = jest.fn().mockResolvedValue({ subject: 'provider-user-123' });
+  const invitations: IdentityInvitationGateway = { invite };
 
   beforeEach(() => {
     repository = new Repository();
-    useCase = new ManagedUsersUseCase(repository, {
-      issuer: 'https://identity.example.org',
-      audience: 'sigvits-api',
-      jwksUrl: 'https://identity.example.org/.well-known/jwks.json',
-      clockToleranceSeconds: 5,
-      jwksTimeoutMs: 5_000,
-    });
+    useCase = new ManagedUsersUseCase(
+      repository,
+      {
+        issuer: 'https://identity.example.org',
+        audience: 'sigvits-api',
+        jwksUrl: 'https://identity.example.org/.well-known/jwks.json',
+        clockToleranceSeconds: 5,
+        jwksTimeoutMs: 5_000,
+        adminSecret: 'server-only-secret',
+        invitationRedirectUrl: 'https://sigvits.example.org',
+        adminTimeoutMs: 5_000,
+      },
+      invitations,
+    );
   });
 
   it('crea pendiente de identidad y normaliza el perfil dentro del alcance', async () => {
@@ -160,6 +171,22 @@ describe('ManagedUsersUseCase', () => {
       hasExternalIdentity: false,
     });
     expect(repository.created?.actorUserId).toBe('admin-1');
+  });
+
+  it('invita por correo y vincula el subject devuelto por el proveedor', async () => {
+    repository.context = { ...repository.context, active: false, hasExternalIdentity: false };
+    const result = await useCase.invite(
+      'user-2',
+      {
+        activate: true,
+        expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+        reason: 'Invitación institucional aprobada',
+        requestId: 'request-invite',
+      },
+      regional,
+    );
+    expect(invite).toHaveBeenCalledWith('maria@example.org');
+    expect(result).toMatchObject({ active: true, hasExternalIdentity: true });
   });
 
   it('impide asignar un rol igual o superior al del actor', async () => {

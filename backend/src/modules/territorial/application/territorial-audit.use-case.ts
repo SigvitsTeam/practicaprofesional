@@ -25,4 +25,19 @@ export class TerritorialAuditUseCase {
       );
     return this.repository.listMunicipalityEvents({ municipalityId, limit, cursor });
   }
+
+  async listNetworkEvents(
+    networkId: string,
+    limit: number,
+    cursor: string | undefined,
+    subject: AuthorizationSubject,
+  ): Promise<TerritorialAuditPage> {
+    const regionId = await this.repository.findNetworkRegion(networkId);
+    if (!regionId) throw new TerritorialAuditTargetNotFoundError('La red no existe.');
+    if (!subject.territory.national && !subject.territory.regionIds.includes(regionId))
+      throw new TerritorialAuditScopeDeniedError(
+        'El historial solicitado está fuera del alcance territorial asignado.',
+      );
+    return this.repository.listNetworkEvents({ networkId, limit, cursor });
+  }
 }
