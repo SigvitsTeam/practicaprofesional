@@ -22,7 +22,7 @@
     "db:seed:its-catalog": "npm run db:seed:pilot && npm run db:import:diseases",
     "db:verify-deployment": "ts-node prisma/verify-deployment.ts",
     "smoke:its2": "npm run db:generate && ts-node prisma/smoke-its2-workflow.ts",
-    "worker:exports": "npm run db:generate && ts-node src/export-worker.ts",
+    "worker:exports": "npm run db:generate && nest start --entryFile export-worker",
     "format": "prettier --write \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\"",
     "format:check": "prettier --check \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\"",
     "lint": "eslint \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\" --max-warnings=0",
