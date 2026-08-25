@@ -1,12 +1,12 @@
 @if (!auth.isAuthenticated()) {
   <app-login />
-} @else if (profileError) {
+} @else if (profileError()) {
   <main class="profile-error">
     <h1>Perfil institucional no disponible</h1>
-    <p>{{ profileError }}</p>
+    <p>{{ profileError() }}</p>
     <button class="btn primary" type="button" (click)="signOut()">Volver al acceso</button>
   </main>
-} @else if (!profileReady) {
+} @else if (!profileReady()) {
   <main class="profile-loading"><p>Cargando rol y alcance institucional…</p></main>
 } @else {
   <main class="app-shell">

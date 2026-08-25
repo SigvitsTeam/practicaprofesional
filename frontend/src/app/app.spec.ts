@@ -6,25 +6,51 @@ import {
 } from '@angular/core/testing';
 import { App } from './app';
 import { environment } from '../environments/environment';
+import { of } from 'rxjs';
+import { CurrentProfileApiService } from './core/current-profile-api.service';
 
 const TEST_SESSION = 'sigvits-auth-session';
 const settleDeferred = async (fixture: ComponentFixture<App>) => {
   fixture.detectChanges();
   const blocks = await fixture.getDeferBlocks();
-  await Promise.all(blocks.map(block => block.render(DeferBlockState.Complete)));
+  await Promise.all(blocks.map((block) => block.render(DeferBlockState.Complete)));
   await fixture.whenStable();
   fixture.detectChanges();
 };
 
 describe('App', () => {
   beforeEach(async () => {
-    localStorage.setItem(TEST_SESSION, JSON.stringify({
-      provider: 'demo', remember: true,
-      user: { id: 'test', email: environment.auth.demoEmail, name: 'Test' },
-    }));
+    localStorage.setItem(
+      TEST_SESSION,
+      JSON.stringify({
+        provider: 'demo',
+        remember: true,
+        user: { id: 'test', email: environment.auth.demoEmail, name: 'Test' },
+      }),
+    );
     await TestBed.configureTestingModule({
       imports: [App],
       deferBlockBehavior: DeferBlockBehavior.Manual,
+      providers: [
+        {
+          provide: CurrentProfileApiService,
+          useValue: {
+            get: () =>
+              of({
+                userId: 'institutional-user',
+                displayName: 'Coordinación Piloto',
+                roles: ['COORDINADOR_MUNICIPAL'],
+                permissions: [],
+                territory: {
+                  national: false,
+                  regionIds: ['region-1'],
+                  municipalityIds: ['municipality-1'],
+                  facilityIds: [],
+                },
+              }),
+          },
+        },
+      ],
     }).compileComponents();
   });
 
@@ -86,7 +112,9 @@ describe('App', () => {
     const options = compiled.querySelectorAll<HTMLSelectElement>('.role-switcher option');
 
     expect(options).toHaveLength(8);
-    expect(Array.from(options).map(option => option.textContent)).not.toContain('Digitador de Establecimiento');
+    expect(Array.from(options).map((option) => option.textContent)).not.toContain(
+      'Digitador de Establecimiento',
+    );
   });
 
   it('should render the regional superadmin with regional administration limits', () => {
@@ -98,7 +126,11 @@ describe('App', () => {
     expect(compiled.querySelector('h1')?.textContent).toContain('Gestión integral de la región');
     expect(compiled.textContent).toContain('SuperAdmin Regional');
     expect(compiled.textContent).toContain('No administra otras regiones');
-    expect(Array.from(compiled.querySelectorAll('.nav-item')).some(item => item.textContent?.includes('Administración'))).toBe(true);
+    expect(
+      Array.from(compiled.querySelectorAll('.nav-item')).some((item) =>
+        item.textContent?.includes('Administración'),
+      ),
+    ).toBe(true);
   });
 
   it('should keep the establishment manager fixed to its assigned establishment', async () => {
@@ -122,9 +154,36 @@ describe('App', () => {
     fixture.detectChanges();
     await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('No hay municipios disponibles dentro del alcance autorizado.');
+    expect(compiled.textContent).toContain(
+      'No hay municipios disponibles dentro del alcance autorizado.',
+    );
     expect(compiled.textContent).not.toContain('Puerto Cortés');
     expect(compiled.querySelectorAll('.history-timeline article')).toHaveLength(0);
+  });
+
+  it('should leave the profile loading screen after an institutional profile is loaded', async () => {
+    localStorage.setItem(
+      TEST_SESSION,
+      JSON.stringify({
+        provider: 'supabase',
+        remember: true,
+        accessToken: 'test-token',
+        expiresAt: Date.now() + 3_600_000,
+        user: {
+          id: 'institutional-user',
+          email: 'pilot@example.test',
+          name: 'Pilot',
+        },
+      }),
+    );
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const compiled = fixture.nativeElement as HTMLElement;
+
+    expect(compiled.querySelector('.profile-loading')).toBeNull();
+    expect(compiled.querySelector('.app-shell')).toBeTruthy();
+    expect(compiled.textContent).toContain('Coordinación Piloto');
   });
 
   it('should let only the global superadmin manage regions, municipalities and establishments', async () => {
@@ -165,7 +224,11 @@ describe('App', () => {
     expect(compiled.textContent).toContain('＋ Nueva Red');
     expect(compiled.textContent).toContain('Producción consolidada');
     expect(compiled.textContent).toContain('Atenciones ·');
-    expect(Array.from(compiled.querySelectorAll('.network-filterbar label')).some(label => label.querySelector('span')?.textContent?.trim() === 'Región')).toBe(true);
+    expect(
+      Array.from(compiled.querySelectorAll('.network-filterbar label')).some(
+        (label) => label.querySelector('span')?.textContent?.trim() === 'Región',
+      ),
+    ).toBe(true);
 
     fixture.componentInstance.changeRole('regional-superadmin');
     fixture.componentInstance.navigate('Redes');
@@ -191,10 +254,16 @@ describe('App', () => {
     expect(compiled.textContent).not.toContain('↓ Excel');
     expect(compiled.textContent).not.toContain('↓ PDF');
     expect(compiled.textContent).toContain('Reportes recibidos');
-    expect(Array.from(compiled.querySelectorAll('.filters label')).some(label => label.querySelector('span')?.textContent?.trim() === 'Red')).toBe(true);
+    expect(
+      Array.from(compiled.querySelectorAll('.filters label')).some(
+        (label) => label.querySelector('span')?.textContent?.trim() === 'Red',
+      ),
+    ).toBe(true);
 
     expect(compiled.querySelector('.network-catalog')).toBeTruthy();
-    expect(compiled.textContent).toContain('catálogo y la composición municipal provienen de PostgreSQL');
+    expect(compiled.textContent).toContain(
+      'catálogo y la composición municipal provienen de PostgreSQL',
+    );
   });
 
   it('should show the aggregated network consolidation without individual ITS 1 data', async () => {
@@ -228,8 +297,9 @@ describe('App', () => {
     await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
 
-    const annualButton = Array.from(compiled.querySelectorAll<HTMLButtonElement>('.export-catalog button'))
-      .find(button => button.textContent?.includes('Evaluación anual'))!;
+    const annualButton = Array.from(
+      compiled.querySelectorAll<HTMLButtonElement>('.export-catalog button'),
+    ).find((button) => button.textContent?.includes('Evaluación anual'))!;
     annualButton.click();
     fixture.detectChanges();
 
@@ -237,7 +307,9 @@ describe('App', () => {
     expect(compiled.querySelectorAll('.dimension-options button')).toHaveLength(3);
     expect(compiled.querySelectorAll('input[type="month"]')).toHaveLength(4);
     expect(compiled.textContent).toContain('Región de Cortés');
-    expect(compiled.textContent).toContain('Solo se muestran territorios y datos agregados permitidos');
+    expect(compiled.textContent).toContain(
+      'Solo se muestran territorios y datos agregados permitidos',
+    );
 
     compiled.querySelector<HTMLButtonElement>('.annual-dialog button[type="submit"]')!.click();
     fixture.detectChanges();
@@ -255,11 +327,13 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     Array.from(compiled.querySelectorAll<HTMLButtonElement>('.export-catalog button'))
-      .find(button => button.textContent?.includes('Evaluación anual'))!.click();
+      .find((button) => button.textContent?.includes('Evaluación anual'))!
+      .click();
     fixture.detectChanges();
 
-    const territoryDimension = Array.from(compiled.querySelectorAll<HTMLButtonElement>('.dimension-options button'))
-      .find(button => button.textContent?.includes('Territorios'))!;
+    const territoryDimension = Array.from(
+      compiled.querySelectorAll<HTMLButtonElement>('.dimension-options button'),
+    ).find((button) => button.textContent?.includes('Territorios'))!;
     expect(territoryDimension.disabled).toBe(true);
     expect(territoryDimension.textContent).toContain('No disponible para su alcance');
   });
@@ -267,8 +341,10 @@ describe('App', () => {
   it('should provide hierarchical global filters according to each role level', () => {
     const fixture = TestBed.createComponent(App);
     const compiled = fixture.nativeElement as HTMLElement;
-    const filter = (label: string) => Array.from(compiled.querySelectorAll<HTMLLabelElement>('.filters label'))
-      .find(item => item.querySelector('span')?.textContent?.trim() === label)?.querySelector('select');
+    const filter = (label: string) =>
+      Array.from(compiled.querySelectorAll<HTMLLabelElement>('.filters label'))
+        .find((item) => item.querySelector('span')?.textContent?.trim() === label)
+        ?.querySelector('select');
 
     fixture.componentInstance.changeRole('superadmin');
     fixture.detectChanges();
@@ -308,7 +384,8 @@ describe('App', () => {
     const fixture = TestBed.createComponent(App);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    const select = (label: string) => compiled.querySelector<HTMLSelectElement>(`.filters select[aria-label="${label}"]`)!;
+    const select = (label: string) =>
+      compiled.querySelector<HTMLSelectElement>(`.filters select[aria-label="${label}"]`)!;
 
     expect(select('Período inicial').value).toBe('Julio 2026');
     expect(select('Período final').value).toBe('Julio 2026');
@@ -355,7 +432,9 @@ describe('App', () => {
     fixture.detectChanges();
     await settleDeferred(fixture);
     expect(compiled.querySelector('h1')?.textContent).toContain('Revisión de regiones');
-    expect(compiled.querySelector('app-report-table th')?.textContent).toContain('Región sanitaria');
+    expect(compiled.querySelector('app-report-table th')?.textContent).toContain(
+      'Región sanitaria',
+    );
     expect(compiled.textContent).toContain('Región Sanitaria de Cortés');
 
     fixture.componentInstance.changeRole('regional-admin');

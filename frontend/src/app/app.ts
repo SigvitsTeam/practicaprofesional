@@ -1,4 +1,4 @@
-import { Component, effect, inject, ViewChild, ViewEncapsulation } from '@angular/core';
+import { Component, effect, inject, signal, ViewChild, ViewEncapsulation } from '@angular/core';
 import { AuthService } from './core/auth.service';
 import { SCREEN_META } from './core/mock-data';
 import { Report, RoleId } from './core/models';
@@ -56,8 +56,8 @@ export class App {
   selectedReport: Report | null = null;
   notice = '';
   darkMode = false;
-  profileReady = false;
-  profileError = '';
+  readonly profileReady = signal(false);
+  readonly profileError = signal('');
   private allowedRoleIds: RoleId[] = [];
   private profileLoading = false;
   private loadedProfileUserId = '';
@@ -76,8 +76,8 @@ export class App {
     effect(() => {
       const user = this.auth.user();
       if (!user) {
-        this.profileReady = false;
-        this.profileError = '';
+        this.profileReady.set(false);
+        this.profileError.set('');
         this.allowedRoleIds = [];
         this.loadedProfileUserId = '';
         this.institutionalDisplayName = '';
@@ -86,7 +86,7 @@ export class App {
       if (this.auth.isDemo()) {
         this.allowedRoleIds = this.roleContext.roles.map((role) => role.id);
         this.loadedProfileUserId = user.id;
-        this.profileReady = true;
+        this.profileReady.set(true);
         return;
       }
       if (!this.profileLoading && this.loadedProfileUserId !== user.id) this.loadProfile(user.id);
@@ -95,26 +95,27 @@ export class App {
 
   private loadProfile(userId: string) {
     this.profileLoading = true;
-    this.profileError = '';
+    this.profileError.set('');
     this.currentProfileApi.get().subscribe({
       next: (profile) => {
         this.allowedRoleIds = mapInstitutionalRoleCodes(profile.roles);
         this.institutionalDisplayName = profile.displayName?.trim() ?? '';
         const initialRole = this.allowedRoleIds[0];
         if (!initialRole) {
-          this.profileError = 'La cuenta no tiene un rol institucional vigente.';
+          this.profileError.set('La cuenta no tiene un rol institucional vigente.');
           this.profileLoading = false;
           return;
         }
         this.roleContext.select(initialRole);
         this.loadedProfileUserId = userId;
         this.profileLoading = false;
-        this.profileReady = true;
+        this.profileReady.set(true);
       },
       error: () => {
         this.profileLoading = false;
-        this.profileError =
-          'No fue posible cargar el perfil institucional. Verifique la conexión o vuelva a iniciar sesión.';
+        this.profileError.set(
+          'No fue posible cargar el perfil institucional. Verifique la conexión o vuelva a iniciar sesión.',
+        );
       },
     });
   }
