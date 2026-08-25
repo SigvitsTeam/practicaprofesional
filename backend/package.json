@@ -24,7 +24,7 @@
     "db:verify-deployment": "npm run scripts:build && node dist-scripts/prisma/verify-deployment.js",
     "smoke:its2": "npm run scripts:build && node dist-scripts/prisma/smoke-its2-workflow.js",
     "smoke:annual-export": "npm run scripts:build && node dist-scripts/prisma/smoke-annual-export.js",
-    "worker:exports": "npm run db:generate && nest start --entryFile export-worker",
+    "worker:exports": "nest start --entryFile export-worker --path tsconfig.worker.json",
     "format": "prettier --write \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\"",
     "format:check": "prettier --check \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\"",
     "lint": "eslint \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\" --max-warnings=0",

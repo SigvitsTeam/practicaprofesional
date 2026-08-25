@@ -1,4 +1,5 @@
 /backend/dist/
+/backend/dist-worker/
 /backend/dist-scripts/
 /backend/.data/
 /backend/node_modules/
