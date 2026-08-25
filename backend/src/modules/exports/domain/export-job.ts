@@ -2,6 +2,19 @@ export type ExportFormat = 'XLSX' | 'PDF';
 export type ExportScopeLevel = 'NACIONAL' | 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO';
 export type ExportJobStatus = 'PENDIENTE' | 'PROCESANDO' | 'COMPLETADO' | 'FALLIDO';
 
+export type AnnualComparisonIndicator =
+  'TOTAL_CASES' | 'NEW_CASES' | 'CONTROLS' | 'RATE_PER_1000' | 'ALERTS';
+
+export interface AnnualComparisonParameters extends Record<string, unknown> {
+  dimension: 'periods' | 'indicators';
+  rangeAStart: string;
+  rangeAEnd: string;
+  rangeBStart: string;
+  rangeBEnd: string;
+  indicatorA: AnnualComparisonIndicator;
+  indicatorB: AnnualComparisonIndicator;
+}
+
 export interface ExportJob {
   id: string;
   reportType: string;
@@ -10,6 +23,7 @@ export interface ExportJob {
   territoryId: string | null;
   year: number;
   month: number;
+  parameters: Record<string, unknown> | null;
   status: ExportJobStatus;
   attempts: number;
   outputAvailable: boolean;
@@ -28,6 +42,7 @@ export interface CreateExportJobInput {
   territoryId: string | null;
   year: number;
   month: number;
+  parameters?: Record<string, unknown> | null;
   requestId: string;
 }
 

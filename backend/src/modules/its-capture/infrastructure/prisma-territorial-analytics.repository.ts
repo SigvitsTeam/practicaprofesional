@@ -92,7 +92,16 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
   private async entities(
     level: TerritorialAnalyticsLevel,
     scope: TerritorialAnalyticsScope,
-  ): Promise<{ id: string; code: string; name: string }[]> {
+  ): Promise<
+    {
+      id: string;
+      code: string;
+      name: string;
+      latitude?: number;
+      longitude?: number;
+      coordinatesValidated?: boolean;
+    }[]
+  > {
     if (level === 'REGION')
       return this.prisma.client.region.findMany({
         where: { active: true, ...(scope.national ? {} : { id: { in: [...scope.regionIds] } }) },
@@ -110,11 +119,29 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
           orderBy: { name: 'asc' },
         })
         .then((rows) => rows.map(({ officialCode, ...row }) => ({ ...row, code: officialCode })));
-    return this.prisma.client.healthFacility.findMany({
-      where: { active: true, ...(scope.national ? {} : { id: { in: [...scope.facilityIds] } }) },
-      select: { id: true, code: true, name: true },
-      orderBy: { name: 'asc' },
-    });
+    return this.prisma.client.healthFacility
+      .findMany({
+        where: {
+          active: true,
+          ...(scope.national ? {} : { id: { in: [...scope.facilityIds] } }),
+        },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          latitude: true,
+          longitude: true,
+          coordinatesValidated: true,
+        },
+        orderBy: { name: 'asc' },
+      })
+      .then((rows) =>
+        rows.map(({ latitude, longitude, ...row }) => ({
+          ...row,
+          latitude: latitude === null ? undefined : Number(latitude),
+          longitude: longitude === null ? undefined : Number(longitude),
+        })),
+      );
   }
 
   private reportLevel(

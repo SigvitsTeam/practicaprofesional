@@ -115,7 +115,12 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 26. Período operativo mensual resuelto dinámicamente en captura ITS-2, bandejas, consolidados, mapas y Redes; acciones visuales sin implementación retiradas de producción.
 27. Invitación institucional por correo desde backend mediante API administrativa de Supabase, con secreto exclusivo de servidor, timeout, vínculo del identificador inmutable, activación opcional, control de jerarquía/alcance y auditoría transaccional.
 28. Escenario k6 parametrizable hasta 1,000 usuarios virtuales con umbrales de error/p95 y matriz UAT de extremo a extremo, recuperación, privacidad, exportaciones, restauración y evidencia de release.
+29. Coordenadas reales para los 12 establecimientos del piloto, con fuente trazable, mapa geográfico proporcional y distinción explícita entre GPS institucional validado y referencia pública comunitaria.
+30. Selectores productivos de región, municipio y establecimiento para solicitar ITS-2 y consolidados especializados desde alcance autorizado, sin botones ficticios.
+31. Comparación anual persistente por períodos o indicadores, rangos acotados, XLSX/PDF agregado, auditoría, reintentos y procesamiento por worker independiente.
+32. Migraciones aplicadas y verificación automatizada satisfactoria: 29 tablas con RLS forzado, cero tablas públicas, usuarios piloto, JWKS, pooler y cobertura geográfica 12/12.
+33. Smoke autenticado de comparación anual completado de extremo a extremo (cola, worker y descarga XLSX válida); la entrega binaria usa `StreamableFile` para impedir serialización JSON y archivos corruptos.
 
 ### Siguiente ejecución
 
-1. Aplicar las migraciones pendientes y ejecutar smoke/UAT y pruebas de concurrencia sobre PostgreSQL de staging.
+1. Ejecutar k6, UAT por rol, restauración de backup y prueba de recuperación API/worker en un ambiente de staging aislado; conservar métricas y acta como evidencia de salida.

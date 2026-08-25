@@ -55,6 +55,7 @@ const job: ClaimedExportJob = {
   attempts: 1,
   maxAttempts: 3,
   outputAvailable: false,
+  parameters: null,
   outputExpiresAt: null,
   errorCode: null,
   createdAt: new Date('2026-08-21T00:00:00Z'),

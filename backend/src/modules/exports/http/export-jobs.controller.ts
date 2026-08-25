@@ -12,9 +12,8 @@ import {
   ParseUUIDPipe,
   Post,
   Req,
-  Res,
+  StreamableFile,
 } from '@nestjs/common';
-import type { Response } from 'express';
 import type { RequestWithContext } from '../../../common/http/request-context';
 import {
   DataLevel,
@@ -79,18 +78,17 @@ export class ExportJobsController {
     @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @CurrentSubject() subject: AuthorizationSubject,
     @Req() request: RequestWithContext,
-    @Res({ passthrough: true }) response: Response,
-  ): Promise<Buffer> {
+  ): Promise<StreamableFile> {
     try {
       const artifact = await this.downloadArtifact.execute(id, subject, request.requestId);
-      response.setHeader(
-        'Content-Type',
-        artifact.format === 'PDF'
-          ? 'application/pdf'
-          : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      );
-      response.setHeader('Content-Disposition', `attachment; filename="${artifact.filename}"`);
-      return Buffer.from(artifact.contents);
+      return new StreamableFile(Buffer.from(artifact.contents), {
+        type:
+          artifact.format === 'PDF'
+            ? 'application/pdf'
+            : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        disposition: `attachment; filename="${artifact.filename}"`,
+        length: artifact.contents.length,
+      });
     } catch (error: unknown) {
       if (error instanceof ExportArtifactAccessError) throw new ForbiddenException(error.message);
       if (error instanceof ExportArtifactExpiredError) throw new GoneException(error.message);

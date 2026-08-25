@@ -23,6 +23,7 @@ class Repository extends ExportJobRepository {
       territoryId: input.territoryId,
       year: input.year,
       month: input.month,
+      parameters: input.parameters ?? null,
       status: 'PENDIENTE',
       attempts: 0,
       outputAvailable: false,
@@ -144,5 +145,48 @@ describe('ExportJobsUseCase', () => {
     );
     expect(result.reportType).toBe('ITS1_REGISTER');
     expect(repository.created?.scopeLevel).toBe('ESTABLECIMIENTO');
+  });
+
+  it('queues a bounded annual comparison with normalized parameters', async () => {
+    const repository = new Repository();
+    const result = await new ExportJobsUseCase(repository).create(
+      {
+        ...base,
+        reportType: 'ANNUAL_COMPARISON',
+        parameters: {
+          dimension: 'periods',
+          rangeAStart: '2025-01',
+          rangeAEnd: '2025-12',
+          rangeBStart: '2026-01',
+          rangeBEnd: '2026-08',
+          indicatorA: 'TOTAL_CASES',
+          indicatorB: 'RATE_PER_1000',
+        },
+      },
+      subject,
+    );
+    expect(result.reportType).toBe('ANNUAL_COMPARISON');
+    expect(repository.created?.parameters?.['rangeAStart']).toBe('2025-01');
+  });
+
+  it('rejects annual ranges that could monopolize the export worker', () => {
+    expect(() =>
+      new ExportJobsUseCase(new Repository()).create(
+        {
+          ...base,
+          reportType: 'ANNUAL_COMPARISON',
+          parameters: {
+            dimension: 'periods',
+            rangeAStart: '2020-01',
+            rangeAEnd: '2025-12',
+            rangeBStart: '2026-01',
+            rangeBEnd: '2026-08',
+            indicatorA: 'TOTAL_CASES',
+            indicatorB: 'NEW_CASES',
+          },
+        },
+        subject,
+      ),
+    ).toThrow(InvalidExportJobError);
   });
 });

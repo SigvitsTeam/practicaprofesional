@@ -36,6 +36,7 @@ export class ExportJobsApiService {
     territoryId?: string;
     year: number;
     month: number;
+    parameters?: Record<string, unknown>;
   }) {
     return this.http.post<ExportJobRecord>(this.endpoint, input);
   }

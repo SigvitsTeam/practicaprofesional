@@ -163,6 +163,22 @@ async function verify(): Promise<void> {
        ORDER BY r.codigo`,
       [['COORDINADOR_MUNICIPAL', 'DIGITADOR_COORDINACION', 'RESPONSABLE_ESTABLECIMIENTO']],
     );
+    const pilotGeography = await directClient.query<{
+      total: number;
+      located: number;
+      validated: number;
+    }>(
+      `SELECT
+         count(*)::int AS total,
+         count(*) FILTER (WHERE e.latitud IS NOT NULL AND e.longitud IS NOT NULL)::int AS located,
+         count(*) FILTER (WHERE e.coordenadas_validadas)::int AS validated
+       FROM establecimientos_salud e
+       JOIN municipios m ON m.id = e.municipio_id
+       WHERE m.codigo_oficial = '0506' AND e.activo = true`,
+    );
+    const geography = pilotGeography.rows[0];
+    if (!geography || geography.total !== 12 || geography.located !== geography.total)
+      throw new Error('El catálogo piloto no tiene coordenadas para sus 12 establecimientos.');
 
     await runtimeClient.connect();
     await runtimeClient.query('SELECT 1');
@@ -194,6 +210,7 @@ async function verify(): Promise<void> {
         activeOperators: Object.fromEntries(
           operators.rows.map((operator) => [operator.roleCode, operator.total]),
         ),
+        pilotGeography: geography,
         jwksKeys: keyCount,
       })}\n`,
     );

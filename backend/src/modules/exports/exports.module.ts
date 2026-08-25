@@ -15,6 +15,7 @@ import { Its1ExportGenerator } from './application/its1-export.generator';
 import { ExportJobsController } from './http/export-jobs.controller';
 import { PrismaExportJobRepository } from './infrastructure/prisma-export-job.repository';
 import { FilesystemExportArtifactStorage } from './infrastructure/filesystem-export-artifact.storage';
+import { AnnualComparisonExportGenerator } from './application/annual-comparison-export.generator';
 
 @Module({
   imports: [DatabaseModule, ItsCaptureModule, AuthorizationModule],
@@ -28,6 +29,7 @@ import { FilesystemExportArtifactStorage } from './infrastructure/filesystem-exp
     TerritorialExportGenerator,
     Its2ExportGenerator,
     Its1ExportGenerator,
+    AnnualComparisonExportGenerator,
     { provide: ExportJobRepository, useClass: PrismaExportJobRepository },
     { provide: ExportArtifactStorage, useClass: FilesystemExportArtifactStorage },
   ],

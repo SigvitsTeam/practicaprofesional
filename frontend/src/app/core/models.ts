@@ -12,6 +12,9 @@ export interface Report {
   controls: number;
   alerts: number;
   sent: string;
+  latitude?: number;
+  longitude?: number;
+  coordinatesValidated?: boolean;
 }
 
 export interface Establishment {

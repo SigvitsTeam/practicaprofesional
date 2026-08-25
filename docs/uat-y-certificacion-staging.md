@@ -16,7 +16,7 @@
 4. Administración regional devuelve/aprueba municipios y prepara el consolidado regional.
 5. Nivel Central devuelve/aprueba regiones, consolida, cierra y reabre con motivo.
 6. Cada rol confirma que no puede consultar datos, territorios ni descargas fuera de su alcance.
-7. XLSX/PDF territorial, ITS-1, ITS-2 y consolidados se generan por worker, vencen y sólo los descarga su solicitante.
+7. XLSX/PDF territorial, ITS-1, ITS-2, consolidados y comparación anual se generan por worker, vencen y sólo los descarga su solicitante.
 8. Redes muestra la suma reproducible de sus municipios y el historial administrativo autorizado.
 9. Se reinicia API/worker durante trabajos pendientes y se confirma recuperación sin doble publicación.
 10. Se restaura el backup en un entorno vacío y se ejecutan smoke tests de cierre mensual.

@@ -23,8 +23,15 @@ interface ExportOption {
   icon: string;
   title: string;
   detail: string;
-  action: 'annual' | 'generate' | 'planned' | 'its1';
+  action: 'annual' | 'generate' | 'scoped' | 'its1';
   reportType?: string;
+  targetLevel?: 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO';
+  scopeLevel?: 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO';
+}
+interface ScopedExportTarget {
+  id: string;
+  code: string;
+  name: string;
 }
 interface ExportJob {
   id: string;
@@ -53,6 +60,11 @@ export class Exports implements OnInit {
   protected liveJobs: ExportJobRecord[] = [];
   protected loading = false;
   protected showAnnualEvaluation = false;
+  protected showScopedExport = false;
+  protected scopedOption: ExportOption | null = null;
+  protected scopedTargets: ScopedExportTarget[] = [];
+  protected selectedScopedTargetId = '';
+  protected scopedFormat: 'XLSX' | 'PDF' = 'XLSX';
   protected formSubmitted = false;
 
   protected readonly dimensions: { value: ComparisonDimension; label: string; detail: string }[] = [
@@ -77,8 +89,7 @@ export class Exports implements OnInit {
     'Casos nuevos',
     'Controles',
     'Tasa ITS por 1,000 atenciones',
-    'Casos en menores de 15 años',
-    'Casos en mayores de 15 años',
+    'Alertas territoriales',
   ];
   protected annualForm = this.emptyAnnualForm();
   protected annualPreview: AnnualEvaluationConfig | null = null;
@@ -150,8 +161,11 @@ export class Exports implements OnInit {
         {
           icon: '◇',
           title: 'Consolidados regionales',
-          detail: 'Generador especializado pendiente',
-          action: 'planned',
+          detail: 'Seleccione una región autorizada',
+          action: 'scoped',
+          reportType: 'REGIONAL_CONSOLIDATED',
+          targetLevel: 'REGION',
+          scopeLevel: 'REGION',
         },
         {
           icon: '↗',
@@ -172,8 +186,11 @@ export class Exports implements OnInit {
         {
           icon: '◇',
           title: 'ITS 2 por establecimiento',
-          detail: 'Generador especializado pendiente',
-          action: 'planned',
+          detail: 'Seleccione un establecimiento autorizado',
+          action: 'scoped',
+          reportType: 'ITS2_MONTHLY',
+          targetLevel: 'ESTABLECIMIENTO',
+          scopeLevel: 'ESTABLECIMIENTO',
         },
         {
           icon: '▣',
@@ -200,8 +217,11 @@ export class Exports implements OnInit {
       {
         icon: '◇',
         title: 'Consolidados municipales',
-        detail: 'Generador especializado pendiente',
-        action: 'planned',
+        detail: 'Seleccione un municipio autorizado',
+        action: 'scoped',
+        reportType: 'MUNICIPAL_CONSOLIDATED',
+        targetLevel: 'MUNICIPIO',
+        scopeLevel: 'MUNICIPIO',
       },
       {
         icon: '▣',
@@ -294,9 +314,11 @@ export class Exports implements OnInit {
       if (this.auth.isDemo())
         this.notify.emit(`${option.title} agregado a la cola de demostración.`);
       else this.queueIts1(option);
-    } else if (option.action === 'planned')
-      this.notify.emit(`${option.title}: el generador especializado aún está pendiente.`);
-    else if (this.auth.isDemo())
+    } else if (option.action === 'scoped') {
+      if (this.auth.isDemo())
+        this.notify.emit(`${option.title} agregado a la cola de demostración.`);
+      else this.openScopedExport(option);
+    } else if (this.auth.isDemo())
       this.notify.emit(`${option.title} agregado a la cola de demostración.`);
     else this.queueExport(option);
   }
@@ -377,6 +399,68 @@ export class Exports implements OnInit {
           this.notify.emit(
             'No fue posible crear el trabajo de exportación. Verifique alcance y permisos.',
           );
+        },
+      });
+  }
+
+  protected closeScopedExport() {
+    this.showScopedExport = false;
+    this.scopedOption = null;
+  }
+
+  protected generateScopedExport() {
+    const option = this.scopedOption;
+    if (!option?.reportType || !option.scopeLevel || !this.selectedScopedTargetId) return;
+    const now = new Date();
+    this.loading = true;
+    this.jobsApi
+      .create({
+        idempotencyKey: crypto.randomUUID(),
+        reportType: option.reportType,
+        format: this.scopedFormat,
+        scopeLevel: option.scopeLevel,
+        territoryId: this.selectedScopedTargetId,
+        year: now.getFullYear(),
+        month: now.getMonth() + 1,
+      })
+      .subscribe({
+        next: (job) => {
+          this.loading = false;
+          this.liveJobs = [job, ...this.liveJobs.filter((item) => item.id !== job.id)];
+          this.closeScopedExport();
+          this.notify.emit(`${option.title} agregado a la cola persistente.`);
+        },
+        error: () => {
+          this.loading = false;
+          this.notify.emit(
+            'No fue posible solicitar el documento para el territorio seleccionado.',
+          );
+        },
+      });
+  }
+
+  private openScopedExport(option: ExportOption) {
+    if (!option.targetLevel) return;
+    const now = new Date();
+    this.loading = true;
+    this.itsCaptureApi
+      .getTerritorialAnalytics(option.targetLevel, now.getFullYear(), now.getMonth() + 1)
+      .subscribe({
+        next: (result) => {
+          this.loading = false;
+          this.scopedTargets = result.rows.map(({ id, code, name }) => ({ id, code, name }));
+          this.selectedScopedTargetId = this.scopedTargets[0]?.id ?? '';
+          if (!this.selectedScopedTargetId) {
+            this.notify.emit('No hay territorios autorizados disponibles para esta exportación.');
+            return;
+          }
+          this.scopedOption = option;
+          this.scopedFormat = 'XLSX';
+          this.showScopedExport = true;
+        },
+        error: () => {
+          this.loading = false;
+          this.notify.emit('No fue posible cargar los territorios autorizados.');
         },
       });
   }
@@ -465,8 +549,78 @@ export class Exports implements OnInit {
     const dimension =
       this.dimensions.find((item) => item.value === this.annualForm.dimension)?.label ?? 'Períodos';
     this.annualPreview = { ...this.annualForm };
-    this.showAnnualEvaluation = false;
-    this.notify.emit(`Evaluación anual configurada: comparación por ${dimension.toLowerCase()}.`);
+    if (this.annualForm.format === 'Vista previa') {
+      this.showAnnualEvaluation = false;
+      this.notify.emit(`Evaluación anual configurada: comparación por ${dimension.toLowerCase()}.`);
+      return;
+    }
+    this.queueAnnualEvaluation(this.annualPreview);
+  }
+
+  protected runAnnualEvaluation(config: AnnualEvaluationConfig) {
+    if (config.format === 'Vista previa') {
+      this.notify.emit('Vista previa actualizada.');
+      return;
+    }
+    this.queueAnnualEvaluation(config);
+  }
+
+  private queueAnnualEvaluation(config: AnnualEvaluationConfig) {
+    if (this.auth.isDemo()) {
+      this.showAnnualEvaluation = false;
+      this.notify.emit(`${config.format} agregado a la cola de demostración.`);
+      return;
+    }
+    const scope = this.currentScope();
+    if (!scope || config.dimension === 'territories') {
+      this.notify.emit('La comparación solicitada no está disponible para el alcance activo.');
+      return;
+    }
+    const [year, month] = config.rangeBEnd.split('-').map(Number);
+    this.loading = true;
+    this.jobsApi
+      .create({
+        idempotencyKey: crypto.randomUUID(),
+        reportType: 'ANNUAL_COMPARISON',
+        format: config.format === 'PDF' ? 'PDF' : 'XLSX',
+        scopeLevel: scope.level,
+        ...(scope.territoryId ? { territoryId: scope.territoryId } : {}),
+        year: year!,
+        month: month!,
+        parameters: {
+          dimension: config.dimension,
+          rangeAStart: config.rangeAStart,
+          rangeAEnd: config.rangeAEnd,
+          rangeBStart: config.rangeBStart,
+          rangeBEnd: config.rangeBEnd,
+          indicatorA: this.indicatorKey(config.indicatorA),
+          indicatorB: this.indicatorKey(config.indicatorB),
+        },
+      })
+      .subscribe({
+        next: (job) => {
+          this.loading = false;
+          this.liveJobs = [job, ...this.liveJobs.filter((item) => item.id !== job.id)];
+          this.showAnnualEvaluation = false;
+          this.notify.emit(`${config.format} anual agregado a la cola persistente.`);
+        },
+        error: () => {
+          this.loading = false;
+          this.notify.emit('No fue posible solicitar la comparación anual. Revise los rangos.');
+        },
+      });
+  }
+
+  private indicatorKey(label: string): string {
+    return (
+      {
+        'Total de casos ITS': 'TOTAL_CASES',
+        'Casos nuevos': 'NEW_CASES',
+        Controles: 'CONTROLS',
+        'Tasa ITS por 1,000 atenciones': 'RATE_PER_1000',
+        'Alertas territoriales': 'ALERTS',
+      }[label] ?? 'TOTAL_CASES'
+    );
   }
 
   protected formatRange(start: string, end: string) {

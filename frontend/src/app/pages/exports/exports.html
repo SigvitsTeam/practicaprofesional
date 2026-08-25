@@ -28,17 +28,7 @@
       <div>
         <button class="btn secondary" type="button" (click)="openAnnualEvaluation()">
           Cambiar comparación</button
-        ><button
-          class="btn primary"
-          type="button"
-          (click)="
-            notify.emit(
-              preview.format === 'Vista previa'
-                ? 'Vista previa actualizada.'
-                : preview.format + ' agregado a la cola.'
-            )
-          "
-        >
+        ><button class="btn primary" type="button" (click)="runAnnualEvaluation(preview)">
           {{ preview.format === 'Vista previa' ? 'Actualizar' : 'Generar ' + preview.format }}
         </button>
       </div>
@@ -133,6 +123,55 @@
 <p class="footnote">
   ● El nivel de detalle de cada archivo respeta el perfil y queda registrado en auditoría.
 </p>
+
+@if (showScopedExport && scopedOption; as option) {
+  <div class="annual-backdrop" (click)="closeScopedExport()">
+    <section
+      class="annual-dialog scoped-export-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Seleccionar territorio para exportación"
+      (click)="$event.stopPropagation()"
+    >
+      <header>
+        <div>
+          <span class="eyebrow">EXPORTACIÓN AUTORIZADA</span>
+          <h2>{{ option.title }}</h2>
+          <p>El documento se generará en segundo plano para el territorio seleccionado.</p>
+        </div>
+        <button type="button" aria-label="Cerrar" (click)="closeScopedExport()">×</button>
+      </header>
+      <div class="scoped-export-form">
+        <label>
+          <span>Territorio</span>
+          <select [(ngModel)]="selectedScopedTargetId">
+            @for (target of scopedTargets; track target.id) {
+              <option [value]="target.id">{{ target.code }} · {{ target.name }}</option>
+            }
+          </select>
+        </label>
+        <label>
+          <span>Formato</span>
+          <select [(ngModel)]="scopedFormat">
+            <option value="XLSX">Excel oficial</option>
+            <option value="PDF">PDF</option>
+          </select>
+        </label>
+      </div>
+      <footer>
+        <button class="btn secondary" type="button" (click)="closeScopedExport()">Cancelar</button>
+        <button
+          class="btn primary"
+          type="button"
+          [disabled]="loading || !selectedScopedTargetId"
+          (click)="generateScopedExport()"
+        >
+          Generar documento
+        </button>
+      </footer>
+    </section>
+  </div>
+}
 
 @if (showAnnualEvaluation) {
   <div class="annual-backdrop" (click)="closeAnnualEvaluation()">

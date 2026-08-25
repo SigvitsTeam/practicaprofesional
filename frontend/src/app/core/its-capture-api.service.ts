@@ -218,6 +218,9 @@ export interface TerritorialAnalyticsResponse {
     controls: number;
     alerts: number;
     sentAt?: string;
+    latitude?: number;
+    longitude?: number;
+    coordinatesValidated?: boolean;
   }[];
 }
 

@@ -1,4 +1,14 @@
-import { IsEnum, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+} from 'class-validator';
 
 export enum ExportFormatDto {
   Xlsx = 'XLSX',
@@ -20,6 +30,7 @@ export class CreateExportJobDto {
     'MUNICIPAL_CONSOLIDATED',
     'REGIONAL_CONSOLIDATED',
     'NATIONAL_CONSOLIDATED',
+    'ANNUAL_COMPARISON',
   ])
   reportType!: string;
   @IsEnum(ExportFormatDto) format!: ExportFormatDto;
@@ -27,6 +38,7 @@ export class CreateExportJobDto {
   @IsOptional() @IsUUID() territoryId?: string;
   @IsInt() @Min(2000) @Max(2100) year!: number;
   @IsInt() @Min(1) @Max(12) month!: number;
+  @IsOptional() @IsObject() parameters?: Record<string, unknown>;
 }
 
 export class CreateIts1ExportJobDto {

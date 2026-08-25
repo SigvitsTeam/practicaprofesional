@@ -156,6 +156,9 @@ export class Maps implements OnInit {
               controls: row.controls,
               alerts: row.alerts,
               sent: row.sentAt ? new Date(row.sentAt).toLocaleString('es-HN') : 'Sin envío',
+              latitude: row.latitude,
+              longitude: row.longitude,
+              coordinatesValidated: row.coordinatesValidated,
             })),
           ),
         error: () => {

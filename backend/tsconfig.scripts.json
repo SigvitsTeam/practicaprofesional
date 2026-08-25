@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist-scripts",
+    "declaration": false,
+    "sourceMap": false,
+    "incremental": false
+  },
+  "include": [
+    "prisma/bootstrap-admin.ts",
+    "prisma/import-disease-catalog.ts",
+    "prisma/provision-institutional-user.ts",
+    "prisma/seed-calendar-2026.ts",
+    "prisma/seed-pilot.ts",
+    "prisma/set-monthly-period-status.ts",
+    "prisma/smoke-its2-workflow.ts",
+    "prisma/smoke-annual-export.ts",
+    "prisma/verify-deployment.ts",
+    "src/generated/prisma/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist", "dist-scripts", "test", "**/*.spec.ts"]
+}

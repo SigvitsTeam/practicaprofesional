@@ -1,4 +1,6 @@
 /backend/dist/
+/backend/dist-scripts/
+/backend/.data/
 /backend/node_modules/
 /frontend/dist/
 /frontend/node_modules/

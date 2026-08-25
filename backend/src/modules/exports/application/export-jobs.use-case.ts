@@ -3,6 +3,8 @@ import type { AuthorizationSubject } from '../../authorization/domain/authorizat
 import {
   ExportJobScopeError,
   InvalidExportJobError,
+  type AnnualComparisonIndicator,
+  type AnnualComparisonParameters,
   type CreateExportJobInput,
   type ExportJob,
   type ExportScopeLevel,
@@ -29,6 +31,7 @@ export class ExportJobsUseCase {
         'REGIONAL_CONSOLIDATED',
         'NATIONAL_CONSOLIDATED',
         'ITS1_REGISTER',
+        'ANNUAL_COMPARISON',
       ].includes(input.reportType)
     )
       throw new InvalidExportJobError('El tipo de reporte no es válido.');
@@ -43,9 +46,20 @@ export class ExportJobsUseCase {
       throw new InvalidExportJobError('El tipo de reporte no corresponde al alcance solicitado.');
     if (input.year < 2000 || input.year > 2100 || input.month < 1 || input.month > 12)
       throw new InvalidExportJobError('El período solicitado no es válido.');
+    const parameters =
+      input.reportType === 'ANNUAL_COMPARISON'
+        ? this.validateAnnualParameters(input.parameters)
+        : null;
+    if (input.reportType !== 'ANNUAL_COMPARISON' && input.parameters)
+      throw new InvalidExportJobError('Este tipo de reporte no admite parámetros adicionales.');
     const territoryId = input.territoryId ?? this.defaultTerritory(input.scopeLevel, subject);
     this.requireScope(input.scopeLevel, territoryId, subject);
-    return this.repository.create({ ...input, territoryId, requestedByUserId: subject.userId });
+    return this.repository.create({
+      ...input,
+      parameters,
+      territoryId,
+      requestedByUserId: subject.userId,
+    });
   }
 
   createIts1(
@@ -100,5 +114,77 @@ export class ExportJobsUseCase {
               (subject.territory.national || subject.territory.facilityIds.includes(territoryId));
     if (!allowed)
       throw new ExportJobScopeError('La exportación está fuera del alcance territorial asignado.');
+  }
+
+  private validateAnnualParameters(
+    value: Record<string, unknown> | null | undefined,
+  ): AnnualComparisonParameters {
+    if (!value) throw new InvalidExportJobError('La comparación anual requiere parámetros.');
+    const allowedKeys = new Set([
+      'dimension',
+      'rangeAStart',
+      'rangeAEnd',
+      'rangeBStart',
+      'rangeBEnd',
+      'indicatorA',
+      'indicatorB',
+    ]);
+    if (Object.keys(value).some((key) => !allowedKeys.has(key)))
+      throw new InvalidExportJobError('La comparación anual contiene parámetros no admitidos.');
+    const dimension = value.dimension;
+    if (dimension !== 'periods' && dimension !== 'indicators')
+      throw new InvalidExportJobError('La dimensión de comparación no es válida.');
+    const monthPattern = /^(20\d{2}|2100)-(0[1-9]|1[0-2])$/;
+    const rangeAStart = value.rangeAStart;
+    const rangeAEnd = value.rangeAEnd;
+    const rangeBStart = value.rangeBStart;
+    const rangeBEnd = value.rangeBEnd;
+    if (
+      typeof rangeAStart !== 'string' ||
+      typeof rangeAEnd !== 'string' ||
+      typeof rangeBStart !== 'string' ||
+      typeof rangeBEnd !== 'string' ||
+      !monthPattern.test(rangeAStart) ||
+      !monthPattern.test(rangeAEnd) ||
+      !monthPattern.test(rangeBStart) ||
+      !monthPattern.test(rangeBEnd) ||
+      rangeAStart > rangeAEnd ||
+      rangeBStart > rangeBEnd
+    )
+      throw new InvalidExportJobError('Los rangos de comparación no son válidos.');
+    if (
+      this.monthCount(rangeAStart, rangeAEnd) > 24 ||
+      this.monthCount(rangeBStart, rangeBEnd) > 24
+    )
+      throw new InvalidExportJobError('Cada rango puede abarcar como máximo 24 meses.');
+    const indicators: AnnualComparisonIndicator[] = [
+      'TOTAL_CASES',
+      'NEW_CASES',
+      'CONTROLS',
+      'RATE_PER_1000',
+      'ALERTS',
+    ];
+    if (
+      typeof value.indicatorA !== 'string' ||
+      typeof value.indicatorB !== 'string' ||
+      !indicators.includes(value.indicatorA as AnnualComparisonIndicator) ||
+      !indicators.includes(value.indicatorB as AnnualComparisonIndicator)
+    )
+      throw new InvalidExportJobError('El indicador de comparación no es válido.');
+    return {
+      dimension,
+      rangeAStart,
+      rangeAEnd,
+      rangeBStart,
+      rangeBEnd,
+      indicatorA: value.indicatorA as AnnualComparisonIndicator,
+      indicatorB: value.indicatorB as AnnualComparisonIndicator,
+    };
+  }
+
+  private monthCount(start: string, end: string): number {
+    const [startYear, startMonth] = start.split('-').map(Number);
+    const [endYear, endMonth] = end.split('-').map(Number);
+    return (endYear! - startYear!) * 12 + endMonth! - startMonth! + 1;
   }
 }

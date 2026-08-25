@@ -42,6 +42,9 @@ export class PrismaExportJobRepository extends ExportJobRepository {
             territoryId: input.territoryId,
             year: input.year,
             month: input.month,
+            parameters: input.parameters
+              ? (input.parameters as Prisma.InputJsonObject)
+              : Prisma.DbNull,
           },
         });
         await tx.auditEvent.create({
@@ -58,7 +61,8 @@ export class PrismaExportJobRepository extends ExportJobRepository {
               territoryId: input.territoryId,
               year: input.year,
               month: input.month,
-            },
+              parameters: input.parameters ?? null,
+            } as Prisma.InputJsonObject,
             requestId: input.requestId,
           },
         });
@@ -86,6 +90,7 @@ export class PrismaExportJobRepository extends ExportJobRepository {
         territoryId: string | null;
         year: number;
         month: number;
+        parameters: Prisma.JsonValue | null;
         status: string;
         attempts: number;
         maxAttempts: number;
@@ -117,7 +122,8 @@ export class PrismaExportJobRepository extends ExportJobRepository {
       RETURNING job."id", job."solicitado_por_usuario_id" AS "requestedByUserId",
         job."tipo_reporte" AS "reportType", job."formato"::text AS "format",
         job."nivel_alcance"::text AS "scopeLevel", job."territorio_id" AS "territoryId",
-        job."anio" AS "year", job."mes" AS "month", job."estado"::text AS "status",
+        job."anio" AS "year", job."mes" AS "month", job."parametros" AS "parameters",
+        job."estado"::text AS "status",
         job."intentos" AS "attempts", job."max_intentos" AS "maxAttempts",
         job."storage_key_salida" AS "outputStorageKey", job."salida_expira_at" AS "outputExpiresAt",
         job."codigo_error" AS "errorCode",
@@ -206,7 +212,8 @@ export class PrismaExportJobRepository extends ExportJobRepository {
       row.scopeLevel !== input.scopeLevel ||
       row.territoryId !== input.territoryId ||
       row.year !== input.year ||
-      row.month !== input.month
+      row.month !== input.month ||
+      this.canonicalJson(row.parameters) !== this.canonicalJson(input.parameters ?? null)
     )
       throw new ExportJobConflictError(
         'La clave de idempotencia ya fue utilizada con otra solicitud.',
@@ -222,6 +229,7 @@ export class PrismaExportJobRepository extends ExportJobRepository {
     territoryId: string | null;
     year: number;
     month: number;
+    parameters: Prisma.JsonValue | null;
     status: string;
     attempts: number;
     outputStorageKey: string | null;
@@ -238,6 +246,10 @@ export class PrismaExportJobRepository extends ExportJobRepository {
       territoryId: row.territoryId,
       year: row.year,
       month: row.month,
+      parameters:
+        row.parameters && typeof row.parameters === 'object' && !Array.isArray(row.parameters)
+          ? row.parameters
+          : null,
       status: row.status as ExportJob['status'],
       attempts: row.attempts,
       outputAvailable: Boolean(
@@ -248,5 +260,15 @@ export class PrismaExportJobRepository extends ExportJobRepository {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  }
+
+  private canonicalJson(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map((item) => this.canonicalJson(item)).join(',')}]`;
+    if (value && typeof value === 'object')
+      return `{${Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => `${JSON.stringify(key)}:${this.canonicalJson(item)}`)
+        .join(',')}}`;
+    return JSON.stringify(value) ?? 'null';
   }
 }

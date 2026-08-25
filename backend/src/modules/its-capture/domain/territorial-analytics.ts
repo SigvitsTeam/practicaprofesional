@@ -12,6 +12,9 @@ export interface TerritorialAnalyticsRow {
   controls: number;
   alerts: number;
   sentAt?: Date;
+  latitude?: number;
+  longitude?: number;
+  coordinatesValidated?: boolean;
 }
 
 export interface TerritorialAnalyticsResult {

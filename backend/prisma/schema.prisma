@@ -147,8 +147,9 @@ model ExportJob {
   format            ExportFormat     @map("formato")
   scopeLevel        ExportScopeLevel @map("nivel_alcance")
   territoryId       String?          @map("territorio_id") @db.Uuid
-  year              Int             @map("anio")
-  month             Int             @map("mes")
+  year              Int              @map("anio")
+  month             Int              @map("mes")
+  parameters        Json?            @map("parametros")
   status            ExportJobStatus  @default(PENDIENTE) @map("estado")
   attempts          Int              @default(0) @map("intentos")
   maxAttempts       Int              @default(3) @map("max_intentos")
