@@ -55,7 +55,9 @@ export function validateCaptureReferences(
     sex === 'H' ? !disease.appliesToMale : !disease.appliesToFemale,
   );
   if (incompatible)
-    throw new InvalidAttentionError('Una enfermedad seleccionada no aplica al sexo registrado.');
+    throw new InvalidAttentionError(
+      `Una enfermedad seleccionada no es válida para sexo ${sex === 'H' ? 'Hombre' : 'Mujer'}.`,
+    );
 }
 
 export function normalizeAttention<T extends CreateAttentionInput>(input: T): T {

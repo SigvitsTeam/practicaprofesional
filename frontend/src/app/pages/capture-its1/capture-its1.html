@@ -181,20 +181,25 @@
             <span class="diagnostic-number">{{ $index + 1 }}</span
             ><label
               ><span>Clasificación *</span
-              ><select formControlName="classification">
-                <option>Sindrómico</option>
-                <option>Clínico</option>
-                <option>C/E</option>
-                <option>Etiológico</option>
+              ><select formControlName="classificationId" (change)="onClassificationChange($index)">
+                <option value="">
+                  {{ form.controls.sex.value ? 'Seleccione' : 'Seleccione primero el sexo' }}
+                </option>
+                @for (classification of availableClassifications(); track classification.id) {
+                  <option [value]="classification.id">{{ classification.name }}</option>
+                }
               </select></label
             ><label
               ><span>Enfermedad *</span
-              ><select formControlName="disease">
-                <option value="">Seleccione</option>
-                @for (disease of availableDiseases(); track disease) {
-                  <option>{{ disease }}</option>
+              ><select formControlName="diseaseId">
+                <option value="">
+                  {{ form.controls.sex.value ? 'Seleccione' : 'Seleccione primero el sexo' }}
+                </option>
+                @for (disease of availableDiseases($index); track disease.id) {
+                  <option [value]="disease.id">{{ disease.name }}</option>
                 }
-              </select></label
+              </select>
+              <small>Opciones filtradas por sexo y clasificación.</small></label
             ><label
               ><span>Tipo de caso *</span
               ><select formControlName="caseType">

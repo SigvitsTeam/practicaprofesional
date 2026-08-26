@@ -78,9 +78,19 @@ describe('CreateAttentionUseCase', () => {
       ...references,
       diseases: [{ id: ids.disease, appliesToMale: false, appliesToFemale: true }],
     });
-    await expect(
-      useCase.execute({ ...validInput, sex: 'H', isPregnant: false }),
-    ).rejects.toBeInstanceOf(InvalidAttentionError);
+    await expect(useCase.execute({ ...validInput, sex: 'H', isPregnant: false })).rejects.toThrow(
+      'Una enfermedad seleccionada no es válida para sexo Hombre.',
+    );
+  });
+
+  it('rejects male-only diseases for a female patient', async () => {
+    resolveReferences.mockResolvedValue({
+      ...references,
+      diseases: [{ id: ids.disease, appliesToMale: true, appliesToFemale: false }],
+    });
+    await expect(useCase.execute(validInput)).rejects.toThrow(
+      'Una enfermedad seleccionada no es válida para sexo Mujer.',
+    );
   });
 
   it('blocks capture when the monthly period is not open', async () => {

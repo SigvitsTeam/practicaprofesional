@@ -120,6 +120,8 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 31. Comparación anual persistente por períodos o indicadores, rangos acotados, XLSX/PDF agregado, auditoría, reintentos y procesamiento por worker independiente.
 32. Migraciones aplicadas y verificación automatizada satisfactoria: 29 tablas con RLS forzado, cero tablas públicas, usuarios piloto, JWKS, pooler y cobertura geográfica 12/12.
 33. Smoke autenticado de comparación anual completado de extremo a extremo (cola, worker y descarga XLSX válida); la entrega binaria usa `StreamableFile` para impedir serialización JSON y archivos corruptos.
+34. Exportaciones XLSX ITS-1 e ITS-2 migradas a los formatos institucionales entregados, con llenado celda a celda, totales por fórmula, protección, neutralización de fórmulas, paginación ITS-1 y plantillas reutilizadas de forma segura por el worker.
+35. Aplicabilidad de patologías por sexo reforzada en tres capas: filtrado por sexo y clasificación en Angular, validación compartida para creación/corrección en NestJS y restricciones transaccionales en PostgreSQL.
 
 ### Siguiente ejecución
 

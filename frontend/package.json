@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "start": "ng serve --no-hmr",
+    "start:hmr": "ng serve",
     "build": "ng build",
     "config:runtime": "node tools/write-runtime-config.mjs",
     "watch": "ng build --watch --configuration development",

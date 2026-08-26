@@ -12,6 +12,66 @@ import {
   ItsCaptureApiService,
 } from '../../core/its-capture-api.service';
 import { EstablishmentSelector } from '../../shared/establishment-selector/establishment-selector';
+import { diseasesApplicableToSex, isDiseaseApplicableToSex } from './disease-applicability';
+
+const DEMO_CLASSIFICATIONS: CaptureContextResponse['classifications'] = [
+  {
+    id: 'demo-sindromico',
+    code: 'SINDROMICO',
+    name: 'Sindrómico',
+    diseases: [
+      { id: 'demo-01', name: 'Flujo uretral', appliesToMale: true, appliesToFemale: false },
+      { id: 'demo-02', name: 'Cervicitis', appliesToMale: false, appliesToFemale: true },
+      { id: 'demo-03', name: 'Vaginitis', appliesToMale: false, appliesToFemale: true },
+      { id: 'demo-04', name: 'Úlcera genital', appliesToMale: true, appliesToFemale: true },
+      { id: 'demo-05', name: 'EPI', appliesToMale: false, appliesToFemale: true },
+      { id: 'demo-06', name: 'Bubón inguinal', appliesToMale: true, appliesToFemale: true },
+    ],
+  },
+  {
+    id: 'demo-clinico',
+    code: 'CLINICO',
+    name: 'Clínico',
+    diseases: [
+      { id: 'demo-07', name: 'Molusco contagioso', appliesToMale: true, appliesToFemale: true },
+      { id: 'demo-08', name: 'Granuloma inguinal', appliesToMale: true, appliesToFemale: true },
+      { id: 'demo-09', name: 'Condiloma acuminado', appliesToMale: true, appliesToFemale: true },
+    ],
+  },
+  {
+    id: 'demo-ce',
+    code: 'CE',
+    name: 'C/E',
+    diseases: [
+      { id: 'demo-10', name: 'Vaginosis bacteriana', appliesToMale: false, appliesToFemale: true },
+      { id: 'demo-11', name: 'Sífilis congénita', appliesToMale: true, appliesToFemale: true },
+    ],
+  },
+  {
+    id: 'demo-etiologico',
+    code: 'ETIOLOGICO',
+    name: 'Etiológico',
+    diseases: [
+      { id: 'demo-12', name: 'Sífilis', appliesToMale: true, appliesToFemale: true },
+      {
+        id: 'demo-13',
+        name: 'Chlamydia trachomatis',
+        appliesToMale: true,
+        appliesToFemale: true,
+      },
+      { id: 'demo-14', name: 'Trichomonas', appliesToMale: true, appliesToFemale: true },
+      { id: 'demo-15', name: 'Cándida albicans', appliesToMale: true, appliesToFemale: true },
+      {
+        id: 'demo-16',
+        name: 'Neisseria gonorrhoeae',
+        appliesToMale: true,
+        appliesToFemale: true,
+      },
+      { id: 'demo-17', name: 'Herpes genital', appliesToMale: true, appliesToFemale: true },
+      { id: 'demo-18', name: 'Hepatitis B', appliesToMale: true, appliesToFemale: true },
+    ],
+  },
+];
 
 @Component({
   selector: 'app-capture-its1',
@@ -65,6 +125,7 @@ export class CaptureIts1 implements OnInit {
           this.form.controls.pregnant.setValue('No', { emitEvent: false });
           this.form.controls.pregnant.disable({ emitEvent: false });
         }
+        this.reconcileDiagnosticsWithSex();
       });
     this.form.controls.attentionDate.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -154,21 +215,22 @@ export class CaptureIts1 implements OnInit {
     return this.calculateWeek(this.form.controls.attentionDate.value);
   }
 
-  availableDiseases() {
+  availableClassifications() {
     const sex = this.form.controls.sex.value;
-    const configured =
-      this.captureContext()?.classifications.flatMap((item) => item.diseases) ?? [];
-    if (configured.length)
-      return configured
-        .filter((item) =>
-          sex === 'Hombre' ? item.appliesToMale : sex === 'Mujer' ? item.appliesToFemale : true,
-        )
-        .map((item) => item.name);
-    if (!this.demoMode) return [];
-    const common = ['Úlcera genital', 'Condiloma acuminado', 'Sífilis', 'Herpes genital'];
-    if (sex === 'Hombre') return ['Síndrome de secreción uretral', ...common];
-    if (sex === 'Mujer') return ['Vaginitis', 'Flujo vaginal', ...common];
-    return ['Síndrome de secreción uretral', 'Vaginitis', 'Flujo vaginal', ...common];
+    return this.classifications().filter(
+      (classification) => diseasesApplicableToSex(classification.diseases, sex).length > 0,
+    );
+  }
+
+  availableDiseases(index: number) {
+    const diagnostic = this.diagnostics.at(index);
+    const classificationId = diagnostic.get('classificationId')?.value;
+    const classification = this.classifications().find((item) => item.id === classificationId);
+    return diseasesApplicableToSex(classification?.diseases ?? [], this.form.controls.sex.value);
+  }
+
+  onClassificationChange(index: number) {
+    this.diagnostics.at(index).get('diseaseId')?.setValue('');
   }
 
   addDiagnostic() {
@@ -200,13 +262,14 @@ export class CaptureIts1 implements OnInit {
       );
       this.diagnostics.push(
         this.formBuilder.group({
-          classification: [classification?.name ?? '', Validators.required],
-          disease: [diagnosis.diseaseName, Validators.required],
+          classificationId: [classification?.id ?? '', Validators.required],
+          diseaseId: [diagnosis.diseaseId, Validators.required],
           caseType: [diagnosis.caseType === 'CONTROL' ? 'Control' : 'Nuevo', Validators.required],
         }),
       );
     }
     if (!this.diagnostics.length) this.diagnostics.push(this.createDiagnostic());
+    this.reconcileDiagnosticsWithSex();
   }
 
   clearForm() {
@@ -280,9 +343,14 @@ export class CaptureIts1 implements OnInit {
     const facility = this.context.selected();
     const population = context?.populationTypes.find((item) => item.name === value.populationType);
     const diagnoses = value.diagnostics.map((item) => {
-      const disease = context?.classifications
-        .flatMap((group) => group.diseases)
-        .find((candidate) => candidate.name === item.disease);
+      const classification = this.classifications().find(
+        (candidate) => candidate.id === item.classificationId,
+      );
+      const disease = classification?.diseases.find(
+        (candidate) =>
+          candidate.id === item.diseaseId &&
+          isDiseaseApplicableToSex(candidate, this.form.controls.sex.value),
+      );
       return disease
         ? {
             diseaseId: disease.id,
@@ -354,10 +422,31 @@ export class CaptureIts1 implements OnInit {
 
   private createDiagnostic() {
     return this.formBuilder.group({
-      classification: ['Sindrómico', Validators.required],
-      disease: ['', Validators.required],
+      classificationId: ['', Validators.required],
+      diseaseId: ['', Validators.required],
       caseType: ['Nuevo', Validators.required],
     });
+  }
+
+  private classifications() {
+    return this.captureContext()?.classifications ?? (this.demoMode ? DEMO_CLASSIFICATIONS : []);
+  }
+
+  private reconcileDiagnosticsWithSex() {
+    const availableClassificationIds = new Set(
+      this.availableClassifications().map((item) => item.id),
+    );
+    for (let index = 0; index < this.diagnostics.length; index += 1) {
+      const diagnostic = this.diagnostics.at(index);
+      const classificationId = diagnostic.get('classificationId')?.value;
+      if (!classificationId || !availableClassificationIds.has(classificationId)) {
+        diagnostic.patchValue({ classificationId: '', diseaseId: '' });
+        continue;
+      }
+      const diseaseId = diagnostic.get('diseaseId')?.value;
+      if (!this.availableDiseases(index).some((disease) => disease.id === diseaseId))
+        diagnostic.get('diseaseId')?.setValue('');
+    }
   }
 
   private calculateWeek(value: string | null) {

@@ -1,9 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import ExcelJS from 'exceljs';
 import { GetMonthlyReportUseCase } from '../../its-capture/application/get-monthly-report.use-case';
 import { RenderIts2PdfUseCase } from '../../its-capture/application/render-its2-pdf.use-case';
 import type { ItsMonthlyReport } from '../../its-capture/domain/its-monthly-report';
 import type { ClaimedExportJob } from '../domain/export-job';
+import { loadOfficialWorkbook } from './official-form-workbook';
+
+const ITS2_FIRST_DATA_ROW = 14;
+const ITS2_LAST_DATA_ROW = 31;
 
 @Injectable()
 export class Its2ExportGenerator {
@@ -17,108 +20,91 @@ export class Its2ExportGenerator {
     if (job.scopeLevel !== 'ESTABLECIMIENTO' || !job.territoryId)
       throw new Error('INVALID_ITS2_EXPORT_SCOPE');
     const report = await this.getMonthlyReport.execute(job.territoryId, job.year, job.month);
-    return job.format === 'PDF' ? this.renderPdf.execute(report) : this.xlsx(report);
+    return job.format === 'PDF' ? this.renderPdf.execute(report) : this.xlsx(job, report);
   }
 
-  private async xlsx(report: ItsMonthlyReport): Promise<Uint8Array> {
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'SIGVITS';
-    workbook.created = new Date();
-    workbook.calcProperties.fullCalcOnLoad = true;
-    const sheet = workbook.addWorksheet('ITS-2', {
-      views: [{ state: 'frozen', ySplit: 6, xSplit: 3 }],
-      properties: { defaultRowHeight: 18 },
-    });
-    sheet.addRow(['SECRETARÍA DE SALUD · SIGVITS · INFORME MENSUAL ITS-2']);
-    sheet.addRow([
-      `Establecimiento: ${this.safe(report.facility.code)} · ${this.safe(report.facility.name)}`,
-    ]);
-    sheet.addRow([
-      `Municipio: ${this.safe(report.facility.municipalityName)} · Región: ${this.safe(report.facility.regionName)}`,
-    ]);
-    sheet.addRow([`Período: ${String(report.month).padStart(2, '0')}/${report.year}`]);
-    sheet.addRow([`Total de atenciones: ${report.totalAttentions}`]);
+  private async xlsx(job: ClaimedExportJob, report: ItsMonthlyReport): Promise<Uint8Array> {
+    if (report.rows.length > ITS2_LAST_DATA_ROW - ITS2_FIRST_DATA_ROW + 1)
+      throw new Error('ITS2_OFFICIAL_TEMPLATE_DISEASE_LIMIT_EXCEEDED');
+    if (report.ageGroups.length > 9)
+      throw new Error('ITS2_OFFICIAL_TEMPLATE_AGE_GROUP_LIMIT_EXCEEDED');
+    const workbook = await loadOfficialWorkbook('formato-its2-oficial.xlsx');
+    const sheet = workbook.getWorksheet('ITS 2') ?? workbook.worksheets[0];
+    if (!sheet) throw new Error('La plantilla ITS-2 no contiene una hoja de trabajo.');
 
-    const headers = [
-      'Código',
-      'Clasificación',
-      'Enfermedad',
-      'Nuevos',
-      'Controles',
-      'Hombres',
-      'Mujeres',
-      ...report.ageGroups.flatMap((ageGroup) => [`${ageGroup.name} · H`, `${ageGroup.name} · M`]),
-      'General H · Nuevos',
-      'General H · Controles',
-      'General M · Nuevos',
-      'General M · Controles',
-      'Embarazadas · Nuevos',
-      'Embarazadas · Controles',
-      'TS H · Nuevos',
-      'TS H · Controles',
-      'TS M · Nuevos',
-      'TS M · Controles',
-      'TS embarazadas · Nuevos',
-      'TS embarazadas · Controles',
-      'Contactos H',
-      'Contactos M',
-    ];
-    sheet.addRow(headers);
-    for (const row of report.rows) {
-      sheet.addRow([
-        this.safe(row.code ?? ''),
-        this.safe(`${row.classificationCode} · ${row.classificationName}`),
-        this.safe(row.diseaseName),
-        row.diagnosis.newCases,
-        row.diagnosis.controls,
-        row.sex.male,
-        row.sex.female,
-        ...report.ageGroups.flatMap((ageGroup) => {
-          const cell = row.ageGroups[ageGroup.code] ?? { male: 0, female: 0 };
-          return [cell.male, cell.female];
-        }),
-        row.population.generalMale.newCases,
-        row.population.generalMale.controls,
-        row.population.generalFemale.newCases,
-        row.population.generalFemale.controls,
-        row.population.generalPregnant.newCases,
-        row.population.generalPregnant.controls,
-        row.population.sexWorkerMale.newCases,
-        row.population.sexWorkerMale.controls,
-        row.population.sexWorkerFemale.newCases,
-        row.population.sexWorkerFemale.controls,
-        row.population.sexWorkerPregnant.newCases,
-        row.population.sexWorkerPregnant.controls,
-        row.population.contacts.male,
-        row.population.contacts.female,
-      ]);
+    sheet.getCell('D7').value = this.safe(report.facility.regionName);
+    sheet.getCell('M7').value = this.safe(report.facility.municipalityName);
+    sheet.getCell('AA7').value = this.safe(report.facility.name);
+    sheet.getCell('C9').value = String(report.month).padStart(2, '0');
+    sheet.getCell('K9').value = report.year;
+    sheet.getCell('AA9').value = this.safe(report.facility.code);
+
+    const ageGroups = [...report.ageGroups].sort(
+      (left, right) => left.formatOrder - right.formatOrder,
+    );
+    const dataRows: number[][] = [];
+    for (let index = 0; index <= ITS2_LAST_DATA_ROW - ITS2_FIRST_DATA_ROW; index += 1) {
+      const rowNumber = ITS2_FIRST_DATA_ROW + index;
+      const source = report.rows[index];
+      if (source)
+        sheet.getCell(rowNumber, 2).value = this.safe(
+          `${String(index + 1).padStart(2, '0')}. ${source.diseaseName}`,
+        );
+      const values: number[] = source
+        ? [
+            source.diagnosis.newCases,
+            source.diagnosis.controls,
+            source.sex.male,
+            source.sex.female,
+            ...ageGroups.slice(0, 9).flatMap((ageGroup) => {
+              const cell = source.ageGroups[ageGroup.code] ?? { male: 0, female: 0 };
+              return [cell.male, cell.female];
+            }),
+            ...Array.from({ length: Math.max(0, 18 - ageGroups.slice(0, 9).length * 2) }, () => 0),
+            source.population.generalMale.newCases,
+            source.population.generalMale.controls,
+            source.population.generalFemale.newCases,
+            source.population.generalFemale.controls,
+            source.population.generalPregnant.newCases,
+            source.population.generalPregnant.controls,
+            source.population.sexWorkerMale.newCases,
+            source.population.sexWorkerMale.controls,
+            source.population.sexWorkerFemale.newCases,
+            source.population.sexWorkerFemale.controls,
+            source.population.sexWorkerPregnant.newCases,
+            source.population.sexWorkerPregnant.controls,
+            source.population.contacts.male,
+            source.population.contacts.female,
+          ]
+        : Array.from({ length: 36 }, () => 0);
+      dataRows.push(values);
+      for (let offset = 0; offset < 36; offset += 1)
+        sheet.getCell(rowNumber, 3 + offset).value = values[offset] ?? 0;
     }
 
-    sheet.mergeCells(1, 1, 1, headers.length);
-    for (let rowNumber = 2; rowNumber <= 5; rowNumber += 1)
-      sheet.mergeCells(rowNumber, 1, rowNumber, headers.length);
-    sheet.getRow(1).font = { bold: true, size: 15, color: { argb: 'FF0C5447' } };
-    sheet.getRow(6).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    sheet.getRow(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0C6B5A' } };
-    sheet.getRow(6).alignment = { vertical: 'middle', wrapText: true };
-    sheet.getRow(6).height = 42;
-    sheet.columns = headers.map((_, index) => ({
-      width: index === 2 ? 32 : index === 1 ? 26 : 14,
-    }));
-    sheet.autoFilter = {
-      from: { row: 6, column: 1 },
-      to: { row: Math.max(6, report.rows.length + 6), column: headers.length },
-    };
-    sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-      if (rowNumber < 6) return;
-      row.eachCell((cell) => {
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FFD9E2DF' } },
-          left: { style: 'thin', color: { argb: 'FFD9E2DF' } },
-          bottom: { style: 'thin', color: { argb: 'FFD9E2DF' } },
-          right: { style: 'thin', color: { argb: 'FFD9E2DF' } },
-        };
-      });
+    for (let offset = 0; offset < 36; offset += 1) {
+      const column = 3 + offset;
+      const total = dataRows.reduce((sum, row) => sum + (row[offset] ?? 0), 0);
+      const address = sheet.getCell(ITS2_FIRST_DATA_ROW, column).address.replace(/\d+$/, '');
+      sheet.getCell(32, column).value = {
+        formula: `SUM(${address}${ITS2_FIRST_DATA_ROW}:${address}${ITS2_LAST_DATA_ROW})`,
+        result: total,
+      };
+    }
+    sheet.pageSetup.orientation = 'landscape';
+    sheet.pageSetup.fitToPage = true;
+    sheet.pageSetup.fitToWidth = 1;
+    sheet.pageSetup.fitToHeight = 1;
+    sheet.pageSetup.printTitlesRow = '1:13';
+    sheet.pageSetup.printArea = 'A1:AL32';
+    await sheet.protect(job.id, {
+      selectLockedCells: true,
+      selectUnlockedCells: true,
+      formatCells: false,
+      insertRows: false,
+      deleteRows: false,
+      sort: false,
+      autoFilter: false,
     });
     const buffer = await workbook.xlsx.writeBuffer();
     return new Uint8Array(buffer);

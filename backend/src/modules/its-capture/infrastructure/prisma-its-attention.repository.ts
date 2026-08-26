@@ -282,6 +282,11 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
               data: { isCurrentVersion: false },
             });
 
+          // Remove the old diagnosis set inside the same serializable transaction before a
+          // possible sex change. The database then validates every replacement diagnosis
+          // against the new sex as it is inserted; any failure rolls the whole correction back.
+          await transaction.attentionDiagnosis.deleteMany({ where: { attentionId: input.id } });
+
           const updated = await transaction.itsAttention.updateMany({
             where: {
               id: input.id,
@@ -316,7 +321,6 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
               'La atención fue modificada por otra persona. Recargue los datos antes de continuar.',
             );
 
-          await transaction.attentionDiagnosis.deleteMany({ where: { attentionId: input.id } });
           await transaction.attentionDiagnosis.createMany({
             data: input.diagnoses.map((diagnosis) => ({
               attentionId: input.id,

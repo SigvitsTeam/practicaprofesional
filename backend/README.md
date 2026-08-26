@@ -146,6 +146,12 @@ alcance territorial:
 
 El frontend ofrece también los formatos vacíos para impresión directa.
 
+Las exportaciones XLSX de establecimiento rellenan directamente los formatos oficiales ITS-1 e
+ITS-2. El ITS-1 conserva una fila por atención y agrega páginas de 25 registros cuando es necesario;
+el ITS-2 distribuye diagnósticos, sexo, nueve grupos de edad y población, y calcula sus totales con
+fórmulas. Ambos libros se generan como copias protegidas, neutralizan texto similar a fórmulas y
+mantienen la configuración de impresión horizontal del formato institucional.
+
 El backend acepta únicamente access tokens asimétricos `ES256` o `RS256`. Configure
 `AUTH_ISSUER`, `AUTH_AUDIENCE` y `AUTH_JWKS_URL`; no se admite el secreto JWT legado dentro de la
 aplicación. Los endpoints administrativos niegan por defecto cualquier ruta sin política explícita.
@@ -198,7 +204,7 @@ cada cambio queda auditado.
 clave UUID de idempotencia. `GET /api/v1/exports/jobs` devuelve como máximo los 50 trabajos más
 recientes del usuario autenticado. La tabla `trabajos_exportacion` conserva estado, intentos y
 referencia futura al artefacto; está protegida con RLS forzado y sin acceso directo para roles de
-Supabase. El procesamiento XLSX/PDF se ejecutará en un worker independiente que reclamará trabajos
+Supabase. El procesamiento XLSX/PDF se ejecuta en un worker independiente que reclama trabajos
 pendientes, por lo que la API HTTP nunca debe generar archivos pesados en línea.
 
 ## Flujo autenticado ITS-2

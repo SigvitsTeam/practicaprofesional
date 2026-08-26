@@ -60,4 +60,21 @@ describe('UpdateAttentionUseCase', () => {
       }),
     );
   });
+
+  it('rejects a correction that changes to an incompatible disease and sex', async () => {
+    resolveReferences.mockResolvedValueOnce({
+      facility: { id: input.facilityId, municipalityId: 'municipality-1', regionId: 'region-1' },
+      programId: 'program-1',
+      epidemiologicalWeekId: 'week-1',
+      monthlyPeriodId: 'period-1',
+      ageGroupId: 'age-1',
+      comparativeAgeGroupId: 'comparative-1',
+      populationTypeValid: true,
+      diseases: [{ id: input.diagnoses[0].diseaseId, appliesToMale: true, appliesToFemale: false }],
+    });
+    await expect(useCase.execute(input)).rejects.toThrow(
+      'Una enfermedad seleccionada no es válida para sexo Mujer.',
+    );
+    expect(update).not.toHaveBeenCalled();
+  });
 });

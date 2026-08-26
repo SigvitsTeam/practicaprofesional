@@ -13,6 +13,7 @@ function templatePath(filename: string): string {
   const candidates = [
     join(process.cwd(), 'src', 'assets', 'forms', filename),
     join(process.cwd(), 'dist', 'assets', 'forms', filename),
+    join(process.cwd(), 'dist-worker', 'assets', 'forms', filename),
   ];
   const found = candidates.find((candidate) => existsSync(candidate));
   if (!found) throw new Error(`No se encontró la plantilla oficial ${filename}.`);

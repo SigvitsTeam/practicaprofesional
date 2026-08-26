@@ -68,9 +68,15 @@ describe('Its1ExportGenerator', () => {
     const contents = await generator.generate(job);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(contents);
-    const sheet = workbook.getWorksheet('ITS-1');
-    expect(sheet?.getCell('A7').value).toBe("'=unsafe");
-    expect(sheet?.getCell('B7').value).toBe("'@record");
+    const sheet = workbook.getWorksheet('Registro ITS');
+    expect(sheet?.getCell('C5').value).toBe('Cortés');
+    expect(sheet?.getCell('U5').value).toBe('CIS Norte');
+    expect(sheet?.getCell('B11').value).toBe("'=unsafe");
+    expect(sheet?.getCell('C11').value).toBe("'@record");
+    expect(sheet?.getCell('E11').value).toBe('X');
+    expect(sheet?.getCell('G11').value).toBe('X');
+    expect(sheet?.getCell('K11').value).toBe('X');
+    expect(sheet?.pageSetup.printArea).toBe('A1:AT35');
     expect(sheet?.model.sheetProtection?.sheet).toBe(true);
     expect(getIts1PrintRegister).toHaveBeenCalledWith({
       facilityId: register.facility.id,
@@ -84,5 +90,22 @@ describe('Its1ExportGenerator', () => {
     const contents = await generator.generate({ ...job, format: 'PDF' });
     expect(Buffer.from(contents).toString('ascii')).toBe('%PDF-its1');
     expect(renderPdfExecute).toHaveBeenCalledWith(register);
+  });
+
+  it('extends the official form without dropping records beyond its first 25 rows', async () => {
+    getIts1PrintRegister.mockResolvedValueOnce({
+      ...register,
+      attentions: Array.from({ length: 26 }, (_, index) => ({
+        ...register.attentions[0]!,
+        patientRecordNumber: `EXP-${index + 1}`,
+      })),
+    });
+    const contents = await generator.generate(job);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(contents);
+    const sheet = workbook.getWorksheet('Registro ITS');
+    expect(sheet?.getCell('A36').value).toBe(26);
+    expect(sheet?.getCell('C36').value).toBe('EXP-26');
+    expect(sheet?.pageSetup.printArea).toBe('A1:AT36');
   });
 });
