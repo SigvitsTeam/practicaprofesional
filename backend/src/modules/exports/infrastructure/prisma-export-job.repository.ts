@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { ExportJobRepository } from '../application/ports/export-job.repository';
+import type { ExpiredArtifact } from '../application/ports/export-job.repository';
 import {
   ExportJobConflictError,
   ExportArtifactExpiredError,
@@ -160,14 +161,47 @@ export class PrismaExportJobRepository extends ExportJobRepository {
     });
   }
 
+  async listExpiredArtifacts(expiredBefore: Date, limit: number): Promise<ExpiredArtifact[]> {
+    const rows = await this.prisma.client.exportJob.findMany({
+      where: {
+        outputStorageKey: { not: null },
+        outputExpiresAt: { lte: expiredBefore },
+      },
+      orderBy: [{ outputExpiresAt: 'asc' }, { id: 'asc' }],
+      take: limit,
+      select: { id: true, outputStorageKey: true, outputExpiresAt: true },
+    });
+    return rows.flatMap((row) =>
+      row.outputStorageKey && row.outputExpiresAt
+        ? [
+            {
+              jobId: row.id,
+              storageKey: row.outputStorageKey,
+              expiredAt: row.outputExpiresAt,
+            },
+          ]
+        : [],
+    );
+  }
+
+  async clearArtifact(jobId: string, storageKey: string): Promise<boolean> {
+    const updated = await this.prisma.client.exportJob.updateMany({
+      where: { id: jobId, outputStorageKey: storageKey },
+      data: { outputStorageKey: null },
+    });
+    return updated.count === 1;
+  }
+
   async getOwnDownload(jobId: string, userId: string): Promise<ExportArtifactDownload> {
     const job = await this.prisma.client.exportJob.findFirst({
       where: { id: jobId, requestedByUserId: userId },
     });
-    if (!job || job.status !== 'COMPLETADO' || !job.outputStorageKey)
+    if (!job || job.status !== 'COMPLETADO')
       throw new ExportArtifactNotFoundError('La exportación no está disponible.');
     if (!job.outputExpiresAt || job.outputExpiresAt <= new Date())
       throw new ExportArtifactExpiredError('El archivo de exportación expiró.');
+    if (!job.outputStorageKey)
+      throw new ExportArtifactNotFoundError('La exportación no está disponible.');
     return {
       storageKey: job.outputStorageKey,
       format: job.format,

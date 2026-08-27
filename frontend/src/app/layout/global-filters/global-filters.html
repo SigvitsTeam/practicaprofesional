@@ -1,20 +1,150 @@
 <section class="filters filter-shell" [attr.data-role]="role().id">
   <div class="filter-row">
-    <fieldset class="range-group"><legend>Período</legend><label><span>Desde</span><select aria-label="Período inicial" [value]="selectedPeriodStart" (change)="setPeriodStart($event)">@for (period of periods; track period) {<option [value]="period" [selected]="period === selectedPeriodStart">{{ period }}</option>}</select></label><i>→</i><label><span>Hasta</span><select aria-label="Período final" [value]="selectedPeriodEnd" (change)="selectedPeriodEnd = $any($event.target).value">@for (period of periodEndOptions; track period) {<option [value]="period" [selected]="period === selectedPeriodEnd">{{ period }}</option>}</select></label></fieldset>
-    <fieldset class="range-group week-range"><legend>Semana epidemiológica</legend><label><span>Desde</span><select aria-label="Semana inicial" [value]="selectedWeekStart" (change)="setWeekStart($event)">@for (week of weeks; track week) {<option [value]="week" [selected]="week === selectedWeekStart">{{ week }}</option>}</select></label><i>→</i><label><span>Hasta</span><select aria-label="Semana final" [value]="selectedWeekEnd" (change)="selectedWeekEnd = $any($event.target).value">@for (week of weekEndOptions; track week) {<option [value]="week" [selected]="week === selectedWeekEnd">{{ week }}</option>}</select></label></fieldset>
-    <div class="scope-summary"><span>Alcance activo</span><strong>{{ activeScopeSummary }}</strong></div>
-    <button class="scope-toggle" type="button" [class.open]="showTerritoryFilters" [attr.aria-expanded]="showTerritoryFilters" (click)="showTerritoryFilters = !showTerritoryFilters"><i>⌖</i>{{ showTerritoryFilters ? 'Ocultar alcance' : 'Cambiar alcance' }}<b>⌄</b></button>
+    <fieldset class="range-group">
+      <legend>Período</legend>
+      <label
+        ><span>Desde</span
+        ><select
+          aria-label="Período inicial"
+          [value]="operationalPeriod.selectedStartKey()"
+          (change)="setPeriodStart($event)"
+        >
+          @for (period of operationalPeriod.periods(); track period.key) {
+            <option [value]="period.key">
+              {{ period.label }}
+            </option>
+          }
+        </select></label
+      ><i>→</i
+      ><label
+        ><span>Hasta</span
+        ><select
+          aria-label="Período final"
+          [value]="operationalPeriod.selectedEndKey()"
+          (change)="operationalPeriod.selectEnd($any($event.target).value)"
+        >
+          @for (period of periodEndOptions; track period.key) {
+            <option [value]="period.key">{{ period.label }}</option>
+          }
+        </select></label
+      >
+    </fieldset>
+    @if (demoMode) {
+      <fieldset class="range-group week-range">
+      <legend>Semana epidemiológica</legend>
+      <label
+        ><span>Desde</span
+        ><select
+          aria-label="Semana inicial"
+          [value]="selectedWeekStart"
+          (change)="setWeekStart($event)"
+        >
+          @for (week of weeks; track week) {
+            <option [value]="week" [selected]="week === selectedWeekStart">{{ week }}</option>
+          }
+        </select></label
+      ><i>→</i
+      ><label
+        ><span>Hasta</span
+        ><select
+          aria-label="Semana final"
+          [value]="selectedWeekEnd"
+          (change)="selectedWeekEnd = $any($event.target).value"
+        >
+          @for (week of weekEndOptions; track week) {
+            <option [value]="week" [selected]="week === selectedWeekEnd">{{ week }}</option>
+          }
+        </select></label
+      >
+      </fieldset>
+    }
+    <div class="scope-summary">
+      <span>Alcance activo</span><strong>{{ activeScopeSummary }}</strong>
+    </div>
+    @if (demoMode) {
+      <button
+      class="scope-toggle"
+      type="button"
+      [class.open]="showTerritoryFilters"
+      [attr.aria-expanded]="showTerritoryFilters"
+      (click)="showTerritoryFilters = !showTerritoryFilters"
+    >
+      <i>⌖</i>{{ showTerritoryFilters ? 'Ocultar alcance' : 'Cambiar alcance' }}<b>⌄</b>
+      </button>
+    }
     <div class="sync"><i></i>Actualizado hoy, 10:42</div>
   </div>
 
-  @if (showTerritoryFilters) {
+  @if (demoMode && showTerritoryFilters) {
     <div class="territory-filter-panel">
-      <header><div><strong>Alcance territorial</strong><small>Las opciones disponibles dependen de su nivel de acceso.</small></div></header>
+      <header>
+        <div>
+          <strong>Alcance territorial</strong
+          ><small>Las opciones disponibles dependen de su nivel de acceso.</small>
+        </div>
+      </header>
       <div>
-        @if (showRegion) {<label><span>Región</span><select [value]="selectedRegion" [disabled]="lockRegion" (change)="setRegion($event)">@for (region of regionOptions; track region) {<option>{{ region }}</option>}</select>@if (lockRegion) {<small>Asignada a su rol</small>}</label>}
-        @if (showNetwork) {<label><span>Red</span><select [value]="selectedNetwork" [disabled]="networkOptions.length === 1" (change)="setNetwork($event)">@for (network of networkOptions; track network) {<option>{{ network }}</option>}</select></label>}
-        @if (showMunicipality) {<label><span>Municipio</span><select [value]="selectedMunicipality" [disabled]="lockMunicipality || municipalityOptions.length === 1" (change)="selectedMunicipality = $any($event.target).value">@for (municipality of municipalityOptions; track municipality) {<option>{{ municipality }}</option>}</select>@if (lockMunicipality) {<small>Asignado a su rol</small>}</label>}
-        @if (showEstablishment) {<label><span>Establecimiento</span><select [value]="selectedEstablishment" [disabled]="lockEstablishment" (change)="selectedEstablishment = $any($event.target).value">@for (establishment of establishmentOptions; track establishment) {<option>{{ establishment }}</option>}</select>@if (lockEstablishment) {<small>Asignado a su rol</small>}</label>}
+        @if (showRegion) {
+          <label
+            ><span>Región</span
+            ><select [value]="selectedRegion" [disabled]="lockRegion" (change)="setRegion($event)">
+              @for (region of regionOptions; track region) {
+                <option>{{ region }}</option>
+              }
+            </select>
+            @if (lockRegion) {
+              <small>Asignada a su rol</small>
+            }
+          </label>
+        }
+        @if (showNetwork) {
+          <label
+            ><span>Red</span
+            ><select
+              [value]="selectedNetwork"
+              [disabled]="networkOptions.length === 1"
+              (change)="setNetwork($event)"
+            >
+              @for (network of networkOptions; track network) {
+                <option>{{ network }}</option>
+              }
+            </select></label
+          >
+        }
+        @if (showMunicipality) {
+          <label
+            ><span>Municipio</span
+            ><select
+              [value]="selectedMunicipality"
+              [disabled]="lockMunicipality || municipalityOptions.length === 1"
+              (change)="selectedMunicipality = $any($event.target).value"
+            >
+              @for (municipality of municipalityOptions; track municipality) {
+                <option>{{ municipality }}</option>
+              }
+            </select>
+            @if (lockMunicipality) {
+              <small>Asignado a su rol</small>
+            }
+          </label>
+        }
+        @if (showEstablishment) {
+          <label
+            ><span>Establecimiento</span
+            ><select
+              [value]="selectedEstablishment"
+              [disabled]="lockEstablishment"
+              (change)="selectedEstablishment = $any($event.target).value"
+            >
+              @for (establishment of establishmentOptions; track establishment) {
+                <option>{{ establishment }}</option>
+              }
+            </select>
+            @if (lockEstablishment) {
+              <small>Asignado a su rol</small>
+            }
+          </label>
+        }
       </div>
     </div>
   }

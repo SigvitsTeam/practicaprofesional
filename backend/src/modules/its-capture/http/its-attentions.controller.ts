@@ -186,6 +186,7 @@ export class ItsAttentionsController {
       if (error instanceof InvalidAttentionError) throw new BadRequestException(error.message);
       if (error instanceof CaptureConfigurationError)
         throw new ServiceUnavailableException(error.message);
+      if (error instanceof AttentionNotEditableError) throw new ConflictException(error.message);
       throw error;
     }
   }

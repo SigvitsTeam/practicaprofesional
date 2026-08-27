@@ -20,6 +20,15 @@ export interface CaptureContextResponse {
   }[];
 }
 
+export interface MonthlyReportingPeriodResponse {
+  id: string;
+  year: number;
+  month: number;
+  startDate: string;
+  endDate: string;
+  status: 'ABIERTO' | 'CERRADO' | 'BLOQUEADO';
+}
+
 export interface CreateAttentionRequest {
   facilityId: string;
   attentionDate: string;
@@ -237,6 +246,11 @@ export class ItsCaptureApiService {
 
   getContext() {
     return this.http.get<CaptureContextResponse>(`${this.endpoint}/context`);
+  }
+  getMonthlyReportingPeriods() {
+    return this.http.get<MonthlyReportingPeriodResponse[]>(
+      `${this.runtimeConfig.apiUrl}/v1/reporting-periods/monthly`,
+    );
   }
   createAttention(input: CreateAttentionRequest) {
     return this.http.post<{ id: string; possibleDuplicate: boolean }>(this.endpoint, input);

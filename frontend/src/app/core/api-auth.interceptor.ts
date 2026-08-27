@@ -9,6 +9,8 @@ export const apiAuthInterceptor: HttpInterceptorFn = (request, next) => {
   if (!request.url.startsWith(runtimeConfig.apiUrl)) return next(request);
   const auth = inject(AuthService);
   return from(auth.getValidAccessToken()).pipe(
-    switchMap(token => next(token ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : request)),
+    switchMap((token) =>
+      next(token ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : request),
+    ),
   );
 };

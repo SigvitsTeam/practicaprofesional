@@ -15,7 +15,15 @@ export const appConfig = registerAs('app', () => ({
   requestBodyLimit: process.env.REQUEST_BODY_LIMIT ?? '100kb',
   throttleTtlMs: Number(process.env.THROTTLE_TTL_MS ?? 60_000),
   throttleLimit: Number(process.env.THROTTLE_LIMIT ?? 100),
-  trustProxy: process.env.TRUST_PROXY === 'true',
+  trustProxyHops: Number(
+    process.env.TRUST_PROXY_HOPS ?? (process.env.TRUST_PROXY === 'true' ? 1 : 0),
+  ),
+  metricsBearerToken: process.env.METRICS_BEARER_TOKEN,
+  requestTimeoutMs: Number(process.env.HTTP_REQUEST_TIMEOUT_MS ?? 30_000),
+  headersTimeoutMs: Number(process.env.HTTP_HEADERS_TIMEOUT_MS ?? 35_000),
+  keepAliveTimeoutMs: Number(process.env.HTTP_KEEP_ALIVE_TIMEOUT_MS ?? 5_000),
+  maxRequestsPerSocket: Number(process.env.HTTP_MAX_REQUESTS_PER_SOCKET ?? 1_000),
+  readinessTimeoutMs: Number(process.env.READINESS_TIMEOUT_MS ?? 3_000),
 }));
 
 export type AppConfig = ReturnType<typeof appConfig>;
@@ -43,6 +51,12 @@ export const exportConfig = registerAs('exports', () => ({
   workerPollMs: Number(process.env.EXPORT_WORKER_POLL_MS ?? 2_000),
   staleAfterMs: Number(process.env.EXPORT_JOB_STALE_MS ?? 15 * 60_000),
   artifactTtlMs: Number(process.env.EXPORT_ARTIFACT_TTL_MS ?? 24 * 60 * 60_000),
+  artifactCleanupIntervalMs: Number(process.env.EXPORT_ARTIFACT_CLEANUP_INTERVAL_MS ?? 15 * 60_000),
+  artifactCleanupGraceMs: Number(process.env.EXPORT_ARTIFACT_CLEANUP_GRACE_MS ?? 5 * 60_000),
+  artifactCleanupBatchSize: Number(process.env.EXPORT_ARTIFACT_CLEANUP_BATCH_SIZE ?? 100),
+  workerMaxBackoffMs: Number(process.env.EXPORT_WORKER_MAX_BACKOFF_MS ?? 30_000),
+  workerHealthPort: Number(process.env.EXPORT_WORKER_HEALTH_PORT ?? 3_001),
+  workerHealthHost: process.env.EXPORT_WORKER_HEALTH_HOST ?? '0.0.0.0',
 }));
 
 export type ExportConfig = ReturnType<typeof exportConfig>;

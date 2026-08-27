@@ -5,7 +5,7 @@ import { RoleProfile } from '../../core/models';
 @Component({
   selector: 'app-sidebar',
   templateUrl: './sidebar.html',
-  styleUrl: './sidebar.css'
+  styleUrl: './sidebar.css',
 })
 export class Sidebar {
   readonly active = input.required<string>();
@@ -13,16 +13,20 @@ export class Sidebar {
   readonly navigate = output<string>();
 
   protected items(group: 'Operación' | 'Gestión') {
-    return NAV_ITEMS.filter(item => item.group === group && this.role().navItems.includes(item.label));
+    return NAV_ITEMS.filter(
+      (item) => item.group === group && this.role().navItems.includes(item.label),
+    );
   }
 
   protected countFor(label: string) {
     if (label !== 'Bandeja de revisión') return undefined;
-    return ({
-      'central-validator': 1,
-      'regional-superadmin': 2,
-      'regional-admin': 2,
-      'municipal-coordinator': 5,
-    } as Partial<Record<RoleProfile['id'], number>>)[this.role().id];
+    return (
+      {
+        'central-validator': 1,
+        'regional-superadmin': 2,
+        'regional-admin': 2,
+        'municipal-coordinator': 5,
+      } as Partial<Record<RoleProfile['id'], number>>
+    )[this.role().id];
   }
 }

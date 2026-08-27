@@ -1,0 +1,39 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "10:00"
+      timezone: America/Tegucigalpa
+    open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
+    groups:
+      backend-patch-and-minor:
+        update-types: [minor, patch]
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "10:15"
+      timezone: America/Tegucigalpa
+    open-pull-requests-limit: 5
+    versioning-strategy: increase-if-necessary
+    groups:
+      frontend-patch-and-minor:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+  - package-ecosystem: docker
+    directory: /deploy/docker
+    schedule:
+      interval: weekly
+      day: monday
+      time: "10:30"
+      timezone: America/Tegucigalpa
+    open-pull-requests-limit: 3

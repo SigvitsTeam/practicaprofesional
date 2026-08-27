@@ -3,7 +3,12 @@ import { REPORTS } from '../../core/mock-data';
 import { Report } from '../../core/models';
 import { ReportTable } from '../../shared/report-table/report-table';
 
-@Component({ selector: 'app-dashboard', imports: [ReportTable], templateUrl: './dashboard.html', styleUrl: './dashboard.css' })
+@Component({
+  selector: 'app-dashboard',
+  imports: [ReportTable],
+  templateUrl: './dashboard.html',
+  styleUrl: './dashboard.css',
+})
 export class Dashboard {
   readonly navigate = output<string>();
   readonly reportSelected = output<Report>();

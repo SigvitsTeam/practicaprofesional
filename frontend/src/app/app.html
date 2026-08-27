@@ -69,7 +69,7 @@
               <app-review-inbox
                 #reviewInbox
                 (reportSelected)="selectReport($event)"
-                (notify)="showNotice($event)"
+                (navigate)="navigate($event)"
               />
             } @placeholder {
               <p class="page-loading">Cargando bandeja…</p>
@@ -84,7 +84,11 @@
           }
           @case ('Mapas') {
             @defer (on immediate) {
-              <app-maps (reportSelected)="selectReport($event)" (notify)="showNotice($event)" />
+              <app-maps
+                #maps
+                (reportSelected)="selectReport($event)"
+                (notify)="showNotice($event)"
+              />
             } @placeholder {
               <p class="page-loading">Cargando mapa…</p>
             }
@@ -118,8 +122,9 @@
       @defer (on immediate) {
         <app-report-drawer
           [report]="selectedReport"
-          (close)="selectedReport = null"
+          (dismiss)="selectedReport = null"
           (action)="handleDrawerAction($event)"
+          (navigate)="navigate($event)"
         />
       } @placeholder {
         <p class="page-loading drawer-loading">Cargando detalle…</p>

@@ -448,56 +448,86 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
   }
 
   async create(input: PersistAttentionInput): Promise<CreatedAttention> {
-    return this.prisma.client.$transaction(async (transaction) => {
-      const attention = await transaction.itsAttention.create({
-        data: {
-          programId: input.programId,
-          attentionDate: input.attentionDate,
-          epidemiologicalWeekId: input.epidemiologicalWeekId,
-          monthlyPeriodId: input.monthlyPeriodId,
-          year: input.attentionDate.getUTCFullYear(),
-          month: input.attentionDate.getUTCMonth() + 1,
-          regionId: input.regionId,
-          municipalityId: input.municipalityId,
-          facilityId: input.facilityId,
-          registeredById: input.userId,
-          patientRecordNumber: input.patientRecordNumber,
-          originText: input.originText,
-          sex: input.sex,
-          age: input.age,
-          ageGroupId: input.ageGroupId,
-          comparativeAgeGroupId: input.comparativeAgeGroupId,
-          populationTypeId: input.populationTypeId,
-          isContact: input.isContact,
-          isPregnant: input.isPregnant,
-          observation: input.observation,
-          possibleDuplicate: input.possibleDuplicate,
-          diagnoses: {
-            create: input.diagnoses.map((item) => ({
-              diseaseId: item.diseaseId,
-              caseType: item.caseType,
-            })),
-          },
+    try {
+      return await this.prisma.client.$transaction(
+        async (transaction) => {
+          const currentReport = await transaction.itsReport.findFirst({
+            where: {
+              facilityId: input.facilityId,
+              periodId: input.monthlyPeriodId,
+              type: 'ITS2_MENSUAL',
+              level: 'ESTABLECIMIENTO',
+              isCurrentVersion: true,
+            },
+            select: { id: true, status: true },
+          });
+          if (
+            currentReport &&
+            !['BORRADOR', 'DEVUELTO_POR_MUNICIPIO'].includes(currentReport.status)
+          )
+            throw new AttentionNotEditableError(
+              'El período ya forma parte de un reporte enviado o aprobado y no admite nuevas atenciones.',
+            );
+          if (currentReport)
+            await transaction.itsReport.update({
+              where: { id: currentReport.id },
+              data: { isCurrentVersion: false },
+            });
+
+          const attention = await transaction.itsAttention.create({
+            data: {
+              programId: input.programId,
+              attentionDate: input.attentionDate,
+              epidemiologicalWeekId: input.epidemiologicalWeekId,
+              monthlyPeriodId: input.monthlyPeriodId,
+              year: input.attentionDate.getUTCFullYear(),
+              month: input.attentionDate.getUTCMonth() + 1,
+              regionId: input.regionId,
+              municipalityId: input.municipalityId,
+              facilityId: input.facilityId,
+              registeredById: input.userId,
+              patientRecordNumber: input.patientRecordNumber,
+              originText: input.originText,
+              sex: input.sex,
+              age: input.age,
+              ageGroupId: input.ageGroupId,
+              comparativeAgeGroupId: input.comparativeAgeGroupId,
+              populationTypeId: input.populationTypeId,
+              isContact: input.isContact,
+              isPregnant: input.isPregnant,
+              observation: input.observation,
+              possibleDuplicate: input.possibleDuplicate,
+              diagnoses: {
+                create: input.diagnoses.map((item) => ({
+                  diseaseId: item.diseaseId,
+                  caseType: item.caseType,
+                })),
+              },
+            },
+            select: { id: true, possibleDuplicate: true, createdAt: true, updatedAt: true },
+          });
+          await transaction.auditEvent.create({
+            data: {
+              actorUserId: input.userId,
+              action: 'ITS1_ATENCION_CREADA',
+              entity: 'atenciones_its',
+              entityId: attention.id,
+              dataLevel: 'INDIVIDUAL',
+              requestId: input.requestId,
+              newData: {
+                facilityId: input.facilityId,
+                attentionDate: input.attentionDate.toISOString().slice(0, 10),
+                possibleDuplicate: input.possibleDuplicate,
+              },
+            },
+          });
+          return attention;
         },
-        select: { id: true, possibleDuplicate: true, createdAt: true },
-      });
-      await transaction.auditEvent.create({
-        data: {
-          actorUserId: input.userId,
-          action: 'ITS1_ATENCION_CREADA',
-          entity: 'atenciones_its',
-          entityId: attention.id,
-          dataLevel: 'INDIVIDUAL',
-          requestId: input.requestId,
-          newData: {
-            facilityId: input.facilityId,
-            attentionDate: input.attentionDate.toISOString().slice(0, 10),
-            possibleDuplicate: input.possibleDuplicate,
-          },
-        },
-      });
-      return attention;
-    });
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error: unknown) {
+      this.rethrowConcurrency(error);
+    }
   }
 
   async getMonthlyReportSource(input: {

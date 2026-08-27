@@ -1,28 +1,145 @@
 :host {
   display: contents;
 }
-.marker small b {
-  margin-top: 2px;
-  display: block;
+
+.map-canvas {
+  min-height: 565px;
+  isolation: isolate;
+}
+
+.leaflet-host {
+  width: 100%;
+  min-height: 565px;
+  height: 100%;
+  background: #dceaf0;
+}
+
+.map-navigation {
+  position: absolute;
+  z-index: 500;
+  top: 12px;
+  left: 50px;
+  max-width: calc(100% - 110px);
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d7e0e3;
+  border-radius: 7px;
+  color: #506975;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 2px 8px rgb(43 76 89 / 13%);
+  font-size: 0.68rem;
+}
+
+.map-navigation button,
+.map-state button {
+  padding: 0;
+  border: 0;
   color: var(--green);
-  font-size: 0.58rem;
+  background: transparent;
+  font-weight: 800;
 }
-.marker.coordinate-reference {
-  border-style: dashed;
+
+.map-state {
+  position: absolute;
+  z-index: 550;
+  inset: auto 12px 46px;
+  padding: 9px 11px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid #d8e1e4;
+  border-radius: 7px;
+  color: #526975;
+  background: rgb(255 255 255 / 95%);
+  font-size: 0.68rem;
 }
-.map-legend .reference {
-  border: 2px dashed #55727d;
+
+.map-state.error {
+  color: var(--red);
+}
+
+.map-location-status {
+  position: absolute;
+  z-index: 500;
+  right: 12px;
+  bottom: 12px;
+  padding: 7px 9px;
+  display: flex;
+  gap: 10px;
+  border-radius: 6px;
+  color: #526975;
+  background: rgb(255 255 255 / 94%);
+  font-size: 0.64rem;
+}
+
+:host ::ng-deep .sigvits-marker-shell {
+  border: 0;
   background: transparent;
 }
-.municipality small b {
-  font-size: 0.63rem;
+
+:host ::ng-deep .sigvits-map-marker {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 3px solid rgb(255 255 255 / 92%);
+  border-radius: 50% 50% 50% 8px;
+  color: #fff;
+  background: var(--green);
+  box-shadow: 0 3px 9px rgb(19 72 62 / 30%);
+  transform: rotate(-45deg);
+  font-size: 0.68rem;
+  font-weight: 800;
 }
+
+:host ::ng-deep .sigvits-map-marker.reference {
+  border-style: dashed;
+  background: #55727d;
+}
+
+:host ::ng-deep .leaflet-tooltip span {
+  display: grid;
+  gap: 3px;
+}
+
+:host ::ng-deep .leaflet-tooltip strong,
+:host ::ng-deep .leaflet-tooltip small {
+  display: block;
+}
+
 .ranking strong {
   font-size: 0.74rem;
 }
+
 .ranking small {
   font-size: 0.65rem;
 }
-:host-context([data-theme='dark']) .marker small b {
-  color: #7be0c1;
+
+.ranking-empty {
+  padding: 18px;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+:host-context([data-theme='dark']) .map-navigation,
+:host-context([data-theme='dark']) .map-state,
+:host-context([data-theme='dark']) .map-location-status {
+  color: #dbe8ec;
+  border-color: #3b5964;
+  background: rgb(16 35 43 / 95%);
+}
+
+@media (max-width: 780px) {
+  .map-canvas,
+  .leaflet-host {
+    min-height: 480px;
+  }
+
+  .map-navigation {
+    right: 12px;
+    left: 50px;
+    flex-wrap: wrap;
+  }
 }

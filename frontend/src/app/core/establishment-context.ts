@@ -19,15 +19,20 @@ export class EstablishmentContext {
   ];
 
   readonly selectedCode = signal('2721');
-  readonly selected = computed(() => this.establishments.find(item => item.code === this.selectedCode()) ?? this.establishments[0]);
+  readonly selected = computed(
+    () =>
+      this.establishments.find((item) => item.code === this.selectedCode()) ??
+      this.establishments[0],
+  );
 
   select(code: string) {
-    if (this.establishments.some(item => item.code === code)) this.selectedCode.set(code);
+    if (this.establishments.some((item) => item.code === code)) this.selectedCode.set(code);
   }
 
   replace(establishments: Establishment[]) {
     if (!establishments.length) return;
     this.establishments.splice(0, this.establishments.length, ...establishments);
-    if (!establishments.some(item => item.code === this.selectedCode())) this.selectedCode.set(establishments[0].code);
+    if (!establishments.some((item) => item.code === this.selectedCode()))
+      this.selectedCode.set(establishments[0].code);
   }
 }

@@ -165,6 +165,8 @@ model ExportJob {
   @@unique([requestedByUserId, idempotencyKey], map: "uq_exportacion_usuario_idempotencia")
   @@index([status, createdAt], map: "idx_exportaciones_estado_fecha")
   @@index([requestedByUserId, createdAt], map: "idx_exportaciones_usuario_fecha")
+  @@index([outputExpiresAt, id], map: "idx_exportaciones_expiracion_id")
+  @@index([status, startedAt, id], map: "idx_exportaciones_estado_inicio_id")
   @@map("trabajos_exportacion")
 }
 

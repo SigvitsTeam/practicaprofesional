@@ -42,6 +42,12 @@ class Repository extends ExportJobRepository {
   fail(): Promise<void> {
     return Promise.resolve();
   }
+  listExpiredArtifacts(): Promise<[]> {
+    return Promise.resolve([]);
+  }
+  clearArtifact(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
   getOwnDownload(): Promise<never> {
     return Promise.reject(new Error('not implemented'));
   }

@@ -5,6 +5,7 @@ import { dirname, resolve, sep } from 'node:path';
 import { exportConfig } from '../../../config/app.config';
 import { ExportArtifactStorage } from '../application/ports/export-artifact.storage';
 import type { ExportFormat } from '../domain/export-job';
+import { ExportArtifactNotFoundError } from '../domain/export-job';
 
 @Injectable()
 export class FilesystemExportArtifactStorage extends ExportArtifactStorage {
@@ -44,7 +45,21 @@ export class FilesystemExportArtifactStorage extends ExportArtifactStorage {
   }
 
   async read(storageKey: string): Promise<Uint8Array> {
-    return new Uint8Array(await readFile(this.resolveKey(storageKey)));
+    try {
+      return new Uint8Array(await readFile(this.resolveKey(storageKey)));
+    } catch (error: unknown) {
+      if (this.isMissingFile(error))
+        throw new ExportArtifactNotFoundError('El archivo de exportación no está disponible.');
+      throw error;
+    }
+  }
+
+  async delete(storageKey: string): Promise<void> {
+    try {
+      await unlink(this.resolveKey(storageKey));
+    } catch (error: unknown) {
+      if (!this.isMissingFile(error)) throw error;
+    }
   }
 
   private resolveKey(storageKey: string): string {
@@ -57,5 +72,14 @@ export class FilesystemExportArtifactStorage extends ExportArtifactStorage {
     const target = resolve(this.root, storageKey);
     if (!target.startsWith(`${this.root}${sep}`)) throw new Error('INVALID_EXPORT_STORAGE_PATH');
     return target;
+  }
+
+  private isMissingFile(error: unknown): boolean {
+    return (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === 'ENOENT'
+    );
   }
 }

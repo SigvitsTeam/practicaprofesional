@@ -6,17 +6,24 @@ import { Report, ReportStatus } from '../../core/models';
   selector: 'app-report-table',
   imports: [CommonModule],
   templateUrl: './report-table.html',
-  styleUrl: './report-table.css'
+  styleUrl: './report-table.css',
 })
 export class ReportTable {
   readonly reports = input.required<Report[]>();
   readonly title = input<string>();
-  readonly subtitle = input('Julio 2026 · información consolidada ITS 2');
+  readonly subtitle = input('Información consolidada ITS 2');
   readonly entityLabel = input('Establecimiento');
   readonly reportSelected = output<Report>();
   readonly viewAll = output<void>();
 
   statusClass(status: ReportStatus) {
-    return 'status-' + status.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s/g, '-');
+    return (
+      'status-' +
+      status
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/\s/g, '-')
+    );
   }
 }

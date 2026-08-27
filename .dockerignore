@@ -1,0 +1,17 @@
+.git
+.github
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/dist
+**/dist-worker
+**/dist-scripts
+**/coverage
+backend/.data
+deploy/secrets
+outputs
+output
+tmp
+*.tar.gz
+

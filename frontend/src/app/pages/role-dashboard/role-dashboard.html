@@ -1,37 +1,95 @@
 <section class="role-scope" [attr.data-role]="role().id">
-  <div><span class="scope-icon">⌾</span><div><small>ALCANCE ACTIVO</small><strong>{{ role().scopeLabel }}</strong><p>{{ role().scopeDetail }}</p></div></div>
+  <div>
+    <span class="scope-icon">⌾</span>
+    <div>
+      <small>ALCANCE ACTIVO</small><strong>{{ role().scopeLabel }}</strong>
+      <p>{{ role().scopeDetail }}</p>
+    </div>
+  </div>
   <span class="role-chip">{{ role().roleName }}</span>
 </section>
 
-@if (loading()) {<section class="dashboard-message">Cargando indicadores agregados del alcance…</section>}
-@if (loadError()) {<section class="dashboard-message error">{{ loadError() }}</section>}
+@if (loading()) {
+  <section class="dashboard-message">Cargando indicadores agregados del alcance…</section>
+}
+@if (loadError()) {
+  <section class="dashboard-message error">{{ loadError() }}</section>
+}
 
 <section class="role-kpis" aria-label="Indicadores del perfil">
   @for (metric of metrics(); track metric.label) {
     <article class="role-kpi" [class]="'role-kpi tone-' + metric.tone">
-      <span>{{ metric.label }}</span><strong>{{ metric.value }}</strong><p>{{ metric.detail }}</p><i></i>
+      <span>{{ metric.label }}</span
+      ><strong>{{ metric.value }}</strong>
+      <p>{{ metric.detail }}</p>
+      <i></i>
     </article>
   }
 </section>
 
 <section class="role-dashboard-grid">
   <article class="panel role-priorities">
-    <div class="panel-heading"><div><h2>Prioridades del perfil</h2><p>Calculadas desde reportes vigentes del alcance</p></div><span class="role-count">{{ tasks().length }}</span></div>
+    <div class="panel-heading">
+      <div>
+        <h2>Prioridades del perfil</h2>
+        <p>Calculadas desde reportes vigentes del alcance</p>
+      </div>
+      <span class="role-count">{{ tasks().length }}</span>
+    </div>
     @for (task of tasks(); track task.title) {
       <button type="button" (click)="openTask(task.target, task.title)">
-        <span class="task-dot"></span><span><strong>{{ task.title }}</strong><small>{{ task.detail }}</small></span><em>{{ task.status }}</em><b>›</b>
+        <span class="task-dot"></span
+        ><span
+          ><strong>{{ task.title }}</strong
+          ><small>{{ task.detail }}</small></span
+        ><em>{{ task.status }}</em
+        ><b>›</b>
       </button>
     }
   </article>
 
   <article class="panel role-access">
-    <div class="panel-heading"><div><h2>Permisos efectivos</h2><p>Resumen del perfil institucional activo</p></div><span class="shield">✓</span></div>
-    <div class="access-block allowed"><h3>Puede realizar</h3>@for (permission of role().permissions; track permission) {<p><i>✓</i>{{ permission }}</p>}</div>
-    <div class="access-block denied"><h3>Límites del perfil</h3>@for (restriction of role().restrictions; track restriction) {<p><i>—</i>{{ restriction }}</p>}</div>
+    <div class="panel-heading">
+      <div>
+        <h2>Permisos efectivos</h2>
+        <p>Resumen del perfil institucional activo</p>
+      </div>
+      <span class="shield">✓</span>
+    </div>
+    <div class="access-block allowed">
+      <h3>Puede realizar</h3>
+      @for (permission of role().permissions; track permission) {
+        <p><i>✓</i>{{ permission }}</p>
+      }
+    </div>
+    <div class="access-block denied">
+      <h3>Límites del perfil</h3>
+      @for (restriction of role().restrictions; track restriction) {
+        <p><i>—</i>{{ restriction }}</p>
+      }
+    </div>
   </article>
 </section>
 
 <article class="panel role-flow">
-  <div class="panel-heading"><div><h2>Flujo principal</h2><p>Responsabilidad institucional del usuario</p></div><button type="button" (click)="navigate.emit(role().primaryTarget)">{{ role().primaryLabel }} →</button></div>
-  <div class="role-steps">@for (step of role().workflow; track step; let index = $index) {<div><i>{{ index + 1 }}</i><strong>{{ step }}</strong>@if (!$last) {<span></span>}</div>}</div>
+  <div class="panel-heading">
+    <div>
+      <h2>Flujo principal</h2>
+      <p>Responsabilidad institucional del usuario</p>
+    </div>
+    <button type="button" (click)="navigate.emit(role().primaryTarget)">
+      {{ role().primaryLabel }} →
+    </button>
+  </div>
+  <div class="role-steps">
+    @for (step of role().workflow; track step; let index = $index) {
+      <div>
+        <i>{{ index + 1 }}</i
+        ><strong>{{ step }}</strong>
+        @if (!$last) {
+          <span></span>
+        }
+      </div>
+    }
+  </div>
 </article>

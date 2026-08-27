@@ -4,6 +4,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
+import type { Server } from 'node:http';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
@@ -14,9 +15,9 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
   const apiPrefix = config.getOrThrow<string>('app.apiPrefix');
   const bodyLimit = config.getOrThrow<string>('app.requestBodyLimit');
-  const trustProxy = config.getOrThrow<boolean>('app.trustProxy');
+  const trustProxyHops = config.getOrThrow<number>('app.trustProxyHops');
 
-  app.set('trust proxy', trustProxy);
+  app.set('trust proxy', trustProxyHops);
   app.use(helmet());
   app.use(json({ limit: bodyLimit, strict: true, type: 'application/json' }));
   app.use(urlencoded({ extended: false, limit: bodyLimit }));
@@ -40,6 +41,12 @@ async function bootstrap(): Promise<void> {
     }),
   );
   app.enableShutdownHooks();
+
+  const server: Server = app.getHttpServer();
+  server.requestTimeout = config.getOrThrow<number>('app.requestTimeoutMs');
+  server.headersTimeout = config.getOrThrow<number>('app.headersTimeoutMs');
+  server.keepAliveTimeout = config.getOrThrow<number>('app.keepAliveTimeoutMs');
+  server.maxRequestsPerSocket = config.getOrThrow<number>('app.maxRequestsPerSocket');
 
   const port = config.getOrThrow<number>('app.port');
   await app.listen(port, '0.0.0.0');

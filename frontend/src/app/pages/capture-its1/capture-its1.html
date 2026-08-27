@@ -19,13 +19,12 @@
 }
 
 @if (cancelling()) {
-  <div class="cancel-modal-backdrop" (click)="closeCancel()">
+  <div class="cancel-modal-backdrop">
     <section
       class="cancel-modal"
       role="dialog"
       aria-modal="true"
       aria-label="Anular atención ITS 1"
-      (click)="$event.stopPropagation()"
     >
       <header>
         <div>

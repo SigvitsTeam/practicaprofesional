@@ -51,6 +51,7 @@ describe('CreateAttentionUseCase', () => {
       id: 'attention-1',
       possibleDuplicate: false,
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
   });
 

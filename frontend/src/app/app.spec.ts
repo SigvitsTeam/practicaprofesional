@@ -277,7 +277,7 @@ describe('App', () => {
     expect(compiled.textContent).not.toContain('Número de expediente');
   });
 
-  it('should render one interactive map with twelve establishment markers', async () => {
+  it('should render one interactive map with twelve ranked establishments', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.navigate('Mapas');
     fixture.detectChanges();
@@ -285,7 +285,7 @@ describe('App', () => {
     const compiled = fixture.nativeElement as HTMLElement;
 
     expect(compiled.querySelectorAll('app-interactive-map')).toHaveLength(1);
-    expect(compiled.querySelectorAll('.marker')).toHaveLength(12);
+    expect(compiled.querySelectorAll('.ranking button')).toHaveLength(12);
     expect(compiled.textContent).toContain('Métrica activa');
   });
 
@@ -481,7 +481,7 @@ describe('App', () => {
     fixture.componentInstance.navigate('Mapas');
     fixture.detectChanges();
     await settleDeferred(fixture);
-    expect(compiled.querySelectorAll('.marker')).toHaveLength(1);
+    expect(compiled.querySelectorAll('.ranking button')).toHaveLength(1);
     expect(compiled.textContent).not.toContain('← Región de Cortés');
   });
 

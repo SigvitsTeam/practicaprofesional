@@ -1,88 +1,677 @@
 <section class="admin-scope-banner">
   <i>✓</i>
   <div>
-    <strong>{{ regionalScope ? 'Administración limitada al alcance regional asignado' : 'Administración global del sistema' }}</strong>
-    <span>{{ regionalScope ? 'Puede gestionar únicamente las regiones, municipios, establecimientos y usuarios devueltos por su alcance autorizado.' : 'Puede gestionar regiones y todos sus niveles dependientes.' }}</span>
+    <strong>{{
+      regionalScope
+        ? 'Administración limitada al alcance regional asignado'
+        : 'Administración global del sistema'
+    }}</strong>
+    <span>{{
+      regionalScope
+        ? 'Puede gestionar únicamente las regiones, municipios, establecimientos y usuarios devueltos por su alcance autorizado.'
+        : 'Puede gestionar regiones y todos sus niveles dependientes.'
+    }}</span>
   </div>
 </section>
 
 <section class="panel user-admin" aria-label="Administración de usuarios">
-  <div class="user-admin-heading"><div><span class="eyebrow">ACCESO INSTITUCIONAL</span><h2>Usuarios y alcance</h2><p>Los perfiles nuevos permanecen inactivos hasta vincular su identidad externa.</p></div><button class="btn primary" type="button" (click)="openUserCreate()">＋ Nuevo usuario</button></div>
-  <div class="table-wrap"><table><thead><tr><th>Usuario</th><th>Rol</th><th>Alcance</th><th>Acceso</th><th>Acciones</th></tr></thead><tbody>
-    @for (user of users; track user.id) {<tr><td><strong>{{ user.fullName }}</strong><small>{{ user.email }}</small></td><td>{{ user.role.name }}</td><td>{{ user.assignment.label }}</td><td><span class="region-status" [class.preconfigured]="!user.active">{{ user.active && user.hasExternalIdentity ? 'Activo' : user.hasExternalIdentity ? 'Suspendido' : 'Pendiente de identidad' }}</span></td><td class="user-actions"><button type="button" (click)="openUserEdit(user)">Cambiar acceso</button>@if (!user.hasExternalIdentity) {<button type="button" (click)="openInvitation(user)">Invitar por correo</button><button type="button" (click)="openIdentityLink(user)">Vincular manualmente</button>}@if (user.active || user.hasExternalIdentity) {<button type="button" (click)="openStatus(user)">{{ user.active ? 'Suspender' : 'Reactivar' }}</button>}</td></tr>}
-    @empty {<tr><td colspan="5">No hay usuarios visibles dentro del alcance actual.</td></tr>}
-  </tbody></table></div>
+  <div class="user-admin-heading">
+    <div>
+      <span class="eyebrow">ACCESO INSTITUCIONAL</span>
+      <h2>Usuarios y alcance</h2>
+      <p>Los perfiles nuevos permanecen inactivos hasta vincular su identidad externa.</p>
+    </div>
+    <button class="btn primary" type="button" (click)="openUserCreate()">＋ Nuevo usuario</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Usuario</th>
+          <th>Rol</th>
+          <th>Alcance</th>
+          <th>Acceso</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (user of users; track user.id) {
+          <tr>
+            <td>
+              <strong>{{ user.fullName }}</strong
+              ><small>{{ user.email }}</small>
+            </td>
+            <td>{{ user.role.name }}</td>
+            <td>{{ user.assignment.label }}</td>
+            <td>
+              <span class="region-status" [class.preconfigured]="!user.active">{{
+                user.active && user.hasExternalIdentity
+                  ? 'Activo'
+                  : user.hasExternalIdentity
+                    ? 'Suspendido'
+                    : 'Pendiente de identidad'
+              }}</span>
+            </td>
+            <td class="user-actions">
+              <button type="button" (click)="openUserEdit(user)">Cambiar acceso</button>
+              @if (!user.hasExternalIdentity) {
+                <button type="button" (click)="openInvitation(user)">Invitar por correo</button
+                ><button type="button" (click)="openIdentityLink(user)">
+                  Vincular manualmente
+                </button>
+              }
+              @if (user.active || user.hasExternalIdentity) {
+                <button type="button" (click)="openStatus(user)">
+                  {{ user.active ? 'Suspender' : 'Reactivar' }}
+                </button>
+              }
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5">No hay usuarios visibles dentro del alcance actual.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
 </section>
 
 @if (showUserForm) {
-  <div class="form-modal-backdrop" role="presentation" (click)="showUserForm = false"><section class="form-modal user-dialog" role="dialog" aria-modal="true" aria-label="Administrar usuario institucional" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">{{ editingUser ? 'CAMBIO VERSIONADO' : 'ALTA CONTROLADA' }}</span><h2>{{ editingUser ? 'Cambiar rol o alcance' : 'Nuevo usuario institucional' }}</h2></div><button type="button" (click)="showUserForm = false">×</button></header><form (ngSubmit)="saveUser()"><div class="creation-form">
-    <label class="wide"><span>Nombre completo *</span><input name="userName" [(ngModel)]="userForm.fullName" [disabled]="!!editingUser" [class.invalid]="userFormSubmitted && !userForm.fullName.trim()"></label>
-    <label><span>Correo *</span><input name="userEmail" type="email" [(ngModel)]="userForm.email" [disabled]="!!editingUser" [class.invalid]="userFormSubmitted && !userForm.email.trim()"></label><label><span>Teléfono</span><input name="userPhone" [(ngModel)]="userForm.phone" [disabled]="!!editingUser"></label>
-    <label><span>Rol *</span><select name="userRole" [(ngModel)]="userForm.roleCode" (ngModelChange)="roleChanged()">@if (globalScope) {<option value="ADMIN_CENTRAL">Admin Central</option><option value="SUPERADMIN_REGIONAL">SuperAdmin Regional</option>}<option value="ADMIN_REGIONAL">Admin Regional</option><option value="COORDINADOR_MUNICIPAL">Coordinador Municipal</option><option value="DIGITADOR_COORDINACION">Digitador de Coordinación</option><option value="RESPONSABLE_ESTABLECIMIENTO">Responsable de Establecimiento</option><option value="SUPERVISOR_CONSULTA">Supervisor o Consulta</option></select></label>
-    <label><span>Tipo de alcance *</span><select name="userScope" [(ngModel)]="userForm.scopeType" (ngModelChange)="scopeChanged()">@if (globalScope) {<option value="NACIONAL">Nacional</option>}<option value="REGION">Región</option><option value="MUNICIPIO">Municipio</option><option value="ESTABLECIMIENTO">Establecimiento</option></select></label>
-    <label class="wide"><span>Territorio *</span><select name="userTarget" [(ngModel)]="userForm.targetId">@for (target of userTargets(); track target.id) {<option [value]="target.id">{{ target.name }}</option>}</select></label>
-    <label><span>Inicio de vigencia *</span><input name="userStart" type="date" [(ngModel)]="userForm.startDate"></label>
-    <label class="wide"><span>Motivo *</span><textarea name="userReason" [(ngModel)]="userForm.reason" [class.invalid]="userFormSubmitted && userForm.reason.trim().length < 10" maxlength="500"></textarea><small>@if (userFormSubmitted && userForm.reason.trim().length < 10) {Ingrese al menos 10 caracteres.}</small></label>
-  </div><footer><button class="btn secondary" type="button" (click)="showUserForm = false" [disabled]="loading">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading">{{ loading ? 'Guardando…' : editingUser ? 'Guardar cambio versionado' : 'Crear perfil pendiente' }}</button></footer></form></section></div>
+  <div class="form-modal-backdrop">
+    <section
+      class="form-modal user-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Administrar usuario institucional"
+    >
+      <header>
+        <div>
+          <span class="eyebrow">{{ editingUser ? 'CAMBIO VERSIONADO' : 'ALTA CONTROLADA' }}</span>
+          <h2>{{ editingUser ? 'Cambiar rol o alcance' : 'Nuevo usuario institucional' }}</h2>
+        </div>
+        <button type="button" (click)="showUserForm = false">×</button>
+      </header>
+      <form (ngSubmit)="saveUser()">
+        <div class="creation-form">
+          <label class="wide"
+            ><span>Nombre completo *</span
+            ><input
+              name="userName"
+              [(ngModel)]="userForm.fullName"
+              [disabled]="!!editingUser"
+              [class.invalid]="userFormSubmitted && !userForm.fullName.trim()"
+          /></label>
+          <label
+            ><span>Correo *</span
+            ><input
+              name="userEmail"
+              type="email"
+              [(ngModel)]="userForm.email"
+              [disabled]="!!editingUser"
+              [class.invalid]="userFormSubmitted && !userForm.email.trim()" /></label
+          ><label
+            ><span>Teléfono</span
+            ><input name="userPhone" [(ngModel)]="userForm.phone" [disabled]="!!editingUser"
+          /></label>
+          <label
+            ><span>Rol *</span
+            ><select
+              name="userRole"
+              [(ngModel)]="userForm.roleCode"
+              (ngModelChange)="roleChanged()"
+            >
+              @if (globalScope) {
+                <option value="ADMIN_CENTRAL">Admin Central</option>
+                <option value="SUPERADMIN_REGIONAL">SuperAdmin Regional</option>
+              }
+              <option value="ADMIN_REGIONAL">Admin Regional</option>
+              <option value="COORDINADOR_MUNICIPAL">Coordinador Municipal</option>
+              <option value="DIGITADOR_COORDINACION">Digitador de Coordinación</option>
+              <option value="RESPONSABLE_ESTABLECIMIENTO">Responsable de Establecimiento</option>
+              <option value="SUPERVISOR_CONSULTA">Supervisor o Consulta</option>
+            </select></label
+          >
+          <label
+            ><span>Tipo de alcance *</span
+            ><select
+              name="userScope"
+              [(ngModel)]="userForm.scopeType"
+              (ngModelChange)="scopeChanged()"
+            >
+              @if (globalScope) {
+                <option value="NACIONAL">Nacional</option>
+              }
+              <option value="REGION">Región</option>
+              <option value="MUNICIPIO">Municipio</option>
+              <option value="ESTABLECIMIENTO">Establecimiento</option>
+            </select></label
+          >
+          <label class="wide"
+            ><span>Territorio *</span
+            ><select name="userTarget" [(ngModel)]="userForm.targetId">
+              @for (target of userTargets(); track target.id) {
+                <option [value]="target.id">{{ target.name }}</option>
+              }
+            </select></label
+          >
+          <label
+            ><span>Inicio de vigencia *</span
+            ><input name="userStart" type="date" [(ngModel)]="userForm.startDate"
+          /></label>
+          <label class="wide"
+            ><span>Motivo *</span
+            ><textarea
+              name="userReason"
+              [(ngModel)]="userForm.reason"
+              [class.invalid]="userFormSubmitted && userForm.reason.trim().length < 10"
+              maxlength="500"
+            ></textarea
+            ><small>
+              @if (userFormSubmitted && userForm.reason.trim().length < 10) {
+                Ingrese al menos 10 caracteres.
+              }
+            </small></label
+          >
+        </div>
+        <footer>
+          <button
+            class="btn secondary"
+            type="button"
+            (click)="showUserForm = false"
+            [disabled]="loading"
+          >
+            Cancelar</button
+          ><button class="btn primary" type="submit" [disabled]="loading">
+            {{
+              loading
+                ? 'Guardando…'
+                : editingUser
+                  ? 'Guardar cambio versionado'
+                  : 'Crear perfil pendiente'
+            }}
+          </button>
+        </footer>
+      </form>
+    </section>
+  </div>
 }
 
 @if (statusUser) {
-  <div class="form-modal-backdrop" (click)="statusUser = null"><section class="form-modal status-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">ACCIÓN SENSIBLE</span><h2>{{ statusUser.active ? 'Suspender' : 'Reactivar' }} usuario</h2><p>{{ statusUser.fullName }} · {{ statusUser.email }}</p></div><button type="button" (click)="statusUser = null">×</button></header><form (ngSubmit)="saveStatus()"><div class="creation-form"><label class="wide"><span>Motivo obligatorio</span><textarea name="statusReason" [(ngModel)]="statusReason" minlength="10" maxlength="500"></textarea><small>Se registrará en la bitácora administrativa.</small></label></div><footer><button class="btn secondary" type="button" (click)="statusUser = null">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading || statusReason.trim().length < 10">Confirmar</button></footer></form></section></div>
+  <div class="form-modal-backdrop">
+    <section
+      class="form-modal status-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Cambiar acceso de usuario"
+    >
+      <header>
+        <div>
+          <span class="eyebrow">ACCIÓN SENSIBLE</span>
+          <h2>{{ statusUser.active ? 'Suspender' : 'Reactivar' }} usuario</h2>
+          <p>{{ statusUser.fullName }} · {{ statusUser.email }}</p>
+        </div>
+        <button type="button" (click)="statusUser = null">×</button>
+      </header>
+      <form (ngSubmit)="saveStatus()">
+        <div class="creation-form">
+          <label class="wide"
+            ><span>Motivo obligatorio</span
+            ><textarea
+              name="statusReason"
+              [(ngModel)]="statusReason"
+              minlength="10"
+              maxlength="500"
+            ></textarea
+            ><small>Se registrará en la bitácora administrativa.</small></label
+          >
+        </div>
+        <footer>
+          <button class="btn secondary" type="button" (click)="statusUser = null">Cancelar</button
+          ><button
+            class="btn primary"
+            type="submit"
+            [disabled]="loading || statusReason.trim().length < 10"
+          >
+            Confirmar
+          </button>
+        </footer>
+      </form>
+    </section>
+  </div>
 }
 
 @if (identityUser) {
-  <div class="form-modal-backdrop" (click)="identityUser = null"><section class="form-modal status-dialog" role="dialog" aria-modal="true" aria-label="Vincular identidad externa" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">IDENTIDAD VERIFICADA</span><h2>Vincular identidad externa</h2><p>{{ identityUser.fullName }} · {{ identityUser.email }}</p></div><button type="button" (click)="identityUser = null">×</button></header><form (ngSubmit)="saveIdentityLink()"><div class="creation-form">
-    <label class="wide"><span>Subject inmutable del proveedor *</span><input name="externalSubject" [(ngModel)]="identityForm.externalSubject" maxlength="255" autocomplete="off"><small>Copie el identificador exacto desde el directorio institucional. No se vincula por coincidencia de correo.</small></label>
-    <label class="wide"><span>Motivo administrativo *</span><textarea name="identityReason" [(ngModel)]="identityForm.reason" minlength="10" maxlength="500"></textarea></label>
-    <label class="wide"><span><input name="activateIdentityUser" type="checkbox" [(ngModel)]="identityForm.activate"> Activar el acceso en la misma operación atómica</span></label>
-  </div><footer><button class="btn secondary" type="button" (click)="identityUser = null">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading || !identityForm.externalSubject.trim() || identityForm.reason.trim().length < 10">{{ loading ? 'Vinculando…' : 'Vincular identidad' }}</button></footer></form></section></div>
+  <div class="form-modal-backdrop">
+    <section
+      class="form-modal status-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Vincular identidad externa"
+    >
+      <header>
+        <div>
+          <span class="eyebrow">IDENTIDAD VERIFICADA</span>
+          <h2>Vincular identidad externa</h2>
+          <p>{{ identityUser.fullName }} · {{ identityUser.email }}</p>
+        </div>
+        <button type="button" (click)="identityUser = null">×</button>
+      </header>
+      <form (ngSubmit)="saveIdentityLink()">
+        <div class="creation-form">
+          <label class="wide"
+            ><span>Subject inmutable del proveedor *</span
+            ><input
+              name="externalSubject"
+              [(ngModel)]="identityForm.externalSubject"
+              maxlength="255"
+              autocomplete="off"
+            /><small
+              >Copie el identificador exacto desde el directorio institucional. No se vincula por
+              coincidencia de correo.</small
+            ></label
+          >
+          <label class="wide"
+            ><span>Motivo administrativo *</span
+            ><textarea
+              name="identityReason"
+              [(ngModel)]="identityForm.reason"
+              minlength="10"
+              maxlength="500"
+            ></textarea>
+          </label>
+          <label class="wide"
+            ><span
+              ><input
+                name="activateIdentityUser"
+                type="checkbox"
+                [(ngModel)]="identityForm.activate"
+              />
+              Activar el acceso en la misma operación atómica</span
+            ></label
+          >
+        </div>
+        <footer>
+          <button class="btn secondary" type="button" (click)="identityUser = null">Cancelar</button
+          ><button
+            class="btn primary"
+            type="submit"
+            [disabled]="
+              loading ||
+              !identityForm.externalSubject.trim() ||
+              identityForm.reason.trim().length < 10
+            "
+          >
+            {{ loading ? 'Vinculando…' : 'Vincular identidad' }}
+          </button>
+        </footer>
+      </form>
+    </section>
+  </div>
 }
 
 @if (invitationUser) {
-  <div class="form-modal-backdrop" (click)="invitationUser = null"><section class="form-modal status-dialog" role="dialog" aria-modal="true" aria-label="Invitar usuario" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">ACCESO INSTITUCIONAL</span><h2>Enviar invitación</h2><p>{{ invitationUser.fullName }} · {{ invitationUser.email }}</p></div><button type="button" (click)="invitationUser = null">×</button></header><form (ngSubmit)="sendInvitation()"><div class="creation-form"><label class="wide"><span>Motivo obligatorio</span><textarea name="invitationReason" [(ngModel)]="invitationForm.reason" minlength="10" maxlength="500"></textarea><small>El proveedor enviará el correo y el identificador externo quedará vinculado con auditoría.</small></label><label class="wide check-line"><input type="checkbox" name="activateInvitation" [(ngModel)]="invitationForm.activate"><span>Activar el perfil al vincular la identidad</span></label></div><footer><button class="btn secondary" type="button" (click)="invitationUser = null">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading || invitationForm.reason.trim().length < 10">{{ loading ? 'Enviando…' : 'Enviar invitación' }}</button></footer></form></section></div>
+  <div class="form-modal-backdrop">
+    <section
+      class="form-modal status-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Invitar usuario"
+    >
+      <header>
+        <div>
+          <span class="eyebrow">ACCESO INSTITUCIONAL</span>
+          <h2>Enviar invitación</h2>
+          <p>{{ invitationUser.fullName }} · {{ invitationUser.email }}</p>
+        </div>
+        <button type="button" (click)="invitationUser = null">×</button>
+      </header>
+      <form (ngSubmit)="sendInvitation()">
+        <div class="creation-form">
+          <label class="wide"
+            ><span>Motivo obligatorio</span
+            ><textarea
+              name="invitationReason"
+              [(ngModel)]="invitationForm.reason"
+              minlength="10"
+              maxlength="500"
+            ></textarea
+            ><small
+              >El proveedor enviará el correo y el identificador externo quedará vinculado con
+              auditoría.</small
+            ></label
+          ><label class="wide check-line"
+            ><input
+              type="checkbox"
+              name="activateInvitation"
+              [(ngModel)]="invitationForm.activate"
+            /><span>Activar el perfil al vincular la identidad</span></label
+          >
+        </div>
+        <footer>
+          <button class="btn secondary" type="button" (click)="invitationUser = null">
+            Cancelar</button
+          ><button
+            class="btn primary"
+            type="submit"
+            [disabled]="loading || invitationForm.reason.trim().length < 10"
+          >
+            {{ loading ? 'Enviando…' : 'Enviar invitación' }}
+          </button>
+        </footer>
+      </form>
+    </section>
+  </div>
 }
 
 @if (territoryStatusTarget) {
-  <div class="form-modal-backdrop" (click)="territoryStatusTarget = null"><section class="form-modal status-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()"><header><div><span class="eyebrow">TRANSICIÓN CONTROLADA</span><h2>Cambiar estado territorial</h2><p>{{ territoryStatusTarget.name }}</p></div><button type="button" (click)="territoryStatusTarget = null">×</button></header><form (ngSubmit)="saveTerritoryStatus()"><div class="creation-form"><label class="wide"><span>Nuevo estado</span><select name="territoryNextStatus" [(ngModel)]="territoryNextStatus">@switch (territoryStatusTarget.rawStatus) {@case ('PRECONFIGURADO') {<option value="CREADO">Creado</option><option value="EN_PILOTAJE">En pilotaje</option>} @case ('CREADO') {<option value="EN_PILOTAJE">En pilotaje</option><option value="ACTIVO">Activo</option>} @case ('EN_PILOTAJE') {<option value="ACTIVO">Activo</option><option value="SUSPENDIDO">Suspendido</option><option value="INACTIVO">Inactivo</option>} @case ('ACTIVO') {<option value="SUSPENDIDO">Suspendido</option><option value="INACTIVO">Inactivo</option>} @case ('SUSPENDIDO') {<option value="ACTIVO">Activo</option><option value="INACTIVO">Inactivo</option>} @case ('INACTIVO') {<option value="ACTIVO">Activo</option>}}</select></label><label class="wide"><span>Motivo obligatorio</span><textarea name="territoryStatusReason" [(ngModel)]="territoryStatusReason" minlength="10" maxlength="500"></textarea><small>La operación fallará si existen dependencias activas, usuarios asignados o reportes abiertos.</small></label></div><footer><button class="btn secondary" type="button" (click)="territoryStatusTarget = null">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading || territoryStatusReason.trim().length < 10">Confirmar transición</button></footer></form></section></div>
+  <div class="form-modal-backdrop">
+    <section
+      class="form-modal status-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Cambiar estado territorial"
+    >
+      <header>
+        <div>
+          <span class="eyebrow">TRANSICIÓN CONTROLADA</span>
+          <h2>Cambiar estado territorial</h2>
+          <p>{{ territoryStatusTarget.name }}</p>
+        </div>
+        <button type="button" (click)="territoryStatusTarget = null">×</button>
+      </header>
+      <form (ngSubmit)="saveTerritoryStatus()">
+        <div class="creation-form">
+          <label class="wide"
+            ><span>Nuevo estado</span
+            ><select name="territoryNextStatus" [(ngModel)]="territoryNextStatus">
+              @switch (territoryStatusTarget.rawStatus) {
+                @case ('PRECONFIGURADO') {
+                  <option value="CREADO">Creado</option>
+                  <option value="EN_PILOTAJE">En pilotaje</option>
+                }
+                @case ('CREADO') {
+                  <option value="EN_PILOTAJE">En pilotaje</option>
+                  <option value="ACTIVO">Activo</option>
+                }
+                @case ('EN_PILOTAJE') {
+                  <option value="ACTIVO">Activo</option>
+                  <option value="SUSPENDIDO">Suspendido</option>
+                  <option value="INACTIVO">Inactivo</option>
+                }
+                @case ('ACTIVO') {
+                  <option value="SUSPENDIDO">Suspendido</option>
+                  <option value="INACTIVO">Inactivo</option>
+                }
+                @case ('SUSPENDIDO') {
+                  <option value="ACTIVO">Activo</option>
+                  <option value="INACTIVO">Inactivo</option>
+                }
+                @case ('INACTIVO') {
+                  <option value="ACTIVO">Activo</option>
+                }
+              }
+            </select></label
+          ><label class="wide"
+            ><span>Motivo obligatorio</span
+            ><textarea
+              name="territoryStatusReason"
+              [(ngModel)]="territoryStatusReason"
+              minlength="10"
+              maxlength="500"
+            ></textarea
+            ><small
+              >La operación fallará si existen dependencias activas, usuarios asignados o reportes
+              abiertos.</small
+            ></label
+          >
+        </div>
+        <footer>
+          <button class="btn secondary" type="button" (click)="territoryStatusTarget = null">
+            Cancelar</button
+          ><button
+            class="btn primary"
+            type="submit"
+            [disabled]="loading || territoryStatusReason.trim().length < 10"
+          >
+            Confirmar transición
+          </button>
+        </footer>
+      </form>
+    </section>
+  </div>
 }
 
 @if (globalScope) {
-  <section class="global-territory-management" aria-label="Gestión nacional de regiones y municipios">
+  <section
+    class="global-territory-management"
+    aria-label="Gestión nacional de regiones y municipios"
+  >
     <div class="global-management-heading">
-      <div><span class="eyebrow">ESTRUCTURA NACIONAL</span><h2>Regiones y municipios</h2><p>El SuperAdmin puede crear, configurar, activar o desactivar territorios de Honduras.</p></div>
-      <div><button class="btn secondary" type="button" (click)="openCreate('municipality')">＋ Nuevo municipio</button><button class="btn primary" type="button" (click)="openCreate('region')">＋ Nueva región</button></div>
+      <div>
+        <span class="eyebrow">ESTRUCTURA NACIONAL</span>
+        <h2>Regiones y municipios</h2>
+        <p>El SuperAdmin puede crear, configurar, activar o desactivar territorios de Honduras.</p>
+      </div>
+      <div>
+        <button class="btn secondary" type="button" (click)="openCreate('municipality')">
+          ＋ Nuevo municipio</button
+        ><button class="btn primary" type="button" (click)="openCreate('region')">
+          ＋ Nueva región
+        </button>
+      </div>
     </div>
-    <div class="global-territory-kpis"><div><span>Regiones registradas</span><strong>{{ regions.length }}</strong><small>{{ activeRegionCount }} activas</small></div><div><span>Municipios registrados</span><strong>{{ municipalities.length }}</strong><small>{{ activeMunicipalityCount }} activos</small></div><div><span>Establecimientos activos</span><strong>{{ activeFacilityCount }}</strong><small>{{ facilities.length }} registrados</small></div><div><span>Configuración pendiente</span><strong>{{ regions.length - activeRegionCount }}</strong><small>Regiones no activas</small></div></div>
-    <div class="global-territory-table"><div class="global-table-toolbar"><div><h3>Catálogo regional</h3><p>Regiones sanitarias y estado de sus municipios dependientes</p></div><label>⌕<input placeholder="Buscar región o código"></label></div><div class="table-wrap"><table><thead><tr><th>Región</th><th>Municipios</th><th>Municipios activos</th><th>Establecimientos</th><th>Estado</th><th></th></tr></thead><tbody>@for (region of regions; track region.code) {<tr><td><strong>{{ region.name }}</strong><small>Código {{ region.code }}</small></td><td>{{ region.municipalities }}</td><td>{{ region.activeMunicipalities }}</td><td>{{ region.establishments }}</td><td><span class="region-status" [class.preconfigured]="!region.active">{{ region.status }}</span></td><td><button type="button" [attr.aria-label]="'Cambiar estado de ' + region.name" (click)="openTerritoryStatus(region, 'REGION')">Cambiar estado</button></td></tr>}</tbody></table></div></div>
-    <div class="global-territory-table municipality-catalog"><div class="global-table-toolbar"><div><h3>Catálogo municipal</h3><p>Municipios dentro del alcance autorizado</p></div><label>⌕<input placeholder="Buscar municipio o código"></label></div><div class="table-wrap"><table><thead><tr><th>Municipio</th><th>Región</th><th>Establecimientos</th><th>Responsable</th><th>Estado</th><th></th></tr></thead><tbody>@for (municipality of municipalities; track municipality.code) {<tr><td><strong>{{ municipality.name }}</strong><small>Código {{ municipality.code }}</small></td><td>{{ municipality.region }}</td><td>{{ municipality.establishments }}</td><td>{{ municipality.responsible }}</td><td><span class="region-status" [class.preconfigured]="!municipality.active">{{ municipality.status }}</span></td><td><button type="button" [attr.aria-label]="'Cambiar estado de ' + municipality.name" (click)="openTerritoryStatus(municipality, 'MUNICIPIO')">Cambiar estado</button></td></tr>}</tbody></table></div></div>
+    <div class="global-territory-kpis">
+      <div>
+        <span>Regiones registradas</span><strong>{{ regions.length }}</strong
+        ><small>{{ activeRegionCount }} activas</small>
+      </div>
+      <div>
+        <span>Municipios registrados</span><strong>{{ municipalities.length }}</strong
+        ><small>{{ activeMunicipalityCount }} activos</small>
+      </div>
+      <div>
+        <span>Establecimientos activos</span><strong>{{ activeFacilityCount }}</strong
+        ><small>{{ facilities.length }} registrados</small>
+      </div>
+      <div>
+        <span>Configuración pendiente</span><strong>{{ regions.length - activeRegionCount }}</strong
+        ><small>Regiones no activas</small>
+      </div>
+    </div>
+    <div class="global-territory-table">
+      <div class="global-table-toolbar">
+        <div>
+          <h3>Catálogo regional</h3>
+          <p>Regiones sanitarias y estado de sus municipios dependientes</p>
+        </div>
+        <label>⌕<input placeholder="Buscar región o código" /></label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Región</th>
+              <th>Municipios</th>
+              <th>Municipios activos</th>
+              <th>Establecimientos</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (region of regions; track region.code) {
+              <tr>
+                <td>
+                  <strong>{{ region.name }}</strong
+                  ><small>Código {{ region.code }}</small>
+                </td>
+                <td>{{ region.municipalities }}</td>
+                <td>{{ region.activeMunicipalities }}</td>
+                <td>{{ region.establishments }}</td>
+                <td>
+                  <span class="region-status" [class.preconfigured]="!region.active">{{
+                    region.status
+                  }}</span>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    [attr.aria-label]="'Cambiar estado de ' + region.name"
+                    (click)="openTerritoryStatus(region, 'REGION')"
+                  >
+                    Cambiar estado
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="global-territory-table municipality-catalog">
+      <div class="global-table-toolbar">
+        <div>
+          <h3>Catálogo municipal</h3>
+          <p>Municipios dentro del alcance autorizado</p>
+        </div>
+        <label>⌕<input placeholder="Buscar municipio o código" /></label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Municipio</th>
+              <th>Región</th>
+              <th>Establecimientos</th>
+              <th>Responsable</th>
+              <th>Estado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (municipality of municipalities; track municipality.code) {
+              <tr>
+                <td>
+                  <strong>{{ municipality.name }}</strong
+                  ><small>Código {{ municipality.code }}</small>
+                </td>
+                <td>{{ municipality.region }}</td>
+                <td>{{ municipality.establishments }}</td>
+                <td>{{ municipality.responsible }}</td>
+                <td>
+                  <span class="region-status" [class.preconfigured]="!municipality.active">{{
+                    municipality.status
+                  }}</span>
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    [attr.aria-label]="'Cambiar estado de ' + municipality.name"
+                    (click)="openTerritoryStatus(municipality, 'MUNICIPIO')"
+                  >
+                    Cambiar estado
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
   </section>
 }
 
 @if (globalScope || regionalScope) {
   <section class="panel facility-admin" aria-label="Administración de establecimientos">
     <div class="global-table-toolbar">
-      <div><h3>Catálogo de establecimientos</h3><p>Estados operativos controlados dentro del alcance territorial autorizado</p></div>
+      <div>
+        <h3>Catálogo de establecimientos</h3>
+        <p>Estados operativos controlados dentro del alcance territorial autorizado</p>
+      </div>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Establecimiento</th><th>Municipio</th><th>Tipo</th><th>Estado</th><th></th></tr></thead><tbody>
-      @for (facility of facilities; track facility.id) {
-        <tr><td><strong>{{ facility.name }}</strong><small>Código {{ facility.code }}</small></td><td>{{ facility.municipality }}</td><td>{{ facility.type }}</td><td><span class="region-status" [class.preconfigured]="!facility.active">{{ facility.status }}</span></td><td><button type="button" [attr.aria-label]="'Cambiar estado de ' + facility.name" (click)="openTerritoryStatus(facility, 'ESTABLECIMIENTO')">Cambiar estado</button></td></tr>
-      } @empty {<tr><td colspan="5">No hay establecimientos visibles dentro del alcance actual.</td></tr>}
-    </tbody></table></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Establecimiento</th>
+            <th>Municipio</th>
+            <th>Tipo</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (facility of facilities; track facility.id) {
+            <tr>
+              <td>
+                <strong>{{ facility.name }}</strong
+                ><small>Código {{ facility.code }}</small>
+              </td>
+              <td>{{ facility.municipality }}</td>
+              <td>{{ facility.type }}</td>
+              <td>
+                <span class="region-status" [class.preconfigured]="!facility.active">{{
+                  facility.status
+                }}</span>
+              </td>
+              <td>
+                <button
+                  type="button"
+                  [attr.aria-label]="'Cambiar estado de ' + facility.name"
+                  (click)="openTerritoryStatus(facility, 'ESTABLECIMIENTO')"
+                >
+                  Cambiar estado
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5">No hay establecimientos visibles dentro del alcance actual.</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
   </section>
 }
 
 <section class="territory-layout">
   <aside class="panel tree">
-    <div class="section-heading"><div><h2>Estructura territorial</h2></div></div>
-    <button [class.scope-locked]="regionalScope">⌄ <i>HN</i><strong>Honduras</strong><span class="badge neutral">{{ regionalScope ? 'Alcance limitado' : 'Nacional' }}</span></button>
+    <div class="section-heading">
+      <div><h2>Estructura territorial</h2></div>
+    </div>
+    <button [class.scope-locked]="regionalScope">
+      ⌄ <i>HN</i><strong>Honduras</strong
+      ><span class="badge neutral">{{ regionalScope ? 'Alcance limitado' : 'Nacional' }}</span>
+    </button>
     @for (region of regions; track region.id) {
-      <button class="level-1">⌄ <i>{{ region.code }}</i><strong>{{ region.name }}</strong><span class="badge" [class.active]="region.active">{{ region.status }}</span></button>
+      <button class="level-1">
+        ⌄ <i>{{ region.code }}</i
+        ><strong>{{ region.name }}</strong
+        ><span class="badge" [class.active]="region.active">{{ region.status }}</span>
+      </button>
       @for (municipality of municipalities; track municipality.id) {
         @if (municipality.regionId === region.id) {
-          <button class="level-2" [class.selected]="selectedMunicipality?.id === municipality.id" (click)="selectMunicipality(municipality.id)">⌄ <i>{{ municipality.code }}</i><strong>{{ municipality.name }}</strong><span class="badge" [class.active]="municipality.active">{{ municipality.status }}</span></button>
+          <button
+            class="level-2"
+            [class.selected]="selectedMunicipality?.id === municipality.id"
+            (click)="selectMunicipality(municipality.id)"
+          >
+            ⌄ <i>{{ municipality.code }}</i
+            ><strong>{{ municipality.name }}</strong
+            ><span class="badge" [class.active]="municipality.active">{{
+              municipality.status
+            }}</span>
+          </button>
           @if (selectedMunicipality?.id === municipality.id) {
             @for (facility of selectedFacilities; track facility.id) {
-              <button class="level-3"><span>•</span><strong>{{ facility.name }}</strong>@if (!facility.coordinatesValidated) {<b class="warning-text" title="Coordenadas pendientes">!</b>}</button>
+              <button class="level-3">
+                <span>•</span><strong>{{ facility.name }}</strong>
+                @if (!facility.coordinatesValidated) {
+                  <b class="warning-text" title="Coordenadas pendientes">!</b>
+                }
+              </button>
             }
           }
         }
@@ -93,13 +682,36 @@
   <article class="panel territory-detail">
     @if (selectedMunicipality; as municipality) {
       <div class="territory-title">
-        <div><span class="eyebrow">COORDINACIÓN MUNICIPAL</span><h2>{{ municipality.name }}</h2><p>Código oficial {{ municipality.code }} · {{ municipality.region }}</p></div>
-        <div class="territory-title-actions"><span class="badge" [class.active]="municipality.active">{{ municipality.status }}</span><button class="btn secondary" type="button" (click)="openTerritoryStatus(municipality, 'MUNICIPIO')">Cambiar estado</button><button class="btn primary" type="button" (click)="openCreate('establishment')">＋ Nuevo establecimiento</button></div>
+        <div>
+          <span class="eyebrow">COORDINACIÓN MUNICIPAL</span>
+          <h2>{{ municipality.name }}</h2>
+          <p>Código oficial {{ municipality.code }} · {{ municipality.region }}</p>
+        </div>
+        <div class="territory-title-actions">
+          <span class="badge" [class.active]="municipality.active">{{ municipality.status }}</span
+          ><button
+            class="btn secondary"
+            type="button"
+            (click)="openTerritoryStatus(municipality, 'MUNICIPIO')"
+          >
+            Cambiar estado</button
+          ><button class="btn primary" type="button" (click)="openCreate('establishment')">
+            ＋ Nuevo establecimiento
+          </button>
+        </div>
       </div>
 
       <div class="tabs" role="tablist" aria-label="Secciones de la coordinación municipal">
         @for (tab of tabs; track tab.id) {
-          <button type="button" role="tab" [class.selected]="activeTab === tab.id" [attr.aria-selected]="activeTab === tab.id" (click)="selectTab(tab.id)">{{ tab.label }}</button>
+          <button
+            type="button"
+            role="tab"
+            [class.selected]="activeTab === tab.id"
+            [attr.aria-selected]="activeTab === tab.id"
+            (click)="selectTab(tab.id)"
+          >
+            {{ tab.label }}
+          </button>
         }
       </div>
 
@@ -107,77 +719,355 @@
         @switch (activeTab) {
           @case ('general') {
             <div class="territory-form">
-              <label class="wide"><span>Nombre oficial</span><input [value]="municipality.name" readonly></label>
-              <label><span>Código oficial</span><input [value]="municipality.code" readonly></label>
-              <label><span>Estado operativo</span><input [value]="municipality.status" readonly></label>
-              <label class="wide"><span>Región sanitaria</span><input [value]="municipality.region" readonly></label>
+              <label class="wide"
+                ><span>Nombre oficial</span><input [value]="municipality.name" readonly
+              /></label>
+              <label
+                ><span>Código oficial</span><input [value]="municipality.code" readonly
+              /></label>
+              <label
+                ><span>Estado operativo</span><input [value]="municipality.status" readonly
+              /></label>
+              <label class="wide"
+                ><span>Región sanitaria</span><input [value]="municipality.region" readonly
+              /></label>
             </div>
-            <div class="coordinate-panel"><div class="mini-map"><i>＋</i><span>{{ municipality.name }}</span></div><div><h3>Territorio geográfico asociado</h3><p>Validación registrada en el catálogo para el código oficial {{ municipality.code }}.</p><span class="validation-chip">{{ municipality.mapValidated ? '✓ GEOMETRÍA VALIDADA' : 'GEOMETRÍA PENDIENTE' }}</span></div></div>
+            <div class="coordinate-panel">
+              <div class="mini-map">
+                <i>＋</i><span>{{ municipality.name }}</span>
+              </div>
+              <div>
+                <h3>Territorio geográfico asociado</h3>
+                <p>
+                  Validación registrada en el catálogo para el código oficial
+                  {{ municipality.code }}.
+                </p>
+                <span class="validation-chip">{{
+                  municipality.mapValidated ? '✓ GEOMETRÍA VALIDADA' : 'GEOMETRÍA PENDIENTE'
+                }}</span>
+              </div>
+            </div>
           }
           @case ('geography') {
             <section class="geography-view" [attr.aria-label]="'Geografía de ' + municipality.name">
-              <div class="geo-map-large"><div class="geo-shape"><span>{{ municipality.name }}</span><i></i></div><div class="geo-map-label">{{ municipality.code }} · {{ municipality.mapValidated ? 'Límite municipal validado' : 'Validación de límite pendiente' }}</div></div>
+              <div class="geo-map-large">
+                <div class="geo-shape">
+                  <span>{{ municipality.name }}</span
+                  ><i></i>
+                </div>
+                <div class="geo-map-label">
+                  {{ municipality.code }} ·
+                  {{
+                    municipality.mapValidated
+                      ? 'Límite municipal validado'
+                      : 'Validación de límite pendiente'
+                  }}
+                </div>
+              </div>
               <div class="geo-details">
-                <div class="section-heading"><div><h2>Geografía asociada</h2><p>Estado real registrado en el catálogo territorial</p></div><span class="validation-chip">{{ municipality.mapValidated ? '✓ VALIDADA' : 'PENDIENTE' }}</span></div>
-                <dl><div><dt>Municipio</dt><dd>{{ municipality.name }}</dd></div><div><dt>Código oficial</dt><dd>{{ municipality.code }}</dd></div><div><dt>Región</dt><dd>{{ municipality.region }}</dd></div><div><dt>Actualizado</dt><dd>{{ formatDate(municipality.updatedAt) }}</dd></div></dl>
-                <div class="geo-readiness"><span><strong>{{ validatedFacilityCount }} de {{ selectedFacilities.length }}</strong> establecimientos con coordenadas validadas</span><div class="progress"><i [style.width.%]="coordinateProgress"></i></div></div>
+                <div class="section-heading">
+                  <div>
+                    <h2>Geografía asociada</h2>
+                    <p>Estado real registrado en el catálogo territorial</p>
+                  </div>
+                  <span class="validation-chip">{{
+                    municipality.mapValidated ? '✓ VALIDADA' : 'PENDIENTE'
+                  }}</span>
+                </div>
+                <dl>
+                  <div>
+                    <dt>Municipio</dt>
+                    <dd>{{ municipality.name }}</dd>
+                  </div>
+                  <div>
+                    <dt>Código oficial</dt>
+                    <dd>{{ municipality.code }}</dd>
+                  </div>
+                  <div>
+                    <dt>Región</dt>
+                    <dd>{{ municipality.region }}</dd>
+                  </div>
+                  <div>
+                    <dt>Actualizado</dt>
+                    <dd>{{ formatDate(municipality.updatedAt) }}</dd>
+                  </div>
+                </dl>
+                <div class="geo-readiness">
+                  <span
+                    ><strong
+                      >{{ validatedFacilityCount }} de {{ selectedFacilities.length }}</strong
+                    >
+                    establecimientos con coordenadas validadas</span
+                  >
+                  <div class="progress"><i [style.width.%]="coordinateProgress"></i></div>
+                </div>
               </div>
             </section>
           }
           @case ('responsibles') {
-            <section class="responsibles-view" [attr.aria-label]="'Responsables de ' + municipality.name">
-              <div class="tab-section-title"><div><h2>Responsables asignados</h2><p>Usuarios reales con responsabilidad directa o supervisión territorial.</p></div><button class="btn primary" type="button" (click)="openUserCreate()">＋ Asignar responsable</button></div>
+            <section
+              class="responsibles-view"
+              [attr.aria-label]="'Responsables de ' + municipality.name"
+            >
+              <div class="tab-section-title">
+                <div>
+                  <h2>Responsables asignados</h2>
+                  <p>Usuarios reales con responsabilidad directa o supervisión territorial.</p>
+                </div>
+                <button class="btn primary" type="button" (click)="openUserCreate()">
+                  ＋ Asignar responsable
+                </button>
+              </div>
               <div class="responsible-list">
                 @for (person of responsibles; track person.id) {
-                  <article><span class="responsible-avatar">{{ person.initials }}</span><div><strong>{{ person.name }}</strong><small>{{ person.role }}</small></div><dl><div><dt>Alcance</dt><dd>{{ person.scope }}</dd></div><div><dt>Asignado desde</dt><dd>{{ person.since }}</dd></div></dl><span class="assignment-status">{{ person.status }}</span></article>
-                } @empty {<p>No hay responsables visibles asignados a este municipio, sus establecimientos o su región.</p>}
+                  <article>
+                    <span class="responsible-avatar">{{ person.initials }}</span>
+                    <div>
+                      <strong>{{ person.name }}</strong
+                      ><small>{{ person.role }}</small>
+                    </div>
+                    <dl>
+                      <div>
+                        <dt>Alcance</dt>
+                        <dd>{{ person.scope }}</dd>
+                      </div>
+                      <div>
+                        <dt>Asignado desde</dt>
+                        <dd>{{ person.since }}</dd>
+                      </div>
+                    </dl>
+                    <span class="assignment-status">{{ person.status }}</span>
+                  </article>
+                } @empty {
+                  <p>
+                    No hay responsables visibles asignados a este municipio, sus establecimientos o
+                    su región.
+                  </p>
+                }
               </div>
-              <div class="responsible-note"><i>i</i><span><strong>Separación de responsabilidades</strong><small>La supervisión territorial no concede acceso automático a registros individuales ITS 1.</small></span></div>
+              <div class="responsible-note">
+                <i>i</i
+                ><span
+                  ><strong>Separación de responsabilidades</strong
+                  ><small
+                    >La supervisión territorial no concede acceso automático a registros
+                    individuales ITS 1.</small
+                  ></span
+                >
+              </div>
             </section>
           }
           @case ('history') {
             <section class="history-view" [attr.aria-label]="'Historial de ' + municipality.name">
-              <div class="tab-section-title"><div><h2>Historial de cambios</h2><p>Eventos administrativos paginados y filtrados por el alcance territorial autorizado.</p></div></div>
+              <div class="tab-section-title">
+                <div>
+                  <h2>Historial de cambios</h2>
+                  <p>
+                    Eventos administrativos paginados y filtrados por el alcance territorial
+                    autorizado.
+                  </p>
+                </div>
+              </div>
               <div class="history-timeline">
                 @for (event of history; track event.id) {
-                  <article><i class="history-dot blue"></i><div class="history-date">{{ formatDate(event.createdAt) }}</div><div><strong>{{ auditActionLabel(event.action) }}</strong><p>{{ event.reason || 'Sin motivo descriptivo registrado.' }}</p><small>{{ event.actorName || 'Sistema' }}</small></div></article>
-                } @empty {<p>{{ historyLoading ? 'Cargando historial…' : 'No hay eventos territoriales registrados para este municipio.' }}</p>}
+                  <article>
+                    <i class="history-dot blue"></i>
+                    <div class="history-date">{{ formatDate(event.createdAt) }}</div>
+                    <div>
+                      <strong>{{ auditActionLabel(event.action) }}</strong>
+                      <p>{{ event.reason || 'Sin motivo descriptivo registrado.' }}</p>
+                      <small>{{ event.actorName || 'Sistema' }}</small>
+                    </div>
+                  </article>
+                } @empty {
+                  <p>
+                    {{
+                      historyLoading
+                        ? 'Cargando historial…'
+                        : 'No hay eventos territoriales registrados para este municipio.'
+                    }}
+                  </p>
+                }
               </div>
-              @if (historyNextCursor) {<button class="btn secondary history-export" type="button" (click)="loadHistory(true)" [disabled]="historyLoading">{{ historyLoading ? 'Cargando…' : 'Cargar más eventos' }}</button>}
+              @if (historyNextCursor) {
+                <button
+                  class="btn secondary history-export"
+                  type="button"
+                  (click)="loadHistory(true)"
+                  [disabled]="historyLoading"
+                >
+                  {{ historyLoading ? 'Cargando…' : 'Cargar más eventos' }}
+                </button>
+              }
             </section>
           }
         }
       </div>
     } @else {
-      <div class="tab-content"><p>No hay municipios disponibles dentro del alcance autorizado.</p></div>
+      <div class="tab-content">
+        <p>No hay municipios disponibles dentro del alcance autorizado.</p>
+      </div>
     }
   </article>
 
   <aside class="side-stack">
-    <article class="panel readiness"><div class="section-heading"><div><h2>Preparación operativa</h2></div></div><div><strong>{{ readinessProgress }}%</strong><span>según catálogo y asignaciones</span></div><div class="progress"><span [style.width.%]="readinessProgress"></span></div><p>Se evalúan estado, geografía, establecimientos, coordenadas y responsables activos.</p></article>
-    <article class="panel territory-alerts"><div class="section-heading"><div><h2>Requiere atención</h2></div></div>@if (pendingCoordinates > 0) {<button><i>!</i><span>{{ pendingCoordinates }} establecimiento(s) sin coordenadas</span><b>›</b></button>}@if (!responsibles.length) {<button><i>i</i><span>Sin responsables visibles asignados</span><b>›</b></button>}@if (pendingCoordinates === 0 && responsibles.length) {<p>Sin alertas territoriales de configuración.</p>}</article>
+    <article class="panel readiness">
+      <div class="section-heading">
+        <div><h2>Preparación operativa</h2></div>
+      </div>
+      <div>
+        <strong>{{ readinessProgress }}%</strong><span>según catálogo y asignaciones</span>
+      </div>
+      <div class="progress"><span [style.width.%]="readinessProgress"></span></div>
+      <p>Se evalúan estado, geografía, establecimientos, coordenadas y responsables activos.</p>
+    </article>
+    <article class="panel territory-alerts">
+      <div class="section-heading">
+        <div><h2>Requiere atención</h2></div>
+      </div>
+      @if (pendingCoordinates > 0) {
+        <button>
+          <i>!</i><span>{{ pendingCoordinates }} establecimiento(s) sin coordenadas</span><b>›</b>
+        </button>
+      }
+      @if (!responsibles.length) {
+        <button><i>i</i><span>Sin responsables visibles asignados</span><b>›</b></button>
+      }
+      @if (pendingCoordinates === 0 && responsibles.length) {
+        <p>Sin alertas territoriales de configuración.</p>
+      }
+    </article>
   </aside>
 </section>
 
 @if (createKind) {
-  <div class="form-modal-backdrop" (click)="closeCreate()">
-    <section class="form-modal" role="dialog" aria-modal="true" [attr.aria-label]="createTitle" (click)="$event.stopPropagation()">
-      <header><div><span class="eyebrow">ADMINISTRACIÓN TERRITORIAL</span><h2>{{ createTitle }}</h2><p>Complete los datos requeridos para agregarlo al catálogo.</p></div><button type="button" aria-label="Cerrar formulario" (click)="closeCreate()">×</button></header>
+  <div class="form-modal-backdrop">
+    <section class="form-modal" role="dialog" aria-modal="true" [attr.aria-label]="createTitle">
+      <header>
+        <div>
+          <span class="eyebrow">ADMINISTRACIÓN TERRITORIAL</span>
+          <h2>{{ createTitle }}</h2>
+          <p>Complete los datos requeridos para agregarlo al catálogo.</p>
+        </div>
+        <button type="button" aria-label="Cerrar formulario" (click)="closeCreate()">×</button>
+      </header>
       <form (ngSubmit)="saveTerritory()" novalidate>
         <div class="creation-form">
-          <label class="wide"><span>Nombre oficial *</span><input name="territoryName" [(ngModel)]="territoryForm.name" [class.invalid]="formSubmitted && !territoryForm.name.trim()" autocomplete="off"><small>@if (formSubmitted && !territoryForm.name.trim()) {Ingrese el nombre oficial.}</small></label>
-          <label><span>Código oficial *</span><input name="territoryCode" [(ngModel)]="territoryForm.code" [class.invalid]="formSubmitted && !territoryForm.code.trim()" autocomplete="off"><small>@if (formSubmitted && !territoryForm.code.trim()) {Ingrese un código.}</small></label>
-          @if (createKind === 'municipality') {<label><span>Región sanitaria *</span><select name="territoryRegion" [(ngModel)]="territoryForm.regionId">@for (region of regions; track region.id) {<option [value]="region.id">{{ region.name }}</option>}</select></label>}
-          @if (createKind === 'establishment') {
-            <label><span>Municipio *</span><select name="territoryMunicipality" [(ngModel)]="territoryForm.municipalityId">@for (municipality of municipalities; track municipality.id) {<option [value]="municipality.id">{{ municipality.name }}</option>}</select></label>
-            <label><span>Tipo de establecimiento *</span><select name="establishmentType" [(ngModel)]="territoryForm.type"><option>CIS</option><option>UAPS</option><option>Policlínico</option><option>Hospital</option></select></label>
-            <label class="wide"><span>Dirección</span><input name="territoryAddress" [(ngModel)]="territoryForm.address" autocomplete="off"></label>
+          <label class="wide"
+            ><span>Nombre oficial *</span
+            ><input
+              name="territoryName"
+              [(ngModel)]="territoryForm.name"
+              [class.invalid]="formSubmitted && !territoryForm.name.trim()"
+              autocomplete="off"
+            /><small>
+              @if (formSubmitted && !territoryForm.name.trim()) {
+                Ingrese el nombre oficial.
+              }
+            </small></label
+          >
+          <label
+            ><span>Código oficial *</span
+            ><input
+              name="territoryCode"
+              [(ngModel)]="territoryForm.code"
+              [class.invalid]="formSubmitted && !territoryForm.code.trim()"
+              autocomplete="off"
+            /><small>
+              @if (formSubmitted && !territoryForm.code.trim()) {
+                Ingrese un código.
+              }
+            </small></label
+          >
+          @if (createKind === 'municipality') {
+            <label
+              ><span>Región sanitaria *</span
+              ><select name="territoryRegion" [(ngModel)]="territoryForm.regionId">
+                @for (region of regions; track region.id) {
+                  <option [value]="region.id">{{ region.name }}</option>
+                }
+              </select></label
+            >
           }
-          @if (createKind === 'municipality') {<label class="wide"><span>Responsable</span><input name="territoryResponsible" [(ngModel)]="territoryForm.responsible" placeholder="Se puede asignar posteriormente" autocomplete="off"></label>}
-          <label class="wide"><span>Motivo administrativo *</span><textarea name="territoryReason" [(ngModel)]="territoryForm.reason" [class.invalid]="formSubmitted && territoryForm.reason.trim().length < 10" maxlength="500" placeholder="Explique el motivo de la creación"></textarea><small>@if (formSubmitted && territoryForm.reason.trim().length < 10) {Ingrese al menos 10 caracteres para auditoría.}</small></label>
-          <label><span>Estado inicial</span><select name="territoryStatus" [(ngModel)]="territoryForm.status">@if (createKind === 'region') {<option>Preconfigurada</option><option>Activa</option>} @else {<option>Preconfigurado</option><option>Activo</option>}<option>En pilotaje</option></select></label>
+          @if (createKind === 'establishment') {
+            <label
+              ><span>Municipio *</span
+              ><select name="territoryMunicipality" [(ngModel)]="territoryForm.municipalityId">
+                @for (municipality of municipalities; track municipality.id) {
+                  <option [value]="municipality.id">{{ municipality.name }}</option>
+                }
+              </select></label
+            >
+            <label
+              ><span>Tipo de establecimiento *</span
+              ><select name="establishmentType" [(ngModel)]="territoryForm.type">
+                <option>CIS</option>
+                <option>UAPS</option>
+                <option>Policlínico</option>
+                <option>Hospital</option>
+              </select></label
+            >
+            <label class="wide"
+              ><span>Dirección</span
+              ><input
+                name="territoryAddress"
+                [(ngModel)]="territoryForm.address"
+                autocomplete="off"
+            /></label>
+          }
+          @if (createKind === 'municipality') {
+            <label class="wide"
+              ><span>Responsable</span
+              ><input
+                name="territoryResponsible"
+                [(ngModel)]="territoryForm.responsible"
+                placeholder="Se puede asignar posteriormente"
+                autocomplete="off"
+            /></label>
+          }
+          <label class="wide"
+            ><span>Motivo administrativo *</span
+            ><textarea
+              name="territoryReason"
+              [(ngModel)]="territoryForm.reason"
+              [class.invalid]="formSubmitted && territoryForm.reason.trim().length < 10"
+              maxlength="500"
+              placeholder="Explique el motivo de la creación"
+            ></textarea
+            ><small>
+              @if (formSubmitted && territoryForm.reason.trim().length < 10) {
+                Ingrese al menos 10 caracteres para auditoría.
+              }
+            </small></label
+          >
+          <label
+            ><span>Estado inicial</span
+            ><select name="territoryStatus" [(ngModel)]="territoryForm.status">
+              @if (createKind === 'region') {
+                <option>Preconfigurada</option>
+                <option>Activa</option>
+              } @else {
+                <option>Preconfigurado</option>
+                <option>Activo</option>
+              }
+              <option>En pilotaje</option>
+            </select></label
+          >
         </div>
-        <footer><button class="btn secondary" type="button" (click)="closeCreate()" [disabled]="loading">Cancelar</button><button class="btn primary" type="submit" [disabled]="loading">{{ loading ? 'Guardando…' : 'Guardar' }} {{ createKind === 'region' ? 'región' : createKind === 'municipality' ? 'municipio' : 'establecimiento' }}</button></footer>
+        <footer>
+          <button class="btn secondary" type="button" (click)="closeCreate()" [disabled]="loading">
+            Cancelar</button
+          ><button class="btn primary" type="submit" [disabled]="loading">
+            {{ loading ? 'Guardando…' : 'Guardar' }}
+            {{
+              createKind === 'region'
+                ? 'región'
+                : createKind === 'municipality'
+                  ? 'municipio'
+                  : 'establecimiento'
+            }}
+          </button>
+        </footer>
       </form>
     </section>
   </div>

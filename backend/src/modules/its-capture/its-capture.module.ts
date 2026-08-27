@@ -31,6 +31,10 @@ import { TerritorialAnalyticsController } from './http/territorial-analytics.con
 import { TerritorialAnalyticsUseCase } from './application/territorial-analytics.use-case';
 import { TerritorialAnalyticsRepository } from './application/ports/territorial-analytics.repository';
 import { PrismaTerritorialAnalyticsRepository } from './infrastructure/prisma-territorial-analytics.repository';
+import { GetReportingPeriodsUseCase } from './application/get-reporting-periods.use-case';
+import { ReportingPeriodRepository } from './application/ports/reporting-period.repository';
+import { ReportingPeriodsController } from './http/reporting-periods.controller';
+import { PrismaReportingPeriodRepository } from './infrastructure/prisma-reporting-period.repository';
 
 @Module({
   imports: [DatabaseModule],
@@ -41,6 +45,7 @@ import { PrismaTerritorialAnalyticsRepository } from './infrastructure/prisma-te
     RegionalConsolidationsController,
     NationalConsolidationsController,
     TerritorialAnalyticsController,
+    ReportingPeriodsController,
   ],
   providers: [
     CreateAttentionUseCase,
@@ -51,6 +56,7 @@ import { PrismaTerritorialAnalyticsRepository } from './infrastructure/prisma-te
     RegionalConsolidationUseCase,
     NationalConsolidationUseCase,
     TerritorialAnalyticsUseCase,
+    GetReportingPeriodsUseCase,
     GetCaptureContextUseCase,
     GetMonthlyReportUseCase,
     RenderIts2PdfUseCase,
@@ -74,6 +80,7 @@ import { PrismaTerritorialAnalyticsRepository } from './infrastructure/prisma-te
       provide: TerritorialAnalyticsRepository,
       useClass: PrismaTerritorialAnalyticsRepository,
     },
+    { provide: ReportingPeriodRepository, useClass: PrismaReportingPeriodRepository },
   ],
   exports: [
     TerritorialAnalyticsRepository,

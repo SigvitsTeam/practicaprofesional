@@ -7,6 +7,15 @@ function required(name) {
   return value;
 }
 
+function integer(name, fallback, minimum, maximum) {
+  const raw = process.env[name]?.trim();
+  const value = raw ? Number(raw) : fallback;
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    throw new Error(`La variable ${name} debe ser un entero entre ${minimum} y ${maximum}.`);
+  }
+  return value;
+}
+
 const config = {
   apiUrl: process.env.SIGVITS_API_URL?.trim() || 'http://localhost:3000/api',
   auth: {
@@ -15,6 +24,14 @@ const config = {
     demoEnabled: false,
     demoEmail: '',
     demoPassword: '',
+  },
+  maps: {
+    tileUrl:
+      process.env.SIGVITS_MAP_TILE_URL?.trim() ||
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: process.env.SIGVITS_MAP_ATTRIBUTION?.trim() || '© OpenStreetMap contributors',
+    maxZoom: integer('SIGVITS_MAP_MAX_ZOOM', 18, 1, 22),
+    smallCountThreshold: integer('SIGVITS_MAP_SMALL_COUNT_THRESHOLD', 5, 0, 100),
   },
 };
 

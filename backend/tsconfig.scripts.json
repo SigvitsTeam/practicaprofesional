@@ -9,6 +9,7 @@
   },
   "include": [
     "prisma/bootstrap-admin.ts",
+    "prisma/cleanup-smoke-attentions.ts",
     "prisma/import-disease-catalog.ts",
     "prisma/provision-institutional-user.ts",
     "prisma/seed-calendar-2026.ts",
@@ -16,6 +17,7 @@
     "prisma/set-monthly-period-status.ts",
     "prisma/smoke-its2-workflow.ts",
     "prisma/smoke-annual-export.ts",
+    "prisma/smoke-its1-sex-rules.ts",
     "prisma/verify-deployment.ts",
     "src/generated/prisma/**/*.ts"
   ],

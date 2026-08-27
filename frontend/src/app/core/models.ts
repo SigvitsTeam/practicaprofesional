@@ -10,8 +10,17 @@ export interface Report {
   total: number;
   newCases: number;
   controls: number;
+  caseBreakdownAvailable?: boolean;
   alerts: number;
   sent: string;
+  periodYear?: number;
+  periodMonth?: number;
+  generatedAt?: string;
+  sentAt?: string;
+  approvedAt?: string;
+  attentionTotalsComplete?: boolean;
+  currentComment?: string;
+  openObservations?: { id: string; comment: string; createdAt: string }[];
   latitude?: number;
   longitude?: number;
   coordinatesValidated?: boolean;

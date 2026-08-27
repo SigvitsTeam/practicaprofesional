@@ -4,7 +4,7 @@ import { EstablishmentContext } from '../../core/establishment-context';
 @Component({
   selector: 'app-establishment-selector',
   templateUrl: './establishment-selector.html',
-  styleUrl: './establishment-selector.css'
+  styleUrl: './establishment-selector.css',
 })
 export class EstablishmentSelector {
   readonly selected = output<void>();

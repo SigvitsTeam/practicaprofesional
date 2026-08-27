@@ -1,0 +1,28 @@
+services:
+  postgres:
+    restart: always
+  api:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 1G
+        reservations:
+          memory: 384M
+  worker:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "2.00"
+          memory: 1536M
+        reservations:
+          memory: 384M
+  frontend:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          cpus: "1.00"
+          memory: 256M

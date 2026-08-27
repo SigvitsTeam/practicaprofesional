@@ -3,8 +3,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { GlobalHttpExceptionFilter } from './common/http/http-exception.filter';
+import { HttpMetricsMiddleware } from './common/http/http-metrics.middleware';
 import { RequestIdMiddleware } from './common/http/request-id.middleware';
 import { RequestLoggingInterceptor } from './common/http/request-logging.interceptor';
+import { ObservabilityModule } from './common/observability/observability.module';
 import { appConfig, authConfig, databaseConfig, exportConfig } from './config/app.config';
 import { environmentSchema } from './config/environment.validation';
 import { AuthorizationModule } from './modules/authorization/authorization.module';
@@ -35,6 +37,7 @@ import { ExportsModule } from './modules/exports/exports.module';
         },
       ],
     }),
+    ObservabilityModule,
     HealthModule,
     AuthorizationModule,
     TerritorialModule,
@@ -48,10 +51,11 @@ import { ExportsModule } from './modules/exports/exports.module';
     { provide: APP_GUARD, useExisting: AuthorizationGuard },
     { provide: APP_FILTER, useClass: GlobalHttpExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: RequestLoggingInterceptor },
+    HttpMetricsMiddleware,
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestIdMiddleware).forRoutes('{*path}');
+    consumer.apply(RequestIdMiddleware, HttpMetricsMiddleware).forRoutes('{*path}');
   }
 }

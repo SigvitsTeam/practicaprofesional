@@ -1,7 +1,71 @@
-<section class="map-kpis"><div><i class="green-dot"></i><span>Alcance visible</span><strong>{{ scopeLabel }}</strong></div><div><i class="blue-dot"></i><span>Métrica activa</span><strong>{{ metricLabel }}</strong></div><div><i class="amber-dot"></i><span>Valor del período</span><strong>{{ totalMetric }}</strong></div><div><i class="red-dot"></i><span>{{ entityLabel }} visibles</span><strong>{{ reports.length }}</strong></div></section>
-@if (loading()) {<section class="map-message">Cargando indicadores agregados…</section>}
-@if (loadError()) {<section class="map-message error">{{ loadError() }}</section>}
-<section class="map-layout">
-  <aside class="panel map-filters"><div class="section-heading"><div><h2>Capas y filtros</h2><p>El KPI de cada marcador responde a la selección.</p></div></div><h3>CAPAS VISIBLES</h3>@for (layer of ['Límite territorial','Establecimientos de salud','Etiquetas KPI']; track layer) {<label class="layer"><input type="checkbox" checked><span>{{ layer }}</span><i></i></label>}<h3>MÉTRICA DEL MARCADOR</h3><label class="filter-field"><span>Mostrar en cada establecimiento</span><select [value]="metric" (change)="setMetric($event)"><option value="total">Casos totales</option><option value="newCases">Casos nuevos</option><option value="controls">Controles</option><option value="alerts">Alertas</option></select></label><h3>FILTRAR DATOS</h3><label class="filter-field"><span>Sexo</span><select><option>Todos</option><option>Hombre</option><option>Mujer</option></select></label><label class="filter-field"><span>Tipo de caso</span><select><option>Todos</option><option>Nuevo</option><option>Control</option></select></label><label class="filter-field"><span>Enfermedad</span><select><option>Todas</option><option>Úlcera genital</option><option>Sífilis</option></select></label><button class="btn secondary full" (click)="resetFilters()">Restablecer filtros</button></aside>
-  <app-interactive-map [reports]="reports" [level]="mapLevel" [metric]="metric" [entityLabel]="entityLabel" [allowNational]="allowNational" [allowRegional]="allowRegional" [allowMunicipal]="allowMunicipal" (levelChange)="setLevel($event)" (reportSelected)="reportSelected.emit($event)" />
+<section class="map-kpis" aria-label="Resumen territorial">
+  <div>
+    <i class="green-dot"></i><span>Alcance visible</span><strong>{{ scopeLabel }}</strong>
+  </div>
+  <div>
+    <i class="blue-dot"></i><span>Métrica activa</span><strong>{{ metricLabel }}</strong>
+  </div>
+  <div>
+    <i class="amber-dot"></i><span>Valor del período</span
+    ><strong>{{ metricDisplay(totalMetric) }}</strong>
+  </div>
+  <div>
+    <i class="red-dot"></i><span>{{ entityLabel }} visibles</span
+    ><strong>{{ reports.length }}</strong>
+  </div>
+</section>
+
+<div aria-live="polite">
+  @if (loading()) {
+    <section class="map-message" role="status">Cargando indicadores agregados…</section>
+  }
+  @if (loadError()) {
+    <section class="map-message error" role="alert">
+      {{ loadError() }}
+      <button class="btn secondary" type="button" (click)="retryLoad()">Reintentar</button>
+    </section>
+  }
+</div>
+
+<section class="map-layout" [attr.aria-busy]="loading()">
+  <aside class="panel map-filters">
+    <div class="section-heading">
+      <div>
+        <h2>Visualización</h2>
+        <p>Indicadores agregados del período vigente.</p>
+      </div>
+    </div>
+    <h3>MÉTRICA DEL MARCADOR</h3>
+    <label class="filter-field">
+      <span>Mostrar en cada ubicación</span>
+      <select [value]="metric" (change)="setMetric($event)">
+        <option value="total">Casos totales</option>
+        <option value="newCases">Casos nuevos</option>
+        <option value="controls">Controles</option>
+        <option value="alerts">Observaciones abiertas</option>
+      </select>
+    </label>
+    <div class="map-privacy-note">
+      <strong>Privacidad territorial</strong>
+      <p>
+        El mapa muestra únicamente reportes agregados y ubicaciones institucionales. No representa
+        domicilios ni registros individuales.
+      </p>
+    </div>
+    <button class="btn secondary full" type="button" (click)="resetFilters()">
+      Restablecer métrica
+    </button>
+  </aside>
+
+  <app-interactive-map
+    [reports]="reports"
+    [level]="mapLevel"
+    [metric]="metric"
+    [entityLabel]="entityLabel"
+    [allowNational]="allowNational"
+    [allowRegional]="allowRegional"
+    [allowMunicipal]="allowMunicipal"
+    (levelChange)="setLevel($event)"
+    (reportSelected)="reportSelected.emit($event)"
+  />
 </section>

@@ -6,9 +6,11 @@ import { ROLE_PROFILES } from './role-data';
 export class RoleContext {
   readonly roles = ROLE_PROFILES;
   readonly activeRoleId = signal<RoleId>('municipal-coordinator');
-  readonly activeRole = computed(() => this.roles.find(role => role.id === this.activeRoleId()) ?? this.roles[0]);
+  readonly activeRole = computed(
+    () => this.roles.find((role) => role.id === this.activeRoleId()) ?? this.roles[0],
+  );
 
   select(roleId: RoleId) {
-    if (this.roles.some(role => role.id === roleId)) this.activeRoleId.set(roleId);
+    if (this.roles.some((role) => role.id === roleId)) this.activeRoleId.set(roleId);
   }
 }

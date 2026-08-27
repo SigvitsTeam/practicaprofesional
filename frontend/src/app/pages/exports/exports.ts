@@ -4,6 +4,8 @@ import { RoleContext } from '../../core/role-context';
 import { AuthService } from '../../core/auth.service';
 import { ExportJobsApiService, type ExportJobRecord } from '../../core/export-jobs-api.service';
 import { ItsCaptureApiService } from '../../core/its-capture-api.service';
+import { hondurasDateParts } from '../../core/honduras-date';
+import { OperationalPeriodService } from '../../core/operational-period';
 
 type ComparisonDimension = 'periods' | 'territories' | 'indicators';
 interface AnnualEvaluationConfig {
@@ -56,6 +58,7 @@ export class Exports implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly jobsApi = inject(ExportJobsApiService);
   private readonly itsCaptureApi = inject(ItsCaptureApiService);
+  private readonly operationalPeriod = inject(OperationalPeriodService);
   private its1FacilityId = '';
   protected liveJobs: ExportJobRecord[] = [];
   protected loading = false;
@@ -328,15 +331,15 @@ export class Exports implements OnInit {
       this.notify.emit('No hay un establecimiento individual autorizado disponible.');
       return;
     }
-    const now = new Date();
+    const { year, month } = this.activePeriod;
     this.loading = true;
     this.jobsApi
       .createIts1({
         idempotencyKey: crypto.randomUUID(),
         format: 'XLSX',
         facilityId: this.its1FacilityId,
-        year: now.getFullYear(),
-        month: now.getMonth() + 1,
+        year,
+        month,
       })
       .subscribe({
         next: (job) => {
@@ -377,7 +380,7 @@ export class Exports implements OnInit {
       return;
     }
     this.loading = true;
-    const now = new Date();
+    const { year, month } = this.activePeriod;
     this.jobsApi
       .create({
         idempotencyKey: crypto.randomUUID(),
@@ -385,8 +388,8 @@ export class Exports implements OnInit {
         format: 'XLSX',
         scopeLevel: scope.level,
         ...(scope.territoryId ? { territoryId: scope.territoryId } : {}),
-        year: now.getFullYear(),
-        month: now.getMonth() + 1,
+        year,
+        month,
       })
       .subscribe({
         next: (job) => {
@@ -411,7 +414,7 @@ export class Exports implements OnInit {
   protected generateScopedExport() {
     const option = this.scopedOption;
     if (!option?.reportType || !option.scopeLevel || !this.selectedScopedTargetId) return;
-    const now = new Date();
+    const { year, month } = this.activePeriod;
     this.loading = true;
     this.jobsApi
       .create({
@@ -420,8 +423,8 @@ export class Exports implements OnInit {
         format: this.scopedFormat,
         scopeLevel: option.scopeLevel,
         territoryId: this.selectedScopedTargetId,
-        year: now.getFullYear(),
-        month: now.getMonth() + 1,
+        year,
+        month,
       })
       .subscribe({
         next: (job) => {
@@ -441,28 +444,26 @@ export class Exports implements OnInit {
 
   private openScopedExport(option: ExportOption) {
     if (!option.targetLevel) return;
-    const now = new Date();
+    const { year, month } = this.activePeriod;
     this.loading = true;
-    this.itsCaptureApi
-      .getTerritorialAnalytics(option.targetLevel, now.getFullYear(), now.getMonth() + 1)
-      .subscribe({
-        next: (result) => {
-          this.loading = false;
-          this.scopedTargets = result.rows.map(({ id, code, name }) => ({ id, code, name }));
-          this.selectedScopedTargetId = this.scopedTargets[0]?.id ?? '';
-          if (!this.selectedScopedTargetId) {
-            this.notify.emit('No hay territorios autorizados disponibles para esta exportación.');
-            return;
-          }
-          this.scopedOption = option;
-          this.scopedFormat = 'XLSX';
-          this.showScopedExport = true;
-        },
-        error: () => {
-          this.loading = false;
-          this.notify.emit('No fue posible cargar los territorios autorizados.');
-        },
-      });
+    this.itsCaptureApi.getTerritorialAnalytics(option.targetLevel, year, month).subscribe({
+      next: (result) => {
+        this.loading = false;
+        this.scopedTargets = result.rows.map(({ id, code, name }) => ({ id, code, name }));
+        this.selectedScopedTargetId = this.scopedTargets[0]?.id ?? '';
+        if (!this.selectedScopedTargetId) {
+          this.notify.emit('No hay territorios autorizados disponibles para esta exportación.');
+          return;
+        }
+        this.scopedOption = option;
+        this.scopedFormat = 'XLSX';
+        this.showScopedExport = true;
+      },
+      error: () => {
+        this.loading = false;
+        this.notify.emit('No fue posible cargar los territorios autorizados.');
+      },
+    });
   }
 
   private currentScope(): { level: string; territoryId?: string } | null {
@@ -472,6 +473,10 @@ export class Exports implements OnInit {
       return { level: 'REGION' };
     if (role === 'municipal-coordinator') return { level: 'MUNICIPIO' };
     return { level: 'ESTABLECIMIENTO' };
+  }
+
+  private get activePeriod() {
+    return this.operationalPeriod.selected() ?? hondurasDateParts();
   }
 
   protected get territoryOptions() {
@@ -635,13 +640,14 @@ export class Exports implements OnInit {
   }
 
   private emptyAnnualForm(): AnnualEvaluationConfig {
+    const currentYear = this.operationalPeriod.selected()?.year ?? hondurasDateParts().year;
     return {
       reportType: 'Comparativo anual',
       dimension: 'periods' as ComparisonDimension,
-      rangeAStart: '2025-01',
-      rangeAEnd: '2025-12',
-      rangeBStart: '2026-01',
-      rangeBEnd: '2026-12',
+      rangeAStart: `${currentYear - 1}-01`,
+      rangeAEnd: `${currentYear - 1}-12`,
+      rangeBStart: `${currentYear}-01`,
+      rangeBEnd: `${currentYear}-12`,
       territoryA: '',
       territoryB: '',
       indicatorA: this.indicators[0],

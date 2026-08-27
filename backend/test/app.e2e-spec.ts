@@ -23,8 +23,23 @@ describe('Application (e2e)', () => {
   it('reports service health without exposing implementation details', async () => {
     const response = await request(app.getHttpServer()).get('/api/health').expect(200);
 
-    expect(response.body).toEqual({ status: 'ok', timestamp: expect.any(String) });
+    expect(response.body).toEqual({
+      status: 'ok',
+      service: 'sigvits-api',
+      uptimeSeconds: expect.any(Number),
+      timestamp: expect.any(String),
+    });
     expect(response.headers['x-request-id']).toEqual(expect.any(String));
+  });
+
+  it('exposes low-cardinality Prometheus metrics for probes and rejected requests', async () => {
+    await request(app.getHttpServer()).get('/api/v1/regions').expect(401);
+    const response = await request(app.getHttpServer()).get('/api/metrics').expect(200);
+
+    expect(response.headers['content-type']).toContain('text/plain');
+    expect(response.text).toContain('sigvits_http_requests_total');
+    expect(response.text).toContain('status_code="401"');
+    expect(response.text).not.toContain('authorization');
   });
 
   it('returns a uniform problem response for unknown routes', async () => {
@@ -66,6 +81,10 @@ describe('Application (e2e)', () => {
 
   it('protects the territorial catalog before exposing configuration', async () => {
     await request(app.getHttpServer()).get('/api/v1/territories/catalog').expect(401);
+  });
+
+  it('protects the reporting period catalog', async () => {
+    await request(app.getHttpServer()).get('/api/v1/reporting-periods/monthly').expect(401);
   });
 
   it('protects territorial audit history before validating its query', async () => {

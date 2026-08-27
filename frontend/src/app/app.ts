@@ -20,6 +20,7 @@ import { Login } from './pages/login/login';
 import { ReportDrawer } from './shared/report-drawer/report-drawer';
 import { CurrentProfileApiService } from './core/current-profile-api.service';
 import { mapInstitutionalRoleCodes } from './core/institutional-role';
+import { OperationalPeriodService } from './core/operational-period';
 
 @Component({
   selector: 'app-root',
@@ -48,10 +49,12 @@ export class App {
     openCreate(kind: 'region' | 'municipality' | 'establishment'): void;
   };
   @ViewChild('reviewInbox') private reviewInbox?: { reload(): void };
+  @ViewChild('maps') private maps?: { reload(): void };
   protected readonly roleContext = inject(RoleContext);
   protected readonly auth = inject(AuthService);
   private readonly currentProfileApi = inject(CurrentProfileApiService);
   private readonly establishmentContext = inject(EstablishmentContext);
+  private readonly operationalPeriod = inject(OperationalPeriodService);
   active = 'Inicio';
   selectedReport: Report | null = null;
   notice = '';
@@ -84,6 +87,7 @@ export class App {
         return;
       }
       if (this.auth.isDemo()) {
+        this.operationalPeriod.useDemoCatalog();
         this.allowedRoleIds = this.roleContext.roles.map((role) => role.id);
         this.loadedProfileUserId = user.id;
         this.profileReady.set(true);
@@ -107,9 +111,21 @@ export class App {
           return;
         }
         this.roleContext.select(initialRole);
-        this.loadedProfileUserId = userId;
-        this.profileLoading = false;
-        this.profileReady.set(true);
+        this.operationalPeriod.load().subscribe({
+          next: () => {
+            if (this.auth.user()?.id !== userId) return;
+            this.loadedProfileUserId = userId;
+            this.profileLoading = false;
+            this.profileReady.set(true);
+          },
+          error: () => {
+            if (this.auth.user()?.id !== userId) return;
+            this.profileLoading = false;
+            this.profileError.set(
+              'No fue posible cargar los períodos institucionales. Verifique la configuración de base de datos.',
+            );
+          },
+        });
       },
       error: () => {
         this.profileLoading = false;
@@ -417,6 +433,7 @@ export class App {
   handleDrawerAction(message: string) {
     this.selectedReport = null;
     this.reviewInbox?.reload();
+    this.maps?.reload();
     this.showNotice(message);
   }
 }

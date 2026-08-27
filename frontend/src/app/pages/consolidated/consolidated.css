@@ -1,13 +1,67 @@
-:host { display: block; }
-.national-actions input { width: min(520px,100%); min-height: 38px; margin-top: 10px; }.national-actions .danger { color: var(--red); border-color: #d8a0a5; }
-.live-actions { margin-top: 14px; padding: 16px 18px; display: flex; align-items: center; gap: 18px; }.live-actions>div:first-child { flex: 1; }.live-actions h2 { margin: 4px 0; font-size: 1rem; }.live-actions p { margin: 0; color: var(--muted); font-size: .73rem; }.live-actions>div:last-child { display: flex; gap: 8px; }
-.section-heading h2 { font-size: 1rem; }
-.section-heading p { font-size: 0.72rem; }
-.completion-stats span { font-size: 0.76rem; }
-.completion-stats strong { font-size: 1.05rem; }
-.blocking strong { font-size: 0.78rem; }
-.blocking small { font-size: 0.7rem; }
-.summary-card > span,.mini-row span { font-size: 0.75rem; }
-.summary-card > small,.mini-row strong { font-size: 0.7rem; }
-.timeline-horizontal strong { font-size: 0.72rem; }
-.timeline-horizontal span { font-size: 0.65rem; }
+:host {
+  display: block;
+}
+.national-actions input {
+  width: min(520px, 100%);
+  min-height: 38px;
+  margin-top: 10px;
+}
+.national-actions .danger {
+  color: var(--red);
+  border-color: #d8a0a5;
+}
+.live-actions {
+  margin-top: 14px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.live-actions > div:first-child {
+  flex: 1;
+}
+.live-actions h2 {
+  margin: 4px 0;
+  font-size: 1rem;
+}
+.live-actions p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.73rem;
+}
+.live-actions > div:last-child {
+  display: flex;
+  gap: 8px;
+}
+.section-heading h2 {
+  font-size: 1rem;
+}
+.section-heading p {
+  font-size: 0.72rem;
+}
+.completion-stats span {
+  font-size: 0.76rem;
+}
+.completion-stats strong {
+  font-size: 1.05rem;
+}
+.blocking strong {
+  font-size: 0.78rem;
+}
+.blocking small {
+  font-size: 0.7rem;
+}
+.summary-card > span,
+.mini-row span {
+  font-size: 0.75rem;
+}
+.summary-card > small,
+.mini-row strong {
+  font-size: 0.7rem;
+}
+.timeline-horizontal strong {
+  font-size: 0.72rem;
+}
+.timeline-horizontal span {
+  font-size: 0.65rem;
+}

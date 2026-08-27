@@ -1,13 +1,135 @@
-<div class="drawer-backdrop" (click)="close.emit()"><aside class="drawer" (click)="$event.stopPropagation()">
-  <div class="drawer-head"><div><span class="eyebrow">{{ entityLabel }} · AGOSTO 2026</span><h2>{{ report().name }}</h2><p>{{ report().code }} · Versión {{ report().version || 1 }} · Datos agregados</p></div><button (click)="close.emit()">×</button></div>
-  <span class="status" [ngClass]="statusClass(report().status)">{{ report().status }}</span>
-  <div class="drawer-metrics"><div><span>Total ITS</span><strong>{{ report().total }}</strong></div><div><span>Casos nuevos</span><strong>{{ report().newCases }}</strong></div><div><span>Controles</span><strong>{{ report().controls }}</strong></div><div><span>Alertas</span><strong>{{ report().alerts }}</strong></div></div>
-  <section class="drawer-section"><h3>Validaciones de calidad</h3><div class="validation ok"><i>✓</i><span><strong>Totales por sexo conciliados</strong><small>Correcto</small></span></div><div class="validation warning"><i>!</i><span><strong>Procedencias no reconocidas</strong><small>{{ report().alerts }} alertas</small></span></div><div class="validation ok"><i>✓</i><span><strong>Denominador de atenciones</strong><small>Completo</small></span></div></section>
-  <section class="drawer-section"><h3>Historial</h3><div class="history"><i></i><span><strong>Información enviada al siguiente nivel</strong><small>{{ report().sent }} · {{ senderLabel }}</small></span></div><div class="history"><i></i><span><strong>Consolidado recalculado</strong><small>22 jul, 15:20 · Sistema</small></span></div></section>
-  @if (canReview) {
-    <label class="observations"><span>Observación de revisión</span><textarea [(ngModel)]="observation" placeholder="Escriba una indicación para el nivel remitente…"></textarea></label>
-    <div class="drawer-actions"><button class="btn secondary" [disabled]="loading" (click)="returnReport()">Devolver</button><button class="btn primary" [disabled]="loading" (click)="approveReport()">Aprobar reporte</button></div>
-  } @else {
-    <div class="drawer-actions"><button class="btn secondary" (click)="close.emit()">Cerrar consulta</button><button class="btn primary" (click)="action.emit('Resumen agregado preparado para exportación.')">Exportar resumen</button></div>
-  }
-</aside></div>
+<div class="drawer-backdrop">
+  <aside
+    class="drawer"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="report-drawer-title"
+    [attr.aria-busy]="loading"
+  >
+    <div class="drawer-head">
+      <div>
+        <span class="eyebrow">{{ entityLabel }} · {{ periodLabel }}</span>
+        <h2 id="report-drawer-title">{{ report().name }}</h2>
+        <p>{{ report().code }} · Versión {{ report().version ?? '—' }} · Datos agregados</p>
+      </div>
+      <button
+        #closeButton
+        type="button"
+        aria-label="Cerrar detalle"
+        [disabled]="loading"
+        (click)="dismiss.emit()"
+      >
+        ×
+      </button>
+    </div>
+
+    <span class="status" [ngClass]="statusClass(report().status)">{{ report().status }}</span>
+
+    <div class="drawer-metrics" aria-label="Resumen del reporte">
+      <div>
+        <span>Total ITS</span><strong>{{ report().total }}</strong>
+      </div>
+      <div>
+        <span>Casos nuevos</span
+        ><strong>{{ report().caseBreakdownAvailable ? report().newCases : '—' }}</strong>
+      </div>
+      <div>
+        <span>Controles</span
+        ><strong>{{ report().caseBreakdownAvailable ? report().controls : '—' }}</strong>
+      </div>
+      <div>
+        <span>Observaciones</span><strong>{{ report().alerts }}</strong>
+      </div>
+    </div>
+
+    <section class="drawer-section">
+      <h3>Validaciones registradas</h3>
+      @for (check of qualityChecks; track check.label) {
+        <div class="validation" [class.ok]="!check.warning" [class.warning]="check.warning">
+          <i aria-hidden="true">{{ check.warning ? '!' : '✓' }}</i>
+          <span
+            ><strong>{{ check.label }}</strong
+            ><small>{{ check.detail }}</small></span
+          >
+        </div>
+      }
+    </section>
+
+    @if (report().currentComment || report().openObservations?.length) {
+      <section class="drawer-section">
+        <h3>Observaciones del flujo</h3>
+        @if (report().currentComment) {
+          <p class="current-comment">{{ report().currentComment }}</p>
+        }
+        @for (observation of report().openObservations ?? []; track observation.id) {
+          <div class="history">
+            <i aria-hidden="true"></i>
+            <span>
+              <strong>{{ observation.comment }}</strong>
+              <small>{{ formatDate(observation.createdAt) }}</small>
+            </span>
+          </div>
+        }
+      </section>
+    }
+
+    <section class="drawer-section">
+      <h3>Historial disponible</h3>
+      @for (item of history; track item.label) {
+        <div class="history">
+          <i aria-hidden="true"></i>
+          <span
+            ><strong>{{ item.label }}</strong
+            ><small>{{ item.date }} · {{ item.actor }}</small></span
+          >
+        </div>
+      } @empty {
+        <p class="drawer-empty">No hay eventos de flujo disponibles para este registro.</p>
+      }
+    </section>
+
+    @if (canAct) {
+      <label class="observations">
+        <span>Observación de revisión</span>
+        <textarea
+          [(ngModel)]="observation"
+          maxlength="1000"
+          [disabled]="loading"
+          placeholder="Escriba una indicación para el nivel remitente…"
+        ></textarea>
+      </label>
+      <div class="drawer-actions">
+        <button
+          class="btn secondary"
+          type="button"
+          [disabled]="loading || !observation.trim()"
+          (click)="returnReport()"
+        >
+          Devolver
+        </button>
+        <button class="btn primary" type="button" [disabled]="loading" (click)="approveReport()">
+          {{ loading ? 'Procesando…' : 'Aprobar reporte' }}
+        </button>
+      </div>
+      @if (errorMessage) {
+        <p class="drawer-error" role="alert">{{ errorMessage }}</p>
+      }
+    } @else {
+      <div class="drawer-actions">
+        <button class="btn secondary" type="button" (click)="dismiss.emit()">
+          Cerrar consulta
+        </button>
+        <button
+          class="btn primary"
+          type="button"
+          (click)="navigate.emit('Reportes y exportaciones')"
+        >
+          Ir a exportaciones
+        </button>
+      </div>
+    }
+    <span class="visually-hidden" aria-live="polite">{{
+      loading ? 'Procesando el reporte' : ''
+    }}</span>
+  </aside>
+</div>

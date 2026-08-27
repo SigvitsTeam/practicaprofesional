@@ -8,4 +8,10 @@ export const environment = {
     demoEmail: 'demo@sigvits.hn',
     demoPassword: 'SIGVITS2026!',
   },
+  maps: {
+    tileUrl: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '© OpenStreetMap contributors',
+    maxZoom: 18,
+    smallCountThreshold: 0,
+  },
 };

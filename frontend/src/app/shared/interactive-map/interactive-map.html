@@ -1,59 +1,50 @@
-<article class="panel map-canvas">
-  <div class="water"><span>Mar Caribe</span></div>
-  <div class="land" [class.regional]="level() !== 'municipal'"></div>
-  <div class="road a"></div>
-  <div class="road b"></div>
-  <div class="map-toolbar">
-    <div class="map-crumb">
-      @if (level() === 'national') {
-        <small>Honduras · información agregada por región</small>
-        @if (allowRegional()) {
-          <button (click)="levelChange.emit('regional')">Ver Cortés →</button>
-        }
+<article class="panel map-canvas" aria-label="Mapa geográfico de indicadores ITS">
+  <div class="map-navigation">
+    @if (level() === 'national') {
+      <span>Honduras · información agregada por región</span>
+      @if (allowRegional()) {
+        <button type="button" (click)="levelChange.emit('regional')">Ver nivel regional →</button>
       }
-      @if (level() === 'regional') {
-        @if (allowNational()) {
-          <button (click)="levelChange.emit('national')">← Honduras</button>
-        }
-        <small>Región Sanitaria de Cortés · datos por municipio</small>
-        @if (allowMunicipal()) {
-          <button (click)="levelChange.emit('municipal')">Ver Puerto Cortés →</button>
-        }
+    }
+    @if (level() === 'regional') {
+      @if (allowNational()) {
+        <button type="button" (click)="levelChange.emit('national')">← Honduras</button>
       }
-      @if (level() === 'municipal') {
-        @if (allowRegional()) {
-          <button (click)="levelChange.emit('regional')">← Región de Cortés</button>
-        }
-        <small>Puerto Cortés · datos por establecimiento</small>
+      <span>Región autorizada · datos por municipio</span>
+      @if (allowMunicipal()) {
+        <button type="button" (click)="levelChange.emit('municipal')">
+          Ver establecimientos →
+        </button>
       }
-    </div>
-    <div><button aria-label="Acercar">＋</button><button aria-label="Alejar">−</button></div>
-  </div>
-  @for (report of reports(); track report.code) {
-    <button
-      class="marker"
-      [class.municipality]="level() !== 'municipal'"
-      [class.coordinate-reference]="level() === 'municipal' && !report.coordinatesValidated"
-      [style.left.%]="markerLeft(report, $index)"
-      [style.top.%]="markerTop(report, $index)"
-      [attr.title]="coordinateLabel(report)"
-      (click)="reportSelected.emit(report)"
-    >
-      <span>{{ metricValue(report) }}</span
-      ><small
-        >{{ report.name }}<b>{{ metricLabel() }} · Ver detalle</b></small
-      >
-    </button>
-  }
-  <div class="map-legend">
-    <span><i class="low"></i>Bajo</span><span><i class="mid"></i>Medio</span
-    ><span><i class="high"></i>Alto · {{ metricLabel() }}</span>
+    }
     @if (level() === 'municipal') {
-      <span><i class="reference"></i>Referencia comunitaria</span>
+      @if (allowRegional()) {
+        <button type="button" (click)="levelChange.emit('regional')">← Nivel regional</button>
+      }
+      <span>Municipio autorizado · datos agregados por establecimiento</span>
+    }
+  </div>
+
+  <div #mapHost class="leaflet-host" [attr.aria-busy]="mapLoading()"></div>
+
+  @if (mapLoading()) {
+    <div class="map-state" role="status">Cargando cartografía…</div>
+  }
+  @if (mapError()) {
+    <div class="map-state error" role="alert">
+      <span>{{ mapError() }}</span>
+      <button type="button" (click)="retryMap()">Reintentar mapa base</button>
+    </div>
+  }
+  <div class="map-location-status">
+    <span>{{ locatedReports.length }} con ubicación</span>
+    @if (missingCoordinateCount) {
+      <span>{{ missingCoordinateCount }} sin coordenadas disponibles</span>
     }
   </div>
 </article>
-<aside class="panel ranking">
+
+<aside class="panel ranking" aria-label="Ranking agregado">
   <div class="section-heading">
     <div>
       <h2>{{ entityLabel() }}</h2>
@@ -61,12 +52,20 @@
     </div>
   </div>
   @for (report of reports(); track report.code) {
-    <button (click)="reportSelected.emit(report)">
-      <i>{{ $index + 1 }}</i
-      ><span
-        ><strong>{{ report.name }}</strong
-        ><small>{{ report.code }} · {{ metricLabel() }}</small></span
-      ><b>{{ metricValue(report) }}</b>
+    <button type="button" (click)="reportSelected.emit(report)">
+      <i aria-hidden="true">{{ $index + 1 }}</i>
+      <span>
+        <strong>{{ report.name }}</strong>
+        <small>
+          {{ report.code }} · {{ metricLabel() }}
+          @if (report.latitude === undefined || report.longitude === undefined) {
+            · Sin ubicación
+          }
+        </small>
+      </span>
+      <b>{{ metricDisplay(report) }}</b>
     </button>
+  } @empty {
+    <p class="ranking-empty">No hay indicadores disponibles para este nivel y período.</p>
   }
 </aside>

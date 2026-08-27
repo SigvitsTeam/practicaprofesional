@@ -16,8 +16,26 @@ describe('RoleDashboard', () => {
         year: 2026,
         month: 8,
         rows: [
-          { id: 'region-1', code: '05', name: 'Cortés', status: 'APROBADO_CENTRAL', attentions: 40, newCases: 30, controls: 10, alerts: 2 },
-          { id: 'region-2', code: '01', name: 'Atlántida', status: 'SIN_REPORTE', attentions: 0, newCases: 0, controls: 0, alerts: 0 },
+          {
+            id: 'region-1',
+            code: '05',
+            name: 'Cortés',
+            status: 'APROBADO_CENTRAL',
+            attentions: 40,
+            newCases: 30,
+            controls: 10,
+            alerts: 2,
+          },
+          {
+            id: 'region-2',
+            code: '01',
+            name: 'Atlántida',
+            status: 'SIN_REPORTE',
+            attentions: 0,
+            newCases: 0,
+            controls: 0,
+            alerts: 0,
+          },
         ],
       }),
     );
@@ -32,13 +50,20 @@ describe('RoleDashboard', () => {
 
   it('calcula métricas y prioridades desde la analítica autorizada', async () => {
     const fixture = TestBed.createComponent(RoleDashboard);
-    fixture.componentRef.setInput('role', ROLE_PROFILES.find(role => role.id === 'superadmin')!);
+    fixture.componentRef.setInput(
+      'role',
+      ROLE_PROFILES.find((role) => role.id === 'superadmin')!,
+    );
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
     const element = fixture.nativeElement as HTMLElement;
 
-    expect(getTerritorialAnalytics).toHaveBeenCalledWith('REGION', expect.any(Number), expect.any(Number));
+    expect(getTerritorialAnalytics).toHaveBeenCalledWith(
+      'REGION',
+      expect.any(Number),
+      expect.any(Number),
+    );
     expect(element.textContent).toContain('Territorios visibles');
     expect(element.textContent).toContain('Atenciones reportadas');
     expect(element.textContent).toContain('40');

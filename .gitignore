@@ -11,3 +11,10 @@
 **/.env.*
 !**/.env.example
 /frontend/public/config/runtime-config.json
+/deploy/config/*.env
+!/deploy/config/*.env.example
+/deploy/secrets/
+/evidence/
+/backups/
+*.dump
+*.dump.sha256

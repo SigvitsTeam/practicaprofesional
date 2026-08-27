@@ -1,5 +1,17 @@
 <section class="establishment-selector" aria-label="Contexto de digitación">
   <div class="selector-icon">＋</div>
-  <div class="selector-copy"><strong>Establecimiento activo</strong><span>La captura y el ITS 2 se registrarán para este establecimiento.</span></div>
-  <label><span>Seleccione uno de los 12 establecimientos</span><select (change)="changeEstablishment($event)">@for (item of context.establishments; track item.code) {<option [value]="item.code" [selected]="item.code === context.selectedCode()">{{ item.name }} · {{ item.code }}</option>}</select></label>
+  <div class="selector-copy">
+    <strong>Establecimiento activo</strong
+    ><span>La captura y el ITS 2 se registrarán para este establecimiento.</span>
+  </div>
+  <label
+    ><span>Seleccione uno de los 12 establecimientos</span
+    ><select (change)="changeEstablishment($event)">
+      @for (item of context.establishments; track item.code) {
+        <option [value]="item.code" [selected]="item.code === context.selectedCode()">
+          {{ item.name }} · {{ item.code }}
+        </option>
+      }
+    </select></label
+  >
 </section>

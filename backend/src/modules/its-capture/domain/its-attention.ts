@@ -48,6 +48,7 @@ export interface CreatedAttention {
   id: string;
   possibleDuplicate: boolean;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface AttentionRecord {

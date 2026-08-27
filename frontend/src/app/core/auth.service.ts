@@ -1,7 +1,11 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { RuntimeConfigService } from './runtime-config.service';
 
-export interface AuthUser { id: string; email: string; name: string; }
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+}
 
 interface AuthSession {
   accessToken?: string;
@@ -19,7 +23,11 @@ interface SupabaseTokenResponse {
   user: { id: string; email?: string; user_metadata?: { full_name?: string; name?: string } };
 }
 
-export interface SignInCredentials { email: string; password: string; remember: boolean; }
+export interface SignInCredentials {
+  email: string;
+  password: string;
+  remember: boolean;
+}
 export class AuthenticationError extends Error {}
 
 const SESSION_KEY = 'sigvits-auth-session';
@@ -44,12 +52,13 @@ export class AuthService {
       const data = await this.requestToken('password', { email, password: credentials.password });
       session = this.toSession(data, credentials.remember, email);
     } else if (auth.demoEnabled) {
-      await new Promise(resolve => setTimeout(resolve, 250));
+      await new Promise((resolve) => setTimeout(resolve, 250));
       if (email !== auth.demoEmail || credentials.password !== auth.demoPassword) {
         throw new AuthenticationError('El correo o la contraseña no son correctos.');
       }
       session = {
-        provider: 'demo', remember: credentials.remember,
+        provider: 'demo',
+        remember: credentials.remember,
         user: { id: 'demo-municipal-coordinator', email, name: 'Dra. Ana Martínez' },
       };
     } else {
@@ -69,27 +78,38 @@ export class AuthService {
   async getValidAccessToken(): Promise<string | null> {
     const session = this.session();
     if (!session || session.provider === 'demo') return null;
-    if (session.accessToken && (session.expiresAt ?? 0) > Date.now() + REFRESH_MARGIN_MS) return session.accessToken;
-    if (!session.refreshToken) { this.signOut(); return null; }
-    this.refreshPromise ??= this.refreshAccessToken(session).finally(() => { this.refreshPromise = undefined; });
+    if (session.accessToken && (session.expiresAt ?? 0) > Date.now() + REFRESH_MARGIN_MS)
+      return session.accessToken;
+    if (!session.refreshToken) {
+      this.signOut();
+      return null;
+    }
+    this.refreshPromise ??= this.refreshAccessToken(session).finally(() => {
+      this.refreshPromise = undefined;
+    });
     return this.refreshPromise;
   }
 
   async requestPasswordReset(email: string): Promise<void> {
     const auth = this.runtimeConfig.auth;
     if (!auth.supabaseUrl || !auth.supabaseAnonKey) {
-      await new Promise(resolve => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 200));
       return;
     }
     const response = await fetch(`${auth.supabaseUrl}/auth/v1/recover`, {
-      method: 'POST', headers: this.authHeaders(), body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      method: 'POST',
+      headers: this.authHeaders(),
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
     });
-    if (!response.ok) throw new AuthenticationError('No fue posible iniciar la recuperación. Intenta nuevamente.');
+    if (!response.ok)
+      throw new AuthenticationError('No fue posible iniciar la recuperación. Intenta nuevamente.');
   }
 
   private async refreshAccessToken(previous: AuthSession): Promise<string | null> {
     try {
-      const data = await this.requestToken('refresh_token', { refresh_token: previous.refreshToken });
+      const data = await this.requestToken('refresh_token', {
+        refresh_token: previous.refreshToken,
+      });
       const refreshed = this.toSession(data, previous.remember, previous.user.email);
       this.persistSession(refreshed);
       this.session.set(refreshed);
@@ -100,19 +120,28 @@ export class AuthService {
     }
   }
 
-  private async requestToken(grantType: 'password' | 'refresh_token', body: Record<string, unknown>): Promise<SupabaseTokenResponse> {
+  private async requestToken(
+    grantType: 'password' | 'refresh_token',
+    body: Record<string, unknown>,
+  ): Promise<SupabaseTokenResponse> {
     const auth = this.runtimeConfig.auth;
     let response: Response;
     try {
       response = await fetch(`${auth.supabaseUrl}/auth/v1/token?grant_type=${grantType}`, {
-        method: 'POST', headers: this.authHeaders(), body: JSON.stringify(body),
+        method: 'POST',
+        headers: this.authHeaders(),
+        body: JSON.stringify(body),
       });
     } catch {
       throw new AuthenticationError('No pudimos conectar con el servicio de acceso.');
     }
     if (!response.ok) {
-      if (response.status === 400 || response.status === 401) throw new AuthenticationError('El correo o la contraseña no son correctos.');
-      if (response.status === 429) throw new AuthenticationError('Demasiados intentos. Espera un momento antes de volver a intentar.');
+      if (response.status === 400 || response.status === 401)
+        throw new AuthenticationError('El correo o la contraseña no son correctos.');
+      if (response.status === 429)
+        throw new AuthenticationError(
+          'Demasiados intentos. Espera un momento antes de volver a intentar.',
+        );
       throw new AuthenticationError('No fue posible iniciar sesión. Intenta nuevamente.');
     }
     return response.json() as Promise<SupabaseTokenResponse>;
@@ -122,12 +151,23 @@ export class AuthService {
     return { 'Content-Type': 'application/json', apikey: this.runtimeConfig.auth.supabaseAnonKey };
   }
 
-  private toSession(data: SupabaseTokenResponse, remember: boolean, fallbackEmail: string): AuthSession {
+  private toSession(
+    data: SupabaseTokenResponse,
+    remember: boolean,
+    fallbackEmail: string,
+  ): AuthSession {
     const email = data.user.email ?? fallbackEmail;
     return {
-      provider: 'supabase', remember, accessToken: data.access_token, refreshToken: data.refresh_token,
+      provider: 'supabase',
+      remember,
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
       expiresAt: Date.now() + data.expires_in * 1000,
-      user: { id: data.user.id, email, name: data.user.user_metadata?.full_name ?? data.user.user_metadata?.name ?? email },
+      user: {
+        id: data.user.id,
+        email,
+        name: data.user.user_metadata?.full_name ?? data.user.user_metadata?.name ?? email,
+      },
     };
   }
 
@@ -144,8 +184,14 @@ export class AuthService {
     if (!value) return null;
     try {
       const session = JSON.parse(value) as AuthSession;
-      if (!session.user?.email || !['demo', 'supabase'].includes(session.provider)) throw new Error('Invalid session');
-      return { ...session, remember: session.remember ?? localStorage.getItem(SESSION_KEY) !== null };
+      if (!session.user?.email || !['demo', 'supabase'].includes(session.provider))
+        throw new Error('Invalid session');
+      if (session.provider === 'demo' && !this.runtimeConfig.auth.demoEnabled)
+        throw new Error('Demo session is disabled');
+      return {
+        ...session,
+        remember: session.remember ?? localStorage.getItem(SESSION_KEY) !== null,
+      };
     } catch {
       localStorage.removeItem(SESSION_KEY);
       sessionStorage.removeItem(SESSION_KEY);

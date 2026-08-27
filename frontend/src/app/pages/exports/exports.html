@@ -125,13 +125,12 @@
 </p>
 
 @if (showScopedExport && scopedOption; as option) {
-  <div class="annual-backdrop" (click)="closeScopedExport()">
+  <div class="annual-backdrop">
     <section
       class="annual-dialog scoped-export-dialog"
       role="dialog"
       aria-modal="true"
       aria-label="Seleccionar territorio para exportación"
-      (click)="$event.stopPropagation()"
     >
       <header>
         <div>
@@ -174,13 +173,12 @@
 }
 
 @if (showAnnualEvaluation) {
-  <div class="annual-backdrop" (click)="closeAnnualEvaluation()">
+  <div class="annual-backdrop">
     <section
       class="annual-dialog"
       role="dialog"
       aria-modal="true"
       aria-label="Configurar evaluación anual"
-      (click)="$event.stopPropagation()"
     >
       <header>
         <div>

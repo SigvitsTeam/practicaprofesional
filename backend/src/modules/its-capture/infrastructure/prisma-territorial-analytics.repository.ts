@@ -7,6 +7,65 @@ import type {
   TerritorialAnalyticsScope,
 } from '../domain/territorial-analytics';
 
+interface TerritorialMapEntity {
+  id: string;
+  code: string;
+  name: string;
+}
+
+interface LocatedFacility {
+  latitude: unknown;
+  longitude: unknown;
+  coordinatesValidated: boolean;
+  municipality: { id: string; regionId: string };
+}
+
+export function deriveTerritorialCentroids<T extends TerritorialMapEntity>(
+  level: 'REGION' | 'MUNICIPIO',
+  entities: readonly T[],
+  facilities: readonly LocatedFacility[],
+): (T & { latitude?: number; longitude?: number; coordinatesValidated?: boolean })[] {
+  const totals = new Map<
+    string,
+    { latitude: number; longitude: number; count: number; allValidated: boolean }
+  >();
+  for (const facility of facilities) {
+    const latitude = Number(facility.latitude);
+    const longitude = Number(facility.longitude);
+    if (
+      !Number.isFinite(latitude) ||
+      !Number.isFinite(longitude) ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    )
+      continue;
+    const entityId = level === 'REGION' ? facility.municipality.regionId : facility.municipality.id;
+    const total = totals.get(entityId) ?? {
+      latitude: 0,
+      longitude: 0,
+      count: 0,
+      allValidated: true,
+    };
+    total.latitude += latitude;
+    total.longitude += longitude;
+    total.count += 1;
+    total.allValidated &&= facility.coordinatesValidated;
+    totals.set(entityId, total);
+  }
+  return entities.map((entity) => {
+    const total = totals.get(entity.id);
+    if (!total?.count) return { ...entity };
+    return {
+      ...entity,
+      latitude: total.latitude / total.count,
+      longitude: total.longitude / total.count,
+      coordinatesValidated: total.allValidated,
+    };
+  });
+}
+
 @Injectable()
 export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRepository {
   constructor(private readonly prisma: PrismaService) {
@@ -102,23 +161,28 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
       coordinatesValidated?: boolean;
     }[]
   > {
-    if (level === 'REGION')
-      return this.prisma.client.region.findMany({
+    if (level === 'REGION') {
+      const regions = await this.prisma.client.region.findMany({
         where: { active: true, ...(scope.national ? {} : { id: { in: [...scope.regionIds] } }) },
         select: { id: true, code: true, name: true },
         orderBy: { name: 'asc' },
       });
-    if (level === 'MUNICIPIO')
-      return this.prisma.client.municipality
-        .findMany({
-          where: {
-            active: true,
-            ...(scope.national ? {} : { id: { in: [...scope.municipalityIds] } }),
-          },
-          select: { id: true, officialCode: true, name: true },
-          orderBy: { name: 'asc' },
-        })
-        .then((rows) => rows.map(({ officialCode, ...row }) => ({ ...row, code: officialCode })));
+      return this.withDerivedCentroids(level, regions);
+    }
+    if (level === 'MUNICIPIO') {
+      const municipalities = await this.prisma.client.municipality.findMany({
+        where: {
+          active: true,
+          ...(scope.national ? {} : { id: { in: [...scope.municipalityIds] } }),
+        },
+        select: { id: true, officialCode: true, name: true },
+        orderBy: { name: 'asc' },
+      });
+      return this.withDerivedCentroids(
+        level,
+        municipalities.map(({ officialCode, ...row }) => ({ ...row, code: officialCode })),
+      );
+    }
     return this.prisma.client.healthFacility
       .findMany({
         where: {
@@ -142,6 +206,43 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
           longitude: longitude === null ? undefined : Number(longitude),
         })),
       );
+  }
+
+  /**
+   * Regions and municipalities do not store an arbitrary hard-coded point.
+   * Their map location is derived from the facilities currently registered in
+   * that territory, so the aggregate remains useful as the catalog evolves.
+   */
+  private async withDerivedCentroids<T extends { id: string; code: string; name: string }>(
+    level: 'REGION' | 'MUNICIPIO',
+    entities: T[],
+  ): Promise<
+    (T & {
+      latitude?: number;
+      longitude?: number;
+      coordinatesValidated?: boolean;
+    })[]
+  > {
+    if (!entities.length) return entities;
+    const ids = entities.map((entity) => entity.id);
+    const facilities = await this.prisma.client.healthFacility.findMany({
+      where: {
+        active: true,
+        latitude: { not: null },
+        longitude: { not: null },
+        municipality:
+          level === 'REGION'
+            ? { regionId: { in: ids }, active: true }
+            : { id: { in: ids }, active: true },
+      },
+      select: {
+        latitude: true,
+        longitude: true,
+        coordinatesValidated: true,
+        municipality: { select: { id: true, regionId: true } },
+      },
+    });
+    return deriveTerritorialCentroids(level, entities, facilities);
   }
 
   private reportLevel(

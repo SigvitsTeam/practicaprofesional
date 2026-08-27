@@ -1,0 +1,313 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24.15.0
+
+jobs:
+  repository-security:
+    name: Repository and secret policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          check-latest: false
+      - name: Scan tracked files and deployment policy
+        run: node tools/security/verify-repository.mjs
+
+  backend:
+    name: Backend quality gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+          check-latest: false
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Generate Prisma client
+        run: npm run db:generate
+      - name: Validate Prisma schema
+        run: npm run db:validate
+      - name: Check formatting
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests with coverage
+        run: npm run test:cov -- --ci
+      - name: HTTP E2E tests
+        run: npm run test:e2e
+      - name: Build API
+        run: npm run build
+      - name: Build export worker
+        run: npm run build:worker
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Generate backend SBOM
+        run: npm sbom --omit=dev --sbom-format=cyclonedx > ../backend-sbom.cdx.json
+      - name: Upload backend evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: backend-quality-evidence
+          path: |
+            backend/coverage
+            backend-sbom.cdx.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  frontend:
+    name: Frontend quality gate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+          check-latest: false
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check formatting
+        run: npx --no-install prettier --check "src/**/*.{ts,html,css}" "tools/**/*.mjs"
+      - name: Lint
+        run: npm run lint
+      - name: Unit tests with coverage
+        run: npm test -- --watch=false --coverage
+      - name: Production build and budgets
+        run: npm run build -- --configuration production
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+      - name: Generate frontend SBOM
+        run: npm sbom --omit=dev --sbom-format=cyclonedx > ../frontend-sbom.cdx.json
+      - name: Upload frontend evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: frontend-quality-evidence
+          path: |
+            frontend/coverage
+            frontend-sbom.cdx.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  integration:
+    name: PostgreSQL migration and readiness integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    needs: [backend, repository-security]
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5-alpine
+        env:
+          POSTGRES_DB: sigvits
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-owner-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d sigvits"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      NODE_ENV: test
+      PORT: 3100
+      API_PREFIX: api
+      DIRECT_URL: postgresql://postgres:ci-only-owner-password@127.0.0.1:5432/sigvits?schema=public
+      DATABASE_URL: postgresql://sigvits_runtime:ci-only-runtime-password@127.0.0.1:5432/sigvits?schema=public
+      AUTH_ISSUER: http://127.0.0.1:4010/auth/v1
+      AUTH_AUDIENCE: authenticated
+      AUTH_JWKS_URL: http://127.0.0.1:4010/.well-known/jwks.json
+      AUTH_ADMIN_SECRET: ci-only-admin-secret-at-least-twenty-characters
+      AUTH_INVITATION_REDIRECT_URL: http://127.0.0.1:4200
+      CORS_ORIGINS: http://127.0.0.1:4200
+      METRICS_BEARER_TOKEN: ci-only-metrics-token-at-least-32-characters
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+          check-latest: false
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Create database-facing roles
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        shell: bash
+        run: |
+          docker exec "$POSTGRES_CONTAINER" psql --no-psqlrc --set ON_ERROR_STOP=1 -U postgres -d sigvits <<'SQL'
+          CREATE ROLE anon NOLOGIN;
+          CREATE ROLE authenticated NOLOGIN;
+          SQL
+      - name: Apply migrations
+        run: npm run db:migrate:deploy
+      - name: Provision least-privilege runtime role
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        shell: bash
+        run: |
+          docker exec "$POSTGRES_CONTAINER" psql --no-psqlrc --set ON_ERROR_STOP=1 -U postgres -d sigvits <<'SQL'
+          CREATE ROLE sigvits_runtime
+            LOGIN PASSWORD 'ci-only-runtime-password'
+            NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION BYPASSRLS;
+          REVOKE ALL ON SCHEMA public FROM sigvits_runtime;
+          GRANT USAGE ON SCHEMA public TO sigvits_runtime;
+          GRANT CONNECT ON DATABASE sigvits TO sigvits_runtime;
+          GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO sigvits_runtime;
+          GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO sigvits_runtime;
+          SQL
+      - name: Load deterministic verification catalog
+        run: |
+          npm run db:seed:pilot
+          npm run db:import:diseases
+      - name: Build API
+        run: npm run build
+      - name: Verify readiness and deployed invariants
+        shell: bash
+        run: |
+          node -e "require('node:http').createServer((_,res)=>{res.writeHead(200,{'content-type':'application/json'});res.end(JSON.stringify({keys:[{kty:'RSA',kid:'ci'}]}));}).listen(4010,'127.0.0.1')" > jwks-integration.log 2>&1 &
+          jwks_pid=$!
+          npm run start:prod > api-integration.log 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" "$jwks_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3100/api/health/ready > readiness.json; then
+              break
+            fi
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              cat api-integration.log
+              exit 1
+            fi
+            sleep 2
+          done
+          curl --fail --silent --show-error http://127.0.0.1:3100/api/health/ready
+          npm run db:verify-deployment
+      - name: Upload integration evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: postgres-integration-evidence
+          path: |
+            backend/api-integration.log
+            backend/jwks-integration.log
+            backend/readiness.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  containers:
+    name: Container and Compose validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: [backend, frontend, integration, repository-security]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Create non-production validation secrets
+        shell: bash
+        run: |
+          install -d -m 700 deploy/secrets
+          printf '%s' 'ci-only-password' > deploy/secrets/postgres_password.txt
+          printf '%s' 'postgresql://sigvits_runtime:ci-only-runtime-password-at-least-24-characters@postgres:5432/sigvits?schema=public' > deploy/secrets/database_url.txt
+          printf '%s' 'postgresql://sigvits_owner:ci-only-password@postgres:5432/sigvits?schema=public' > deploy/secrets/direct_url.txt
+          printf '%s' 'ci-only-admin-secret-at-least-twenty-characters' > deploy/secrets/auth_admin_secret.txt
+          printf '%s' 'ci-only-metrics-token-at-least-32-characters' > deploy/secrets/metrics_bearer_token.txt
+          printf '%s' 'ci-only-runtime-password-at-least-24-characters' > deploy/secrets/runtime_db_password.txt
+      - name: Validate staging composition
+        run: docker compose --env-file deploy/config/staging.env.example -f deploy/compose.yaml -f deploy/compose.staging.yaml config --quiet
+      - name: Validate production composition
+        run: docker compose --env-file deploy/config/production.env.example -f deploy/compose.yaml -f deploy/compose.production.yaml config --quiet
+      - name: Build API image
+        run: docker build --pull --target api --file deploy/docker/backend.Dockerfile --tag sigvits-api:ci .
+      - name: Build migrator image
+        run: docker build --target migrator --file deploy/docker/backend.Dockerfile --tag sigvits-migrator:ci .
+      - name: Build worker image
+        run: docker build --target worker --file deploy/docker/backend.Dockerfile --tag sigvits-worker:ci .
+      - name: Build frontend image
+        run: docker build --pull --target runtime --file deploy/docker/frontend.Dockerfile --tag sigvits-frontend:ci .
+      - name: Inspect configured non-root users
+        shell: bash
+        run: |
+          test "$(docker image inspect sigvits-api:ci --format '{{.Config.User}}')" = node
+          test "$(docker image inspect sigvits-worker:ci --format '{{.Config.User}}')" = node
+          test "$(docker image inspect sigvits-frontend:ci --format '{{.Config.User}}')" = 101
+          docker run --rm --entrypoint node sigvits-worker:ci -e "require('node:fs').accessSync('/app/dist-worker/assets/forms/formato-its1-oficial.xlsx')"
+      - name: Record immutable image identifiers
+        shell: bash
+        run: |
+          install -d -m 755 evidence/container-security
+          for image in sigvits-api:ci sigvits-worker:ci sigvits-migrator:ci sigvits-frontend:ci; do
+            printf '%s %s\n' "$image" "$(docker image inspect "$image" --format '{{.Id}}')" >> evidence/container-security/image-ids.txt
+          done
+      - name: Scan runtime images for high and critical vulnerabilities
+        shell: bash
+        run: |
+          status=0
+          for image in sigvits-api:ci sigvits-worker:ci sigvits-frontend:ci; do
+            report="$(printf '%s' "$image" | tr ':/' '--').json"
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$PWD/evidence/container-security:/evidence" \
+              aquasec/trivy:0.58.2 image \
+              --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL \
+              --format json --output "/evidence/$report" --exit-code 1 "$image" || status=$?
+          done
+          exit "$status"
+      - name: Upload container security evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: container-security-evidence
+          path: evidence/container-security
+          if-no-files-found: error
+          retention-days: 30

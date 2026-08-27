@@ -1,24 +1,204 @@
-@if (canSelectEstablishment) {<app-establishment-selector />}
+@if (canSelectEstablishment) {
+  <app-establishment-selector />
+}
 <section class="report-overview">
-  <article class="panel report-state"><div><span class="eyebrow">FORMATOS OFICIALES · {{ context.selected().code }}</span><strong>{{ loading() ? 'Procesando' : workflowStatus }}</strong><small>{{ context.selected().name }} · {{ periodLabel }} @if (workflowReport(); as saved) {· versión {{ saved.version }}}</small></div><div class="template-actions"><a class="btn secondary" href="/forms/formato-its1-oficial.pdf" target="_blank">ITS-1 vacío</a><a class="btn secondary" href="/forms/formato-its2-oficial.pdf" target="_blank">ITS-2 vacío</a><button class="btn primary" type="button" [disabled]="loading() || !report()" (click)="downloadFilledIts1()">Descargar ITS-1 llenado</button><button class="btn primary" type="button" [disabled]="loading() || !report()" (click)="downloadFilledIts2()">Descargar ITS-2 llenado</button></div></article>
-  <article class="panel period-total"><span>Atenciones consolidadas</span><strong>{{ total }}</strong><small>{{ newCases }} diagnósticos nuevos · {{ controls }} controles</small></article>
-</section>
-@if (loadError()) {<section class="report-message error"><strong>No se pudo cargar el reporte</strong><span>{{ loadError() }}</span><button class="btn secondary" type="button" (click)="reload()">Reintentar</button></section>}
-@if (!report() && !loading() && !loadError()) {<section class="report-message"><strong>Vista conectada a datos reales</strong><span>Inicie sesión con el backend configurado para calcular el ITS-2. Los formatos oficiales ya están disponibles para impresión.</span></section>}
-<section class="its2-grid">
-  <article class="panel"><div class="section-heading"><div><h2>Consolidado por clasificación</h2><p>Calculado desde las atenciones ITS-1 activas del establecimiento y período.</p></div><button class="btn secondary" type="button" [disabled]="loading()" (click)="reload()">↻ Recalcular</button></div>
-    <div class="table-wrap"><table><thead><tr><th>Clasificación</th><th>Hombres</th><th>Mujeres</th><th>Nuevos</th><th>Controles</th><th>Total diagnósticos</th></tr></thead><tbody>
-      @for (classification of [['SINDROMICO','Sindrómico'],['CLINICO','Clínico'],['CE','C/E'],['ETIOLOGICO','Etiológico']]; track classification[0]) {
-        @let totals = classificationTotal(classification[0]);
-        <tr><td><strong>{{ classification[1] }}</strong></td><td>{{ totals.male }}</td><td>{{ totals.female }}</td><td>{{ totals.newCases }}</td><td>{{ totals.controls }}</td><td><strong>{{ totals.newCases + totals.controls }}</strong></td></tr>
-      }
-    </tbody></table></div>
-    @if (report(); as currentReport) {<div class="official-rows"><h3>18 patologías del formato oficial</h3><div class="table-wrap"><table><thead><tr><th>Código</th><th>Patología</th><th>Nuevos</th><th>Controles</th><th>H</th><th>M</th></tr></thead><tbody>@for (row of currentReport.rows; track row.diseaseId) {<tr><td>{{ row.code }}</td><td>{{ row.diseaseName }}</td><td>{{ row.diagnosis.newCases }}</td><td>{{ row.diagnosis.controls }}</td><td>{{ row.sex.male }}</td><td>{{ row.sex.female }}</td></tr>}</tbody></table></div></div>}
+  <article class="panel report-state">
+    <div>
+      <span class="eyebrow">FORMATOS OFICIALES · {{ context.selected().code }}</span
+      ><strong>{{ loading() ? 'Procesando' : workflowStatus }}</strong
+      ><small
+        >{{ context.selected().name }} · {{ periodLabel }}
+        @if (workflowReport(); as saved) {
+          · versión {{ saved.version }}
+        }
+      </small>
+    </div>
+    <div class="template-actions">
+      <a class="btn secondary" href="/forms/formato-its1-oficial.pdf" target="_blank">ITS-1 vacío</a
+      ><a class="btn secondary" href="/forms/formato-its2-oficial.pdf" target="_blank"
+        >ITS-2 vacío</a
+      ><button
+        class="btn primary"
+        type="button"
+        [disabled]="loading() || !report()"
+        (click)="downloadFilledIts1()"
+      >
+        Descargar ITS-1 llenado</button
+      ><button
+        class="btn primary"
+        type="button"
+        [disabled]="loading() || !report()"
+        (click)="downloadFilledIts2()"
+      >
+        Descargar ITS-2 llenado
+      </button>
+    </div>
   </article>
-  <aside class="panel validation-panel"><div class="section-heading"><div><h2>Preparación y envío</h2><p>Totales obligatorios del encabezado ITS-2</p></div></div>
-    @if (correctionRequested && workflowReport(); as current) {<div class="its2-correction"><i>!</i><div><strong>Corrección solicitada</strong><p>{{ current.openObservations[0]?.comment || current.currentComment }}</p></div></div>}
-    <div class="workflow-fields"><label>Atenciones &lt; 15 años<input type="number" min="0" [(ngModel)]="attentionsUnder15" [disabled]="!canPrepare"></label><label>Atenciones ≥ 15 años<input type="number" min="0" [(ngModel)]="attentions15Plus" [disabled]="!canPrepare"></label><label>Fuente de los totales<input type="text" maxlength="300" [(ngModel)]="attentionTotalsSource" [disabled]="!canPrepare" placeholder="Ej. Estadística mensual"></label></div>
-    <div class="validation ok"><i>✓</i><span><strong>Datos clínicos</strong><small>{{ total }} atenciones ITS-1 activas</small></span></div><div class="validation ok"><i>✓</i><span><strong>PDF oficial</strong><small>Formato listo para impresión</small></span></div>
-    <div class="its2-actions"><button class="btn secondary" type="button" [disabled]="loading() || !canPrepare" (click)="prepareWorkflow()">Preparar borrador</button><button class="btn primary" type="button" [disabled]="loading() || !canSubmit" (click)="submitWorkflow()">Enviar a municipio</button></div>
+  <article class="panel period-total">
+    <span>Atenciones consolidadas</span><strong>{{ total }}</strong
+    ><small>{{ newCases }} diagnósticos nuevos · {{ controls }} controles</small>
+  </article>
+</section>
+@if (loadError()) {
+  <section class="report-message error">
+    <strong>No se pudo cargar el reporte</strong><span>{{ loadError() }}</span
+    ><button class="btn secondary" type="button" (click)="reload()">Reintentar</button>
+  </section>
+}
+@if (!report() && !loading() && !loadError()) {
+  <section class="report-message">
+    <strong>Vista conectada a datos reales</strong
+    ><span
+      >Inicie sesión con el backend configurado para calcular el ITS-2. Los formatos oficiales ya
+      están disponibles para impresión.</span
+    >
+  </section>
+}
+<section class="its2-grid">
+  <article class="panel">
+    <div class="section-heading">
+      <div>
+        <h2>Consolidado por clasificación</h2>
+        <p>Calculado desde las atenciones ITS-1 activas del establecimiento y período.</p>
+      </div>
+      <button class="btn secondary" type="button" [disabled]="loading()" (click)="reload()">
+        ↻ Recalcular
+      </button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Clasificación</th>
+            <th>Hombres</th>
+            <th>Mujeres</th>
+            <th>Nuevos</th>
+            <th>Controles</th>
+            <th>Total diagnósticos</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (
+            classification of [
+              ['SINDROMICO', 'Sindrómico'],
+              ['CLINICO', 'Clínico'],
+              ['CE', 'C/E'],
+              ['ETIOLOGICO', 'Etiológico'],
+            ];
+            track classification[0]
+          ) {
+            @let totals = classificationTotal(classification[0]);
+            <tr>
+              <td>
+                <strong>{{ classification[1] }}</strong>
+              </td>
+              <td>{{ totals.male }}</td>
+              <td>{{ totals.female }}</td>
+              <td>{{ totals.newCases }}</td>
+              <td>{{ totals.controls }}</td>
+              <td>
+                <strong>{{ totals.newCases + totals.controls }}</strong>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (report(); as currentReport) {
+      <div class="official-rows">
+        <h3>18 patologías del formato oficial</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Código</th>
+                <th>Patología</th>
+                <th>Nuevos</th>
+                <th>Controles</th>
+                <th>H</th>
+                <th>M</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of currentReport.rows; track row.diseaseId) {
+                <tr>
+                  <td>{{ row.code }}</td>
+                  <td>{{ row.diseaseName }}</td>
+                  <td>{{ row.diagnosis.newCases }}</td>
+                  <td>{{ row.diagnosis.controls }}</td>
+                  <td>{{ row.sex.male }}</td>
+                  <td>{{ row.sex.female }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  </article>
+  <aside class="panel validation-panel">
+    <div class="section-heading">
+      <div>
+        <h2>Preparación y envío</h2>
+        <p>Totales obligatorios del encabezado ITS-2</p>
+      </div>
+    </div>
+    @if (correctionRequested && workflowReport(); as current) {
+      <div class="its2-correction">
+        <i>!</i>
+        <div>
+          <strong>Corrección solicitada</strong>
+          <p>{{ current.openObservations[0]?.comment || current.currentComment }}</p>
+        </div>
+      </div>
+    }
+    <div class="workflow-fields">
+      <label
+        >Atenciones &lt; 15 años<input
+          type="number"
+          min="0"
+          [(ngModel)]="attentionsUnder15"
+          [disabled]="!canPrepare" /></label
+      ><label
+        >Atenciones ≥ 15 años<input
+          type="number"
+          min="0"
+          [(ngModel)]="attentions15Plus"
+          [disabled]="!canPrepare" /></label
+      ><label
+        >Fuente de los totales<input
+          type="text"
+          maxlength="300"
+          [(ngModel)]="attentionTotalsSource"
+          [disabled]="!canPrepare"
+          placeholder="Ej. Estadística mensual"
+      /></label>
+    </div>
+    <div class="validation ok">
+      <i>✓</i
+      ><span
+        ><strong>Datos clínicos</strong><small>{{ total }} atenciones ITS-1 activas</small></span
+      >
+    </div>
+    <div class="validation ok">
+      <i>✓</i><span><strong>PDF oficial</strong><small>Formato listo para impresión</small></span>
+    </div>
+    <div class="its2-actions">
+      <button
+        class="btn secondary"
+        type="button"
+        [disabled]="loading() || !canPrepare"
+        (click)="prepareWorkflow()"
+      >
+        Preparar borrador</button
+      ><button
+        class="btn primary"
+        type="button"
+        [disabled]="loading() || !canSubmit"
+        (click)="submitWorkflow()"
+      >
+        Enviar a municipio
+      </button>
+    </div>
   </aside>
 </section>

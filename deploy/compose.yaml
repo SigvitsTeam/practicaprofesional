@@ -1,0 +1,209 @@
+name: sigvits-${SIGVITS_ENVIRONMENT:-staging}
+
+x-backend-environment: &backend-environment
+  NODE_ENV: production
+  PORT: 3000
+  API_PREFIX: api
+  DATABASE_URL_FILE: /run/secrets/database_url
+  DIRECT_URL_FILE: /run/secrets/direct_url
+  DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-20}
+  DATABASE_CONNECTION_TIMEOUT_MS: ${DATABASE_CONNECTION_TIMEOUT_MS:-5000}
+  DATABASE_IDLE_TIMEOUT_MS: ${DATABASE_IDLE_TIMEOUT_MS:-30000}
+  AUTH_ISSUER: ${AUTH_ISSUER:?AUTH_ISSUER es obligatoria}
+  AUTH_AUDIENCE: ${AUTH_AUDIENCE:-authenticated}
+  AUTH_JWKS_URL: ${AUTH_JWKS_URL:?AUTH_JWKS_URL es obligatoria}
+  AUTH_CLOCK_TOLERANCE_SECONDS: ${AUTH_CLOCK_TOLERANCE_SECONDS:-5}
+  AUTH_JWKS_TIMEOUT_MS: ${AUTH_JWKS_TIMEOUT_MS:-5000}
+  AUTH_ADMIN_SECRET_FILE: /run/secrets/auth_admin_secret
+  METRICS_BEARER_TOKEN_FILE: /run/secrets/metrics_bearer_token
+  AUTH_INVITATION_REDIRECT_URL: ${AUTH_INVITATION_REDIRECT_URL:?AUTH_INVITATION_REDIRECT_URL es obligatoria}
+  AUTH_ADMIN_TIMEOUT_MS: ${AUTH_ADMIN_TIMEOUT_MS:-5000}
+  EXPORT_STORAGE_DIRECTORY: /var/lib/sigvits/exports
+  EXPORT_WORKER_POLL_MS: ${EXPORT_WORKER_POLL_MS:-2000}
+  EXPORT_JOB_STALE_MS: ${EXPORT_JOB_STALE_MS:-900000}
+  EXPORT_ARTIFACT_TTL_MS: ${EXPORT_ARTIFACT_TTL_MS:-86400000}
+  EXPORT_WORKER_HEALTH_PORT: ${EXPORT_WORKER_HEALTH_PORT:-3001}
+  EXPORT_WORKER_HEALTH_HOST: 0.0.0.0
+  CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS es obligatoria}
+  REQUEST_BODY_LIMIT: ${REQUEST_BODY_LIMIT:-100kb}
+  THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
+  THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
+  TRUST_PROXY: ${TRUST_PROXY:-true}
+
+x-backend-secrets: &backend-secrets
+  - database_url
+  - direct_url
+  - auth_admin_secret
+  - metrics_bearer_token
+
+x-backend-security: &backend-security
+  read_only: true
+  init: true
+  user: node
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+
+services:
+  postgres:
+    image: postgis/postgis:${POSTGIS_IMAGE_TAG:-17-3.5-alpine}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sigvits}
+      POSTGRES_USER: ${POSTGRES_USER:-sigvits_owner}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+      - runtime_db_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [data]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    cap_drop: [ALL]
+    # El entrypoint oficial inicia como root y necesita estas capacidades para
+    # preparar PGDATA antes de bajar al usuario postgres.
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt:
+      - no-new-privileges:true
+
+  migrate:
+    image: ${SIGVITS_MIGRATOR_IMAGE_REF:-${SIGVITS_MIGRATOR_IMAGE:-sigvits-migrator}:${RELEASE_TAG:-local}}
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend.Dockerfile
+      target: migrator
+    environment:
+      DATABASE_URL_FILE: /run/secrets/database_url
+      DIRECT_URL_FILE: /run/secrets/direct_url
+    secrets:
+      - database_url
+      - direct_url
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [data]
+    read_only: true
+    user: node
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    restart: "no"
+
+  api:
+    image: ${SIGVITS_API_IMAGE_REF:-${SIGVITS_API_IMAGE:-sigvits-api}:${RELEASE_TAG:-local}}
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend.Dockerfile
+      target: api
+    <<: *backend-security
+    restart: unless-stopped
+    environment: *backend-environment
+    secrets: *backend-secrets
+    volumes:
+      - export_artifacts:/var/lib/sigvits/exports
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [edge, data]
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${API_PORT:-3000}:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  worker:
+    image: ${SIGVITS_WORKER_IMAGE_REF:-${SIGVITS_WORKER_IMAGE:-sigvits-worker}:${RELEASE_TAG:-local}}
+    build:
+      context: ..
+      dockerfile: deploy/docker/backend.Dockerfile
+      target: worker
+    <<: *backend-security
+    restart: unless-stopped
+    environment: *backend-environment
+    secrets: *backend-secrets
+    volumes:
+      - export_artifacts:/var/lib/sigvits/exports
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks: [data]
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 20s
+
+  frontend:
+    image: ${SIGVITS_FRONTEND_IMAGE_REF:-${SIGVITS_FRONTEND_IMAGE:-sigvits-frontend}:${RELEASE_TAG:-local}}
+    build:
+      context: ..
+      dockerfile: deploy/docker/frontend.Dockerfile
+      target: runtime
+    restart: unless-stopped
+    read_only: true
+    user: "101"
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+      - /var/cache/nginx:size=32m,mode=0755,uid=101,gid=101
+      - /var/run:size=1m,mode=0755,uid=101,gid=101
+      - /etc/nginx/conf.d:size=1m,mode=0750,uid=101,gid=101
+      - /usr/share/nginx/html/config:size=1m,mode=0750,uid=101,gid=101
+    environment:
+      SIGVITS_API_URL: ${SIGVITS_API_URL:?SIGVITS_API_URL es obligatoria}
+      SIGVITS_API_ORIGIN: ${SIGVITS_API_ORIGIN:?SIGVITS_API_ORIGIN es obligatoria}
+      SUPABASE_URL: ${SUPABASE_URL:?SUPABASE_URL es obligatoria}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:?SUPABASE_PUBLISHABLE_KEY es obligatoria}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [edge]
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080"
+
+networks:
+  edge:
+  data:
+    internal: true
+
+volumes:
+  postgres_data:
+  export_artifacts:
+
+secrets:
+  postgres_password:
+    file: ${POSTGRES_PASSWORD_FILE:-./secrets/postgres_password.txt}
+  database_url:
+    file: ${DATABASE_URL_FILE:-./secrets/database_url.txt}
+  direct_url:
+    file: ${DIRECT_URL_FILE:-./secrets/direct_url.txt}
+  auth_admin_secret:
+    file: ${AUTH_ADMIN_SECRET_FILE:-./secrets/auth_admin_secret.txt}
+  metrics_bearer_token:
+    file: ${METRICS_BEARER_TOKEN_FILE:-./secrets/metrics_bearer_token.txt}
+  runtime_db_password:
+    file: ${RUNTIME_DB_PASSWORD_FILE:-./secrets/runtime_db_password.txt}

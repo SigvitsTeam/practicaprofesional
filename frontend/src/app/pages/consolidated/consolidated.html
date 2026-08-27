@@ -1,11 +1,226 @@
-<section class="consolidated-grid"><article class="panel"><div class="section-heading"><div><h2>Preparación del consolidado {{ view.level }}</h2><p>Recepción de {{ view.source }} · {{ view.received }}.</p></div></div><div class="completion"><div class="ring"><span><strong>{{ view.completion }}%</strong><small>completo</small></span></div><div class="completion-stats"><div><i class="green-dot"></i><span>Aprobados</span><strong>{{ view.approved }}</strong></div><div><i class="blue-dot"></i><span>En revisión</span><strong>{{ view.review }}</strong></div><div><i class="red-dot"></i><span>Devueltos</span><strong>{{ view.returned }}</strong></div><div><i class="amber-dot"></i><span>Pendientes</span><strong>{{ view.pending }}</strong></div></div></div><div class="blocking"><b>!</b><span><strong>El consolidado aún no puede cerrarse</strong><small>{{ view.blocking }}</small></span><button (click)="navigate.emit('Bandeja de revisión')">Revisar →</button></div></article><article class="panel summary-card"><div class="section-heading"><div><h2>Resumen acumulado</h2></div></div><span>Total {{ view.level }}</span><strong>{{ view.total }}</strong><small>{{ view.received }}</small><div class="mini-row"><span>Nuevos</span><i><b style="width:76%"></b></i><strong>{{ view.newCases }}</strong></div><div class="mini-row"><span>Controles</span><i><b style="width:25%"></b></i><strong>{{ view.controls }}</strong></div><div class="mini-row"><span>Cobertura</span><i><b [style.width.%]="view.completion"></b></i><strong>{{ view.completion }}%</strong></div></article></section>
-<article class="panel audit-flow"><div class="section-heading"><div><h2>Flujo institucional y trazabilidad</h2><p>Siguiente hito: {{ view.next }}. Cada transición queda registrada en auditoría.</p></div></div><div class="timeline-horizontal">@for (step of view.steps; track step; let index = $index) {<div><i [class.done]="index < view.current" [class.current]="index === view.current">{{ index < view.current ? '✓' : index + 1 }}</i><strong>{{ step }}</strong><span>{{ index < view.current ? 'Completado' : index === view.current ? 'En proceso' : 'Pendiente' }}</span></div>}</div></article>
+<section class="consolidated-grid">
+  <article class="panel">
+    <div class="section-heading">
+      <div>
+        <h2>Preparación del consolidado {{ view.level }}</h2>
+        <p>Recepción de {{ view.source }} · {{ view.received }}.</p>
+      </div>
+    </div>
+    <div class="completion">
+      <div class="ring">
+        <span
+          ><strong>{{ view.completion }}%</strong><small>completo</small></span
+        >
+      </div>
+      <div class="completion-stats">
+        <div>
+          <i class="green-dot"></i><span>Aprobados</span><strong>{{ view.approved }}</strong>
+        </div>
+        <div>
+          <i class="blue-dot"></i><span>En revisión</span><strong>{{ view.review }}</strong>
+        </div>
+        <div>
+          <i class="red-dot"></i><span>Devueltos</span><strong>{{ view.returned }}</strong>
+        </div>
+        <div>
+          <i class="amber-dot"></i><span>Pendientes</span><strong>{{ view.pending }}</strong>
+        </div>
+      </div>
+    </div>
+    <div class="blocking">
+      <b>!</b
+      ><span
+        ><strong>El consolidado aún no puede cerrarse</strong
+        ><small>{{ view.blocking }}</small></span
+      ><button (click)="navigate.emit('Bandeja de revisión')">Revisar →</button>
+    </div>
+  </article>
+  <article class="panel summary-card">
+    <div class="section-heading">
+      <div><h2>Resumen acumulado</h2></div>
+    </div>
+    <span>Total {{ view.level }}</span
+    ><strong>{{ view.total }}</strong
+    ><small>{{ view.received }}</small>
+    <div class="mini-row">
+      <span>Nuevos</span><i><b style="width: 76%"></b></i><strong>{{ view.newCases }}</strong>
+    </div>
+    <div class="mini-row">
+      <span>Controles</span><i><b style="width: 25%"></b></i><strong>{{ view.controls }}</strong>
+    </div>
+    <div class="mini-row">
+      <span>Cobertura</span><i><b [style.width.%]="view.completion"></b></i
+      ><strong>{{ view.completion }}%</strong>
+    </div>
+  </article>
+</section>
+<article class="panel audit-flow">
+  <div class="section-heading">
+    <div>
+      <h2>Flujo institucional y trazabilidad</h2>
+      <p>Siguiente hito: {{ view.next }}. Cada transición queda registrada en auditoría.</p>
+    </div>
+  </div>
+  <div class="timeline-horizontal">
+    @for (step of view.steps; track step; let index = $index) {
+      <div>
+        <i [class.done]="index < view.current" [class.current]="index === view.current">{{
+          index < view.current ? '✓' : index + 1
+        }}</i
+        ><strong>{{ step }}</strong
+        ><span>{{
+          index < view.current ? 'Completado' : index === view.current ? 'En proceso' : 'Pendiente'
+        }}</span>
+      </div>
+    }
+  </div>
+</article>
 @if (isLiveMunicipal) {
-  <article class="panel live-actions"><div><span class="eyebrow">FLUJO REAL · AGOSTO 2026</span><h2>{{ consolidation() ? 'Consolidado municipal versión ' + consolidation()!.version : 'Preparar consolidado municipal' }}</h2><p>{{ loadError() || (consolidation()?.status === 'ENVIADO_A_REGION' ? 'Enviado a revisión regional.' : 'Solo se consolidan versiones vigentes aprobadas de todos los establecimientos activos.') }}</p></div><div>@if (!consolidation() || consolidation()?.status === 'DEVUELTO_POR_REGION') {<button class="btn secondary" type="button" [disabled]="loading() || view.completion !== 100" (click)="prepare()">{{ loading() ? 'Procesando…' : 'Preparar consolidado' }}</button>}@if (consolidation()?.status === 'BORRADOR') {<button class="btn primary" type="button" [disabled]="loading()" (click)="submitRegion()">Enviar a región</button>}</div></article>
+  <article class="panel live-actions">
+    <div>
+      <span class="eyebrow">FLUJO REAL · AGOSTO 2026</span>
+      <h2>
+        {{
+          consolidation()
+            ? 'Consolidado municipal versión ' + consolidation()!.version
+            : 'Preparar consolidado municipal'
+        }}
+      </h2>
+      <p>
+        {{
+          loadError() ||
+            (consolidation()?.status === 'ENVIADO_A_REGION'
+              ? 'Enviado a revisión regional.'
+              : 'Solo se consolidan versiones vigentes aprobadas de todos los establecimientos activos.')
+        }}
+      </p>
+    </div>
+    <div>
+      @if (!consolidation() || consolidation()?.status === 'DEVUELTO_POR_REGION') {
+        <button
+          class="btn secondary"
+          type="button"
+          [disabled]="loading() || view.completion !== 100"
+          (click)="prepare()"
+        >
+          {{ loading() ? 'Procesando…' : 'Preparar consolidado' }}
+        </button>
+      }
+      @if (consolidation()?.status === 'BORRADOR') {
+        <button class="btn primary" type="button" [disabled]="loading()" (click)="submitRegion()">
+          Enviar a región
+        </button>
+      }
+    </div>
+  </article>
 }
 @if (isLiveRegional) {
-  <article class="panel live-actions"><div><span class="eyebrow">FLUJO REAL · AGOSTO 2026</span><h2>{{ regionalConsolidation() ? 'Consolidado regional versión ' + regionalConsolidation()!.version : 'Preparar consolidado regional' }}</h2><p>{{ loadError() || (regionalConsolidation()?.status === 'ENVIADO_A_CENTRAL' ? 'Enviado a revisión central.' : 'Solo se consolidan versiones municipales vigentes y aprobadas por región.') }}</p></div><div>@if (!regionalConsolidation() || regionalConsolidation()?.status === 'DEVUELTO_POR_CENTRAL') {<button class="btn secondary" type="button" [disabled]="loading() || view.completion !== 100" (click)="prepareRegional()">{{ loading() ? 'Procesando…' : 'Preparar consolidado' }}</button>}@if (regionalConsolidation()?.status === 'BORRADOR') {<button class="btn primary" type="button" [disabled]="loading()" (click)="submitCentral()">Enviar a Nivel Central</button>}</div></article>
+  <article class="panel live-actions">
+    <div>
+      <span class="eyebrow">FLUJO REAL · AGOSTO 2026</span>
+      <h2>
+        {{
+          regionalConsolidation()
+            ? 'Consolidado regional versión ' + regionalConsolidation()!.version
+            : 'Preparar consolidado regional'
+        }}
+      </h2>
+      <p>
+        {{
+          loadError() ||
+            (regionalConsolidation()?.status === 'ENVIADO_A_CENTRAL'
+              ? 'Enviado a revisión central.'
+              : 'Solo se consolidan versiones municipales vigentes y aprobadas por región.')
+        }}
+      </p>
+    </div>
+    <div>
+      @if (!regionalConsolidation() || regionalConsolidation()?.status === 'DEVUELTO_POR_CENTRAL') {
+        <button
+          class="btn secondary"
+          type="button"
+          [disabled]="loading() || view.completion !== 100"
+          (click)="prepareRegional()"
+        >
+          {{ loading() ? 'Procesando…' : 'Preparar consolidado' }}
+        </button>
+      }
+      @if (regionalConsolidation()?.status === 'BORRADOR') {
+        <button class="btn primary" type="button" [disabled]="loading()" (click)="submitCentral()">
+          Enviar a Nivel Central
+        </button>
+      }
+    </div>
+  </article>
 }
 @if (isLiveNational) {
-  <article class="panel live-actions national-actions"><div><span class="eyebrow">CIERRE NACIONAL · AGOSTO 2026</span><h2>{{ nationalConsolidation() ? 'Versión nacional ' + nationalConsolidation()!.version + ' · ' + nationalConsolidation()!.status : 'Preparar consolidado nacional' }}</h2><p>{{ loadError() || 'El cierre y la reapertura modifican el período en una sola transacción y quedan auditados.' }}</p><input #nationalReason type="text" maxlength="500" placeholder="Motivo obligatorio para cierre o reapertura"></div><div>@if (!nationalConsolidation() || nationalConsolidation()?.status === 'REABIERTO_AUTORIZADO') {<button class="btn secondary" type="button" [disabled]="loading() || view.completion !== 100" (click)="prepareNational()">Preparar</button>}@if (nationalConsolidation()?.status === 'BORRADOR') {<button class="btn primary" type="button" [disabled]="loading()" (click)="finalizeNational()">Finalizar nacional</button>}@if (nationalConsolidation()?.status === 'CONSOLIDADO_NACIONAL') {<button class="btn primary" type="button" [disabled]="loading()" (click)="closeNational(nationalReason.value)">Cerrar oficialmente</button>}@if (nationalConsolidation()?.status === 'CERRADO_OFICIAL') {<button class="btn secondary danger" type="button" [disabled]="loading()" (click)="reopenNational(nationalReason.value)">Reabrir excepcionalmente</button>}</div></article>
+  <article class="panel live-actions national-actions">
+    <div>
+      <span class="eyebrow">CIERRE NACIONAL · AGOSTO 2026</span>
+      <h2>
+        {{
+          nationalConsolidation()
+            ? 'Versión nacional ' +
+              nationalConsolidation()!.version +
+              ' · ' +
+              nationalConsolidation()!.status
+            : 'Preparar consolidado nacional'
+        }}
+      </h2>
+      <p>
+        {{
+          loadError() ||
+            'El cierre y la reapertura modifican el período en una sola transacción y quedan auditados.'
+        }}
+      </p>
+      <input
+        #nationalReason
+        type="text"
+        maxlength="500"
+        placeholder="Motivo obligatorio para cierre o reapertura"
+      />
+    </div>
+    <div>
+      @if (!nationalConsolidation() || nationalConsolidation()?.status === 'REABIERTO_AUTORIZADO') {
+        <button
+          class="btn secondary"
+          type="button"
+          [disabled]="loading() || view.completion !== 100"
+          (click)="prepareNational()"
+        >
+          Preparar
+        </button>
+      }
+      @if (nationalConsolidation()?.status === 'BORRADOR') {
+        <button
+          class="btn primary"
+          type="button"
+          [disabled]="loading()"
+          (click)="finalizeNational()"
+        >
+          Finalizar nacional
+        </button>
+      }
+      @if (nationalConsolidation()?.status === 'CONSOLIDADO_NACIONAL') {
+        <button
+          class="btn primary"
+          type="button"
+          [disabled]="loading()"
+          (click)="closeNational(nationalReason.value)"
+        >
+          Cerrar oficialmente
+        </button>
+      }
+      @if (nationalConsolidation()?.status === 'CERRADO_OFICIAL') {
+        <button
+          class="btn secondary danger"
+          type="button"
+          [disabled]="loading()"
+          (click)="reopenNational(nationalReason.value)"
+        >
+          Reabrir excepcionalmente
+        </button>
+      }
+    </div>
+  </article>
 }

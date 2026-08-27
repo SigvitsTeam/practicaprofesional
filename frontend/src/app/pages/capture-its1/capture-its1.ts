@@ -3,6 +3,7 @@ import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angula
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { finalize } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
+import { hondurasTodayIso } from '../../core/honduras-date';
 import { EstablishmentContext } from '../../core/establishment-context';
 import { RoleContext } from '../../core/role-context';
 import {
@@ -98,7 +99,7 @@ export class CaptureIts1 implements OnInit {
   submitted = false;
 
   readonly form = this.formBuilder.group({
-    attentionDate: [new Date().toISOString().slice(0, 10), Validators.required],
+    attentionDate: [hondurasTodayIso(), Validators.required],
     patientId: ['', [Validators.required, Validators.minLength(4)]],
     procedence: ['', [Validators.required, Validators.minLength(3)]],
     sex: ['', Validators.required],
@@ -276,7 +277,7 @@ export class CaptureIts1 implements OnInit {
     this.editing.set(null);
     this.submitted = false;
     this.form.reset({
-      attentionDate: new Date().toISOString().slice(0, 10),
+      attentionDate: hondurasTodayIso(),
       patientId: '',
       procedence: '',
       sex: '',
