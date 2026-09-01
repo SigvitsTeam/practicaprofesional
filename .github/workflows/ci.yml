@@ -312,6 +312,7 @@ jobs:
             report="$(printf '%s' "$image" | tr ':/' '--').json"
             archive="$scan_directory/$report.tar"
             docker image save --output "$archive" "$image"
+            chmod 0444 "$archive"
             docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
               --tmpfs /tmp:rw,size=512m \
               --mount "type=bind,source=$archive,target=/input/image.tar,readonly" \
