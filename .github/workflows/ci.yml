@@ -302,7 +302,12 @@ jobs:
         run: |
           status=0
           scan_directory="$RUNNER_TEMP/sigvits-container-scans"
-          install -d -m 755 "$scan_directory" "$scan_directory/cache"
+          cache_volume="$(docker volume create)"
+          cleanup() {
+            docker volume rm --force "$cache_volume" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          install -d -m 755 "$scan_directory"
           for image in sigvits-api:ci sigvits-worker:ci sigvits-migrator:ci sigvits-frontend:ci; do
             report="$(printf '%s' "$image" | tr ':/' '--').json"
             archive="$scan_directory/$report.tar"
@@ -310,16 +315,17 @@ jobs:
             docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
               --tmpfs /tmp:rw,size=512m \
               --mount "type=bind,source=$archive,target=/input/image.tar,readonly" \
-              --mount "type=bind,source=$scan_directory/cache,target=/root/.cache/trivy" \
-              --mount "type=bind,source=$PWD/evidence/container-security,target=/evidence" \
+              --mount "type=volume,source=$cache_volume,target=/root/.cache/trivy" \
               aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 image --disable-telemetry --input /input/image.tar \
               --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL --list-all-pkgs \
-              --format json --output "/evidence/$report" --exit-code 1 || status=$?
+              --format json --exit-code 1 > "evidence/container-security/$report" || status=$?
             rm -- "$archive"
           done
-          if [ -f "$scan_directory/cache/db/metadata.json" ]; then
-            cp "$scan_directory/cache/db/metadata.json" evidence/container-security/trivy-db-metadata.json
-          fi
+          docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+            --mount "type=volume,source=$cache_volume,target=/root/.cache/trivy,readonly" \
+            --entrypoint /bin/cat \
+            aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 \
+            /root/.cache/trivy/db/metadata.json > evidence/container-security/trivy-db-metadata.json
           exit "$status"
       - name: Upload container security evidence
         if: always()
