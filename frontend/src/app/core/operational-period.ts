@@ -1,5 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { tap } from 'rxjs';
+import { tap, timeout } from 'rxjs';
 import { formatHondurasMonth, hondurasDateParts } from './honduras-date';
 import {
   ItsCaptureApiService,
@@ -22,6 +22,8 @@ export function normalizeReportingPeriods(
     .filter(
       (period) =>
         Number.isInteger(period.year) &&
+        period.year >= 2020 &&
+        period.year <= 2100 &&
         Number.isInteger(period.month) &&
         period.month >= 1 &&
         period.month <= 12,
@@ -48,6 +50,7 @@ export class OperationalPeriodService {
 
   load() {
     return this.api.getMonthlyReportingPeriods().pipe(
+      timeout(10_000),
       tap((periods) => {
         const normalized = normalizeReportingPeriods(periods);
         if (!normalized.length)
@@ -65,7 +68,7 @@ export class OperationalPeriodService {
         year: 2026,
         month,
         startDate: `2026-${String(month).padStart(2, '0')}-01`,
-        endDate: `2026-${String(month).padStart(2, '0')}-28`,
+        endDate: new Date(Date.UTC(2026, month, 0)).toISOString().slice(0, 10),
         status: month === 7 ? ('ABIERTO' as const) : ('CERRADO' as const),
       };
     });
@@ -81,16 +84,19 @@ export class OperationalPeriodService {
   selectEnd(key: string) {
     if (!this.periods().some((period) => period.key === key)) return;
     this.selectedEndKey.set(key);
+    if (this.selectedStartKey() > key) this.selectedStartKey.set(key);
   }
 
   private replace(periods: OperationalPeriod[]) {
     this.periods.set(periods);
     const current = hondurasDateParts();
     const currentKey = reportingPeriodKey(current.year, current.month);
+    const started = periods.filter((period) => period.key <= currentKey);
     const preferred =
       periods.find((period) => period.key === currentKey && period.status === 'ABIERTO') ??
-      [...periods].reverse().find((period) => period.status === 'ABIERTO') ??
-      periods.at(-1);
+      [...started].reverse().find((period) => period.status === 'ABIERTO') ??
+      started.at(-1) ??
+      periods[0];
     const key = preferred?.key ?? '';
     this.selectedStartKey.set(key);
     this.selectedEndKey.set(key);

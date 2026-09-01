@@ -36,11 +36,14 @@ class Repository extends ExportJobRepository {
   claimNext(): Promise<null> {
     return Promise.resolve(null);
   }
-  complete(): Promise<void> {
-    return Promise.resolve();
+  recoverStaleExhausted(): Promise<number> {
+    return Promise.resolve(0);
   }
-  fail(): Promise<void> {
-    return Promise.resolve();
+  complete(): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+  fail(): Promise<boolean> {
+    return Promise.resolve(true);
   }
   listExpiredArtifacts(): Promise<[]> {
     return Promise.resolve([]);

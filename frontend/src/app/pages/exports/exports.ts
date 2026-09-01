@@ -1,11 +1,14 @@
-import { Component, OnInit, inject, output } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, output, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { finalize } from 'rxjs';
 import { RoleContext } from '../../core/role-context';
 import { AuthService } from '../../core/auth.service';
-import { ExportJobsApiService, type ExportJobRecord } from '../../core/export-jobs-api.service';
+import { ExportJobsApiService } from '../../core/export-jobs-api.service';
 import { ItsCaptureApiService } from '../../core/its-capture-api.service';
-import { hondurasDateParts } from '../../core/honduras-date';
+import { formatHondurasMonth, hondurasDateParts } from '../../core/honduras-date';
 import { OperationalPeriodService } from '../../core/operational-period';
+import { ExportQueueState } from './export-queue-state';
 
 type ComparisonDimension = 'periods' | 'territories' | 'indicators';
 interface AnnualEvaluationConfig {
@@ -49,6 +52,7 @@ interface ExportJob {
 @Component({
   selector: 'app-exports',
   imports: [FormsModule],
+  providers: [ExportQueueState],
   templateUrl: './exports.html',
   styleUrl: './exports.css',
 })
@@ -59,15 +63,17 @@ export class Exports implements OnInit {
   private readonly jobsApi = inject(ExportJobsApiService);
   private readonly itsCaptureApi = inject(ItsCaptureApiService);
   private readonly operationalPeriod = inject(OperationalPeriodService);
+  private readonly destroyRef = inject(DestroyRef);
+  protected readonly queue = inject(ExportQueueState);
   private its1FacilityId = '';
-  protected liveJobs: ExportJobRecord[] = [];
-  protected loading = false;
+  protected readonly loading = signal(false);
   protected showAnnualEvaluation = false;
   protected showScopedExport = false;
   protected scopedOption: ExportOption | null = null;
   protected scopedTargets: ScopedExportTarget[] = [];
   protected selectedScopedTargetId = '';
   protected scopedFormat: 'XLSX' | 'PDF' = 'XLSX';
+  protected scopedPeriod: { year: number; month: number; label: string } | null = null;
   protected formSubmitted = false;
 
   protected readonly dimensions: { value: ComparisonDimension; label: string; detail: string }[] = [
@@ -99,26 +105,23 @@ export class Exports implements OnInit {
 
   ngOnInit() {
     if (this.auth.isDemo()) return;
-    this.loading = true;
-    this.jobsApi.list().subscribe({
-      next: (jobs) => {
-        this.liveJobs = jobs;
-        this.loading = false;
-      },
-      error: () => {
-        this.loading = false;
-        this.notify.emit('No fue posible cargar la cola real de exportaciones.');
-      },
-    });
+    this.queue.refresh();
     if (
       ['establishment-manager', 'coordination-digitizer'].includes(this.roleContext.activeRoleId())
     )
-      this.itsCaptureApi.getContext().subscribe({
-        next: (context) => {
-          this.its1FacilityId = context.facilities[0]?.id ?? '';
-        },
-        error: () => this.notify.emit('No fue posible resolver el establecimiento para ITS-1.'),
-      });
+      this.itsCaptureApi
+        .getContext()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (context) => {
+            this.its1FacilityId = context.facilities[0]?.id ?? '';
+          },
+          error: () => this.notify.emit('No fue posible resolver el establecimiento para ITS-1.'),
+        });
+  }
+
+  protected get demoMode() {
+    return this.auth.isDemo();
   }
 
   protected get exportOptions(): ExportOption[] {
@@ -251,7 +254,7 @@ export class Exports implements OnInit {
 
   protected get recentJobs(): ExportJob[] {
     if (!this.auth.isDemo())
-      return this.liveJobs.map((job) => ({
+      return this.queue.jobs().map((job) => ({
         id: job.id,
         report: job.reportType.replaceAll('_', ' '),
         period: `${String(job.month).padStart(2, '0')}/${job.year}`,
@@ -312,6 +315,7 @@ export class Exports implements OnInit {
   }
 
   protected selectExport(option: ExportOption) {
+    if (this.loading()) return;
     if (option.action === 'annual') this.openAnnualEvaluation();
     else if (option.action === 'its1') {
       if (this.auth.isDemo())
@@ -332,7 +336,7 @@ export class Exports implements OnInit {
       return;
     }
     const { year, month } = this.activePeriod;
-    this.loading = true;
+    this.loading.set(true);
     this.jobsApi
       .createIts1({
         idempotencyKey: crypto.randomUUID(),
@@ -341,14 +345,16 @@ export class Exports implements OnInit {
         year,
         month,
       })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loading.set(false)),
+      )
       .subscribe({
         next: (job) => {
-          this.loading = false;
-          this.liveJobs = [job, ...this.liveJobs.filter((item) => item.id !== job.id)];
+          this.queue.record(job);
           this.notify.emit(`${option.title} agregado a la cola protegida.`);
         },
         error: () => {
-          this.loading = false;
           this.notify.emit('No fue posible solicitar ITS-1. Verifique permiso y establecimiento.');
         },
       });
@@ -359,18 +365,21 @@ export class Exports implements OnInit {
       this.notify.emit('Descarga simulada registrada en auditoría.');
       return;
     }
-    this.jobsApi.download(job.id).subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `SIGVITS-${job.report.replaceAll(' ', '-')}.${job.format.toLowerCase()}`;
-        link.click();
-        URL.revokeObjectURL(url);
-        this.notify.emit('Descarga autorizada y registrada en auditoría.');
-      },
-      error: () => this.notify.emit('El archivo no está disponible o su vigencia expiró.'),
-    });
+    this.jobsApi
+      .download(job.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (blob) => {
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `SIGVITS-${job.report.replaceAll(' ', '-')}.${job.format.toLowerCase()}`;
+          link.click();
+          URL.revokeObjectURL(url);
+          this.notify.emit('Descarga autorizada y registrada en auditoría.');
+        },
+        error: () => this.notify.emit('El archivo no está disponible o su vigencia expiró.'),
+      });
   }
 
   private queueExport(option: ExportOption) {
@@ -379,7 +388,7 @@ export class Exports implements OnInit {
       this.notify.emit('No hay un territorio autorizado disponible para esta exportación.');
       return;
     }
-    this.loading = true;
+    this.loading.set(true);
     const { year, month } = this.activePeriod;
     this.jobsApi
       .create({
@@ -391,14 +400,16 @@ export class Exports implements OnInit {
         year,
         month,
       })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loading.set(false)),
+      )
       .subscribe({
         next: (job) => {
-          this.loading = false;
-          this.liveJobs = [job, ...this.liveJobs.filter((item) => item.id !== job.id)];
+          this.queue.record(job);
           this.notify.emit(`${option.title} agregado a la cola persistente.`);
         },
         error: () => {
-          this.loading = false;
           this.notify.emit(
             'No fue posible crear el trabajo de exportación. Verifique alcance y permisos.',
           );
@@ -407,15 +418,24 @@ export class Exports implements OnInit {
   }
 
   protected closeScopedExport() {
+    if (this.loading()) return;
     this.showScopedExport = false;
     this.scopedOption = null;
+    this.scopedPeriod = null;
   }
 
   protected generateScopedExport() {
     const option = this.scopedOption;
-    if (!option?.reportType || !option.scopeLevel || !this.selectedScopedTargetId) return;
-    const { year, month } = this.activePeriod;
-    this.loading = true;
+    if (
+      this.loading() ||
+      !option?.reportType ||
+      !option.scopeLevel ||
+      !this.selectedScopedTargetId ||
+      !this.scopedPeriod
+    )
+      return;
+    const { year, month } = this.scopedPeriod;
+    this.loading.set(true);
     this.jobsApi
       .create({
         idempotencyKey: crypto.randomUUID(),
@@ -426,15 +446,19 @@ export class Exports implements OnInit {
         year,
         month,
       })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loading.set(false)),
+      )
       .subscribe({
         next: (job) => {
-          this.loading = false;
-          this.liveJobs = [job, ...this.liveJobs.filter((item) => item.id !== job.id)];
-          this.closeScopedExport();
+          this.queue.record(job);
+          this.showScopedExport = false;
+          this.scopedOption = null;
+          this.scopedPeriod = null;
           this.notify.emit(`${option.title} agregado a la cola persistente.`);
         },
         error: () => {
-          this.loading = false;
           this.notify.emit(
             'No fue posible solicitar el documento para el territorio seleccionado.',
           );
@@ -445,25 +469,30 @@ export class Exports implements OnInit {
   private openScopedExport(option: ExportOption) {
     if (!option.targetLevel) return;
     const { year, month } = this.activePeriod;
-    this.loading = true;
-    this.itsCaptureApi.getTerritorialAnalytics(option.targetLevel, year, month).subscribe({
-      next: (result) => {
-        this.loading = false;
-        this.scopedTargets = result.rows.map(({ id, code, name }) => ({ id, code, name }));
-        this.selectedScopedTargetId = this.scopedTargets[0]?.id ?? '';
-        if (!this.selectedScopedTargetId) {
-          this.notify.emit('No hay territorios autorizados disponibles para esta exportación.');
-          return;
-        }
-        this.scopedOption = option;
-        this.scopedFormat = 'XLSX';
-        this.showScopedExport = true;
-      },
-      error: () => {
-        this.loading = false;
-        this.notify.emit('No fue posible cargar los territorios autorizados.');
-      },
-    });
+    this.loading.set(true);
+    this.itsCaptureApi
+      .getTerritorialAnalytics(option.targetLevel, year, month)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loading.set(false)),
+      )
+      .subscribe({
+        next: (result) => {
+          this.scopedTargets = result.rows.map(({ id, code, name }) => ({ id, code, name }));
+          this.selectedScopedTargetId = this.scopedTargets[0]?.id ?? '';
+          if (!this.selectedScopedTargetId) {
+            this.notify.emit('No hay territorios autorizados disponibles para esta exportación.');
+            return;
+          }
+          this.scopedOption = option;
+          this.scopedPeriod = { year, month, label: formatHondurasMonth(year, month) };
+          this.scopedFormat = 'XLSX';
+          this.showScopedExport = true;
+        },
+        error: () => {
+          this.notify.emit('No fue posible cargar los territorios autorizados.');
+        },
+      });
   }
 
   private currentScope(): { level: string; territoryId?: string } | null {
@@ -531,6 +560,7 @@ export class Exports implements OnInit {
   }
 
   protected openAnnualEvaluation() {
+    if (this.loading()) return;
     this.annualForm = this.annualPreview ? { ...this.annualPreview } : this.emptyAnnualForm();
     if (!this.annualForm.territoryA) this.annualForm.territoryA = this.territoryOptions[0];
     if (!this.annualForm.territoryB)
@@ -540,6 +570,7 @@ export class Exports implements OnInit {
   }
 
   protected closeAnnualEvaluation() {
+    if (this.loading()) return;
     this.showAnnualEvaluation = false;
   }
 
@@ -549,6 +580,7 @@ export class Exports implements OnInit {
   }
 
   protected generateAnnualEvaluation() {
+    if (this.loading()) return;
     this.formSubmitted = true;
     if (this.invalidRanges) return;
     const dimension =
@@ -563,6 +595,7 @@ export class Exports implements OnInit {
   }
 
   protected runAnnualEvaluation(config: AnnualEvaluationConfig) {
+    if (this.loading()) return;
     if (config.format === 'Vista previa') {
       this.notify.emit('Vista previa actualizada.');
       return;
@@ -582,7 +615,7 @@ export class Exports implements OnInit {
       return;
     }
     const [year, month] = config.rangeBEnd.split('-').map(Number);
-    this.loading = true;
+    this.loading.set(true);
     this.jobsApi
       .create({
         idempotencyKey: crypto.randomUUID(),
@@ -602,15 +635,17 @@ export class Exports implements OnInit {
           indicatorB: this.indicatorKey(config.indicatorB),
         },
       })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loading.set(false)),
+      )
       .subscribe({
         next: (job) => {
-          this.loading = false;
-          this.liveJobs = [job, ...this.liveJobs.filter((item) => item.id !== job.id)];
+          this.queue.record(job);
           this.showAnnualEvaluation = false;
           this.notify.emit(`${config.format} anual agregado a la cola persistente.`);
         },
         error: () => {
-          this.loading = false;
           this.notify.emit('No fue posible solicitar la comparación anual. Revise los rangos.');
         },
       });

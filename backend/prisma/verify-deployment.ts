@@ -152,6 +152,29 @@ async function verify(): Promise<void> {
     );
     if (exportPermissions.rows[0]?.total !== 2)
       throw new Error('No están disponibles todos los permisos de trabajos de exportación.');
+    const reportingPeriodRoles = await directClient.query<{ total: number }>(
+      `SELECT count(DISTINCT r.codigo)::int AS total
+       FROM roles r
+       JOIN rol_permiso rp ON rp.rol_id = r.id
+       JOIN permisos p ON p.id = rp.permiso_id
+       WHERE p.codigo = 'reporting:periods:read' AND r.codigo = ANY($1::text[])`,
+      [
+        [
+          'SUPERADMIN',
+          'ADMIN_CENTRAL',
+          'SUPERADMIN_REGIONAL',
+          'ADMIN_REGIONAL',
+          'COORDINADOR_MUNICIPAL',
+          'DIGITADOR_COORDINACION',
+          'RESPONSABLE_ESTABLECIMIENTO',
+          'SUPERVISOR_CONSULTA',
+        ],
+      ],
+    );
+    if (reportingPeriodRoles.rows[0]?.total !== 8)
+      throw new Error(
+        'El catálogo de períodos no está habilitado para los ocho roles institucionales.',
+      );
     const operators = await directClient.query<{ roleCode: string; total: number }>(
       `SELECT r.codigo AS "roleCode", count(DISTINCT u.id) FILTER (WHERE ie.id IS NOT NULL)::int AS total
        FROM roles r
@@ -207,6 +230,7 @@ async function verify(): Promise<void> {
         analyticsPermissions: analyticsPermissions.rows[0].total,
         territorialPermissions: territorialPermissions.rows[0].total,
         userAdminPermissions: userAdminPermissions.rows[0].total,
+        reportingPeriodRoles: reportingPeriodRoles.rows[0].total,
         activeOperators: Object.fromEntries(
           operators.rows.map((operator) => [operator.roleCode, operator.total]),
         ),

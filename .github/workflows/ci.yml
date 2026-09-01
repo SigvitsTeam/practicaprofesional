@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: 24.15.0
+  NODE_VERSION: 24.20.0
 
 jobs:
   repository-security:
@@ -63,6 +63,8 @@ jobs:
         run: npm run format:check
       - name: Lint
         run: npm run lint
+      - name: Type-check source, scripts and test fixtures
+        run: npm run typecheck
       - name: Unit tests with coverage
         run: npm run test:cov -- --ci
       - name: HTTP E2E tests
@@ -184,7 +186,7 @@ jobs:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
         shell: bash
         run: |
-          docker exec "$POSTGRES_CONTAINER" psql --no-psqlrc --set ON_ERROR_STOP=1 -U postgres -d sigvits <<'SQL'
+          docker exec -i "$POSTGRES_CONTAINER" psql --no-psqlrc --set ON_ERROR_STOP=1 -U postgres -d sigvits <<'SQL'
           CREATE ROLE anon NOLOGIN;
           CREATE ROLE authenticated NOLOGIN;
           SQL
@@ -195,7 +197,7 @@ jobs:
           POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
         shell: bash
         run: |
-          docker exec "$POSTGRES_CONTAINER" psql --no-psqlrc --set ON_ERROR_STOP=1 -U postgres -d sigvits <<'SQL'
+          docker exec -i "$POSTGRES_CONTAINER" psql --no-psqlrc --set ON_ERROR_STOP=1 -U postgres -d sigvits <<'SQL'
           CREATE ROLE sigvits_runtime
             LOGIN PASSWORD 'ci-only-runtime-password'
             NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION BYPASSRLS;
@@ -275,13 +277,19 @@ jobs:
         run: docker build --target worker --file deploy/docker/backend.Dockerfile --tag sigvits-worker:ci .
       - name: Build frontend image
         run: docker build --pull --target runtime --file deploy/docker/frontend.Dockerfile --tag sigvits-frontend:ci .
+      - name: Smoke frontend runtime, security headers and cache policy
+        run: node tools/qa/verify-frontend-container.mjs --image sigvits-frontend:ci --evidence evidence/container-security/frontend-smoke.json
       - name: Inspect configured non-root users
         shell: bash
         run: |
-          test "$(docker image inspect sigvits-api:ci --format '{{.Config.User}}')" = node
-          test "$(docker image inspect sigvits-worker:ci --format '{{.Config.User}}')" = node
+          for image in sigvits-api:ci sigvits-worker:ci sigvits-migrator:ci; do
+            test "$(docker image inspect "$image" --format '{{.Config.User}}')" = node
+            test "$(docker run --rm --network none --read-only --entrypoint node "$image" --version)" = "v${NODE_VERSION}"
+            docker run --rm --network none --read-only --entrypoint node "$image" -e "const fs=require('node:fs'); for (const path of ['/usr/local/bin/npm','/usr/local/bin/npx','/usr/local/bin/yarn','/usr/local/bin/yarnpkg','/usr/local/lib/node_modules/npm','/opt/yarn-v1.22.22']) { if (fs.existsSync(path)) throw new Error('Unexpected runtime package manager: '+path); }"
+          done
           test "$(docker image inspect sigvits-frontend:ci --format '{{.Config.User}}')" = 101
           docker run --rm --entrypoint node sigvits-worker:ci -e "require('node:fs').accessSync('/app/dist-worker/assets/forms/formato-its1-oficial.xlsx')"
+          docker run --rm --read-only --mount type=volume,destination=/var/lib/sigvits/exports --entrypoint node sigvits-worker:ci -e "require('node:fs').writeFileSync('/var/lib/sigvits/exports/qa-writable-check','ok')"
       - name: Record immutable image identifiers
         shell: bash
         run: |
@@ -289,19 +297,29 @@ jobs:
           for image in sigvits-api:ci sigvits-worker:ci sigvits-migrator:ci sigvits-frontend:ci; do
             printf '%s %s\n' "$image" "$(docker image inspect "$image" --format '{{.Id}}')" >> evidence/container-security/image-ids.txt
           done
-      - name: Scan runtime images for high and critical vulnerabilities
+      - name: Scan deployment images for high and critical vulnerabilities
         shell: bash
         run: |
           status=0
-          for image in sigvits-api:ci sigvits-worker:ci sigvits-frontend:ci; do
+          scan_directory="$RUNNER_TEMP/sigvits-container-scans"
+          install -d -m 755 "$scan_directory" "$scan_directory/cache"
+          for image in sigvits-api:ci sigvits-worker:ci sigvits-migrator:ci sigvits-frontend:ci; do
             report="$(printf '%s' "$image" | tr ':/' '--').json"
-            docker run --rm \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              -v "$PWD/evidence/container-security:/evidence" \
-              aquasec/trivy:0.58.2 image \
-              --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL \
-              --format json --output "/evidence/$report" --exit-code 1 "$image" || status=$?
+            archive="$scan_directory/$report.tar"
+            docker image save --output "$archive" "$image"
+            docker run --rm --read-only --cap-drop ALL --security-opt no-new-privileges \
+              --tmpfs /tmp:rw,size=512m \
+              --mount "type=bind,source=$archive,target=/input/image.tar,readonly" \
+              --mount "type=bind,source=$scan_directory/cache,target=/root/.cache/trivy" \
+              --mount "type=bind,source=$PWD/evidence/container-security,target=/evidence" \
+              aquasec/trivy@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969 image --disable-telemetry --input /input/image.tar \
+              --scanners vuln --ignore-unfixed --severity HIGH,CRITICAL --list-all-pkgs \
+              --format json --output "/evidence/$report" --exit-code 1 || status=$?
+            rm -- "$archive"
           done
+          if [ -f "$scan_directory/cache/db/metadata.json" ]; then
+            cp "$scan_directory/cache/db/metadata.json" evidence/container-security/trivy-db-metadata.json
+          fi
           exit "$status"
       - name: Upload container security evidence
         if: always()

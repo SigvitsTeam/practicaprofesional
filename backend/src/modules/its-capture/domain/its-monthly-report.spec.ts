@@ -45,6 +45,7 @@ describe('buildItsMonthlyReport', () => {
 
     const report = buildItsMonthlyReport(source, 2026, 8);
     const row = report.rows[0];
+    if (!row) throw new Error('Expected the report to include the fixture disease.');
 
     expect(report.totalAttentions).toBe(2);
     expect(row.diagnosis).toEqual({ newCases: 1, controls: 1 });

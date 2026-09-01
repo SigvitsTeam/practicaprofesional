@@ -67,14 +67,24 @@
     </div>
     <div class="table-wrap">
       <table>
+        <caption class="sr-only">
+          ITS-2 por clasificación ·
+          {{
+            context.selected().name
+          }}
+          ·
+          {{
+            periodLabel
+          }}
+        </caption>
         <thead>
           <tr>
-            <th>Clasificación</th>
-            <th>Hombres</th>
-            <th>Mujeres</th>
-            <th>Nuevos</th>
-            <th>Controles</th>
-            <th>Total diagnósticos</th>
+            <th scope="col">Clasificación</th>
+            <th scope="col">Hombres</th>
+            <th scope="col">Mujeres</th>
+            <th scope="col">Nuevos</th>
+            <th scope="col">Controles</th>
+            <th scope="col">Total diagnósticos</th>
           </tr>
         </thead>
         <tbody>
@@ -109,14 +119,24 @@
         <h3>18 patologías del formato oficial</h3>
         <div class="table-wrap">
           <table>
+            <caption class="sr-only">
+              Patologías del formato oficial ITS-2 ·
+              {{
+                context.selected().name
+              }}
+              ·
+              {{
+                periodLabel
+              }}
+            </caption>
             <thead>
               <tr>
-                <th>Código</th>
-                <th>Patología</th>
-                <th>Nuevos</th>
-                <th>Controles</th>
-                <th>H</th>
-                <th>M</th>
+                <th scope="col">Código</th>
+                <th scope="col">Patología</th>
+                <th scope="col">Nuevos</th>
+                <th scope="col">Controles</th>
+                <th scope="col">Hombres</th>
+                <th scope="col">Mujeres</th>
               </tr>
             </thead>
             <tbody>

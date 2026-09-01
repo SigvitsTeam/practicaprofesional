@@ -23,7 +23,7 @@ describe('UpdateAttentionUseCase', () => {
     populationTypeId: '22222222-2222-4222-8222-222222222222',
     isContact: false,
     isPregnant: false,
-    diagnoses: [{ diseaseId: '33333333-3333-4333-8333-333333333333', caseType: 'NUEVO' as const }],
+    diagnoses: [{ diseaseId: '33333333-3333-4333-8333-333333333333', caseType: 'NUEVO' }] as const,
     userId: 'user-1',
     requestId: 'request-1',
   };

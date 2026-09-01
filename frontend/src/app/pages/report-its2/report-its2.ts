@@ -1,6 +1,6 @@
 import { Component, DestroyRef, effect, inject, OnInit, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize } from 'rxjs';
+import { finalize, forkJoin } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
 import { formatHondurasMonth } from '../../core/honduras-date';
@@ -32,7 +32,7 @@ export class ReportIts2 implements OnInit {
   protected readonly workflowReport = signal<Its2WorkflowReport | null>(null);
   protected readonly loading = signal(false);
   protected readonly loadError = signal('');
-  private contextReady = false;
+  private readonly contextReady = signal(false);
   private requestVersion = 0;
   protected attentionsUnder15: number | null = null;
   protected attentions15Plus: number | null = null;
@@ -42,7 +42,7 @@ export class ReportIts2 implements OnInit {
     effect(() => {
       const facilityId = this.context.selected().id;
       this.operationalPeriod.selectedEndKey();
-      if (this.contextReady && facilityId) this.loadReport(facilityId);
+      if (this.contextReady() && facilityId) this.loadReport(facilityId);
     });
   }
 
@@ -61,10 +61,7 @@ export class ReportIts2 implements OnInit {
     this.loading.set(true);
     this.api
       .getContext()
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
-      )
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (context) => {
           this.context.replace(
@@ -75,11 +72,14 @@ export class ReportIts2 implements OnInit {
               type: item.type === 'POLICLINICO' ? 'Policlínico' : (item.type as 'CIS' | 'UAPS'),
             })),
           );
-          this.contextReady = true;
+          this.contextReady.set(true);
           const facilityId = this.context.selected().id;
-          if (facilityId) this.loadReport(facilityId);
+          if (!facilityId) this.loading.set(false);
         },
-        error: () => this.loadError.set('No fue posible cargar los establecimientos autorizados.'),
+        error: () => {
+          this.loading.set(false);
+          this.loadError.set('No fue posible cargar los establecimientos autorizados.');
+        },
       });
   }
 
@@ -111,10 +111,20 @@ export class ReportIts2 implements OnInit {
   }
   protected get canPrepare() {
     const status = this.workflowReport()?.status;
-    return !status || status === 'BORRADOR' || status === 'DEVUELTO_POR_MUNICIPIO';
+    return (
+      !this.loading() &&
+      !this.loadError() &&
+      this.contextReady() &&
+      Boolean(this.context.selected().id) &&
+      this.operationalPeriod.selected()?.status === 'ABIERTO' &&
+      (!status || status === 'BORRADOR' || status === 'DEVUELTO_POR_MUNICIPIO')
+    );
   }
   protected get canSubmit() {
     return (
+      !this.loading() &&
+      !this.loadError() &&
+      this.operationalPeriod.selected()?.status === 'ABIERTO' &&
       this.workflowReport()?.status === 'BORRADOR' &&
       Boolean(this.workflowReport()?.attentionTotalsComplete)
     );
@@ -137,6 +147,7 @@ export class ReportIts2 implements OnInit {
   }
 
   protected prepareWorkflow() {
+    if (!this.canPrepare) return;
     const facilityId = this.context.selected().id;
     if (
       !facilityId ||
@@ -147,6 +158,7 @@ export class ReportIts2 implements OnInit {
       this.notify.emit('Complete los totales de atenciones y su fuente.');
       return;
     }
+    const requestVersion = this.requestVersion;
     this.loading.set(true);
     this.api
       .prepareIts2Report({
@@ -159,56 +171,73 @@ export class ReportIts2 implements OnInit {
       })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          if (requestVersion === this.requestVersion) this.loading.set(false);
+        }),
       )
       .subscribe({
         next: (workflow) => {
+          if (requestVersion !== this.requestVersion) return;
           this.setWorkflow(workflow);
           this.notify.emit(`Borrador ITS-2 versión ${workflow.version} preparado.`);
         },
-        error: (error) =>
-          this.notify.emit(error.error?.message ?? 'No fue posible preparar el ITS-2.'),
+        error: (error) => {
+          if (requestVersion === this.requestVersion)
+            this.notify.emit(error.error?.detail ?? 'No fue posible preparar el ITS-2.');
+        },
       });
   }
 
   protected submitWorkflow() {
+    if (!this.canSubmit) return;
     const current = this.workflowReport();
     if (!current) return;
+    const requestVersion = this.requestVersion;
     this.loading.set(true);
     this.api
       .submitIts2Report(current.id)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          if (requestVersion === this.requestVersion) this.loading.set(false);
+        }),
       )
       .subscribe({
         next: (workflow) => {
+          if (requestVersion !== this.requestVersion) return;
           this.setWorkflow(workflow);
           this.notify.emit('ITS-2 enviado a coordinación municipal.');
         },
-        error: (error) =>
-          this.notify.emit(error.error?.message ?? 'No fue posible enviar el ITS-2.'),
+        error: (error) => {
+          if (requestVersion === this.requestVersion)
+            this.notify.emit(error.error?.detail ?? 'No fue posible enviar el ITS-2.');
+        },
       });
   }
 
   protected downloadFilledIts2() {
+    if (this.loading()) return;
+    const requestVersion = this.requestVersion;
     const facility = this.context.selected();
+    const { year, month } = this;
     if (!facility.id) {
       this.notify.emit('Inicie sesión para generar el ITS-2 con datos reales.');
       return;
     }
     this.loading.set(true);
     this.api
-      .downloadMonthlyReportPdf(facility.id, this.year, this.month)
+      .downloadMonthlyReportPdf(facility.id, year, month)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          if (requestVersion === this.requestVersion) this.loading.set(false);
+        }),
       )
       .subscribe({
         next: (blob) =>
           this.downloadBlob(
             blob,
-            `ITS-2-${facility.code}-${this.year}-${String(this.month).padStart(2, '0')}.pdf`,
+            `ITS-2-${facility.code}-${year}-${String(month).padStart(2, '0')}.pdf`,
             'ITS-2 oficial generado y descargado.',
           ),
         error: () => this.notify.emit('No fue posible generar el PDF ITS-2.'),
@@ -216,23 +245,28 @@ export class ReportIts2 implements OnInit {
   }
 
   protected downloadFilledIts1() {
+    if (this.loading()) return;
+    const requestVersion = this.requestVersion;
     const facility = this.context.selected();
+    const { year, month } = this;
     if (!facility.id) {
       this.notify.emit('Inicie sesión para generar el ITS-1 con datos reales.');
       return;
     }
     this.loading.set(true);
     this.api
-      .downloadIts1RegisterPdf(facility.id, this.year, this.month)
+      .downloadIts1RegisterPdf(facility.id, year, month)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
+        finalize(() => {
+          if (requestVersion === this.requestVersion) this.loading.set(false);
+        }),
       )
       .subscribe({
         next: (blob) =>
           this.downloadBlob(
             blob,
-            `ITS-1-${facility.code}-${this.year}-${String(this.month).padStart(2, '0')}.pdf`,
+            `ITS-1-${facility.code}-${year}-${String(month).padStart(2, '0')}.pdf`,
             'ITS-1 oficial generado y descargado.',
           ),
         error: () => this.notify.emit('No fue posible generar el PDF ITS-1.'),
@@ -251,10 +285,15 @@ export class ReportIts2 implements OnInit {
 
   private loadReport(facilityId: string) {
     const requestVersion = ++this.requestVersion;
+    const { year, month } = this;
+    this.report.set(null);
+    this.setWorkflow(null);
     this.loading.set(true);
     this.loadError.set('');
-    this.api
-      .getMonthlyReport(facilityId, this.year, this.month)
+    forkJoin({
+      report: this.api.getMonthlyReport(facilityId, year, month),
+      workflow: this.api.getCurrentIts2Report(facilityId, year, month),
+    })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
@@ -262,8 +301,10 @@ export class ReportIts2 implements OnInit {
         }),
       )
       .subscribe({
-        next: (report) => {
-          if (requestVersion === this.requestVersion) this.report.set(report);
+        next: ({ report, workflow }) => {
+          if (requestVersion !== this.requestVersion) return;
+          this.report.set(report);
+          this.setWorkflow(workflow);
         },
         error: () => {
           if (requestVersion !== this.requestVersion) return;
@@ -271,24 +312,12 @@ export class ReportIts2 implements OnInit {
           this.loadError.set('No fue posible generar el consolidado ITS-2 del período.');
         },
       });
-    this.api
-      .getCurrentIts2Report(facilityId, this.year, this.month)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (workflow) => {
-          if (requestVersion === this.requestVersion) this.setWorkflow(workflow);
-        },
-        error: () => {
-          if (requestVersion === this.requestVersion) this.workflowReport.set(null);
-        },
-      });
   }
 
   private setWorkflow(workflow: Its2WorkflowReport | null) {
     this.workflowReport.set(workflow);
-    if (!workflow) return;
-    this.attentionsUnder15 = workflow.attentionsUnder15 ?? null;
-    this.attentions15Plus = workflow.attentions15Plus ?? null;
-    this.attentionTotalsSource = workflow.attentionTotalsSource ?? '';
+    this.attentionsUnder15 = workflow?.attentionsUnder15 ?? null;
+    this.attentions15Plus = workflow?.attentions15Plus ?? null;
+    this.attentionTotalsSource = workflow?.attentionTotalsSource ?? '';
   }
 }

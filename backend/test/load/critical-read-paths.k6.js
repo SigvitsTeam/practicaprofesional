@@ -33,7 +33,7 @@ export const options = {
 export function setup() {
   if (!baseUrl || !accessToken)
     throw new Error('BASE_URL y ACCESS_TOKEN son obligatorios para ejecutar la prueba de carga.');
-  const health = http.get(`${baseUrl}/api/v1/health/live`);
+  const health = http.get(`${baseUrl}/api/health/ready`);
   if (health.status !== 200) throw new Error(`El staging no está saludable: HTTP ${health.status}.`);
 }
 

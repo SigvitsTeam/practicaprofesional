@@ -1,5 +1,6 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { Reflector } from '@nestjs/core';
+import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import type { RequestWithContext } from '../../../common/http/request-context';
 import { AuthorizationPolicy } from '../domain/authorization.policy';
 import { DataLevel, RoleCode, type AuthorizationSubject } from '../domain/authorization.types';
@@ -21,12 +22,8 @@ describe('AuthorizationGuard', () => {
   }
 
   function context(auth: AuthorizationSubject): ExecutionContext {
-    const request = { auth } as RequestWithContext;
-    return {
-      getHandler: () => (): void => undefined,
-      getClass: () => class TestController {},
-      switchToHttp: () => ({ getRequest: () => request }),
-    } as ExecutionContext;
+    const request: Pick<RequestWithContext, 'auth'> = { auth };
+    return new ExecutionContextHost([request], class TestController {}, (): void => undefined);
   }
 
   it('allows a permission only when national territory is explicitly assigned', () => {

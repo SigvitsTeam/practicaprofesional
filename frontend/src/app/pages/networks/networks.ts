@@ -464,6 +464,32 @@ export class Networks {
   selectTab(tab: NetworkTab) {
     this.activeTab = tab;
   }
+  protected onTabKeydown(event: KeyboardEvent, tab: NetworkTab) {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const index = this.tabs.findIndex((item) => item.id === tab);
+    let nextIndex: number;
+    switch (event.key) {
+      case 'ArrowRight':
+        nextIndex = (index + 1) % this.tabs.length;
+        break;
+      case 'ArrowLeft':
+        nextIndex = (index + this.tabs.length - 1) % this.tabs.length;
+        break;
+      case 'Home':
+        nextIndex = 0;
+        break;
+      case 'End':
+        nextIndex = this.tabs.length - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    const nextTab = this.tabs[nextIndex];
+    this.selectTab(nextTab.id);
+    const tablist = (event.currentTarget as HTMLButtonElement).parentElement;
+    tablist?.querySelector<HTMLButtonElement>(`#network-tab-${nextTab.id}`)?.focus();
+  }
   private loadHistory() {
     const networkId = this.selectedNetworkId;
     const requestVersion = ++this.historyRequestVersion;

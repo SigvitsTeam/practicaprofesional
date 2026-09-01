@@ -1,6 +1,6 @@
 <section class="export-catalog">
   @for (option of exportOptions; track option.title) {
-    <button class="panel" (click)="selectExport(option)">
+    <button class="panel" type="button" [disabled]="loading()" (click)="selectExport(option)">
       <i>{{ option.icon }}</i
       ><span
         ><strong>{{ option.title }}</strong
@@ -26,9 +26,19 @@
         </p>
       </div>
       <div>
-        <button class="btn secondary" type="button" (click)="openAnnualEvaluation()">
+        <button
+          class="btn secondary"
+          type="button"
+          [disabled]="loading()"
+          (click)="openAnnualEvaluation()"
+        >
           Cambiar comparación</button
-        ><button class="btn primary" type="button" (click)="runAnnualEvaluation(preview)">
+        ><button
+          class="btn primary"
+          type="button"
+          [disabled]="loading()"
+          (click)="runAnnualEvaluation(preview)"
+        >
           {{ preview.format === 'Vista previa' ? 'Actualizar' : 'Generar ' + preview.format }}
         </button>
       </div>
@@ -66,23 +76,44 @@
       <h2>Trabajos de exportación recientes</h2>
       <p>Solo se muestran solicitudes propias; la generación se procesa fuera del worker HTTP.</p>
     </div>
-    <select>
-      <option>Todos los formatos</option>
-      <option>Excel</option>
-      <option>PDF</option>
-    </select>
+    @if (!demoMode) {
+      <button
+        class="btn secondary"
+        type="button"
+        [disabled]="queue.refreshing()"
+        (click)="queue.refresh()"
+      >
+        {{ queue.refreshing() ? 'Actualizando…' : 'Actualizar cola' }}
+      </button>
+    }
   </div>
-  <div class="table-wrap">
+  @if (queue.error()) {
+    <p class="queue-message" role="alert">{{ queue.error() }}</p>
+  }
+  @if (queue.autoRefreshPaused()) {
+    <p class="queue-message" role="status">
+      Actualización automática pausada. Use «Actualizar cola» para consultar los trabajos
+      pendientes.
+    </p>
+  } @else if (queue.hasPendingJobs()) {
+    <p class="queue-message" role="status">
+      La cola se actualiza automáticamente mientras se generan los archivos.
+    </p>
+  }
+  <div class="table-wrap" [attr.aria-busy]="queue.refreshing()">
     <table>
+      <caption class="sr-only">
+        Trabajos de exportación solicitados y disponibilidad de descarga
+      </caption>
       <thead>
         <tr>
-          <th>Reporte</th>
-          <th>Período</th>
-          <th>Formato</th>
-          <th>Plantilla</th>
-          <th>Estado</th>
-          <th>Solicitado por</th>
-          <th></th>
+          <th scope="col">Reporte</th>
+          <th scope="col">Período</th>
+          <th scope="col">Formato</th>
+          <th scope="col">Plantilla</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Solicitado por</th>
+          <th scope="col"><span class="sr-only">Descargar</span></th>
         </tr>
       </thead>
       <tbody>
@@ -106,7 +137,13 @@
             </td>
             <td>{{ job.user }}</td>
             <td>
-              <button class="download" [disabled]="!job.outputAvailable" (click)="download(job)">
+              <button
+                class="download"
+                type="button"
+                [attr.aria-label]="'Descargar ' + job.report + ' · ' + job.period"
+                [disabled]="!job.outputAvailable"
+                (click)="download(job)"
+              >
                 ↓
               </button>
             </td>
@@ -136,14 +173,24 @@
         <div>
           <span class="eyebrow">EXPORTACIÓN AUTORIZADA</span>
           <h2>{{ option.title }}</h2>
-          <p>El documento se generará en segundo plano para el territorio seleccionado.</p>
+          <p>
+            Período: {{ scopedPeriod?.label }}. El documento se generará en segundo plano para el
+            territorio seleccionado.
+          </p>
         </div>
-        <button type="button" aria-label="Cerrar" (click)="closeScopedExport()">×</button>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="loading()"
+          (click)="closeScopedExport()"
+        >
+          ×
+        </button>
       </header>
       <div class="scoped-export-form">
         <label>
           <span>Territorio</span>
-          <select [(ngModel)]="selectedScopedTargetId">
+          <select [(ngModel)]="selectedScopedTargetId" [disabled]="loading()">
             @for (target of scopedTargets; track target.id) {
               <option [value]="target.id">{{ target.code }} · {{ target.name }}</option>
             }
@@ -151,18 +198,25 @@
         </label>
         <label>
           <span>Formato</span>
-          <select [(ngModel)]="scopedFormat">
+          <select [(ngModel)]="scopedFormat" [disabled]="loading()">
             <option value="XLSX">Excel oficial</option>
             <option value="PDF">PDF</option>
           </select>
         </label>
       </div>
       <footer>
-        <button class="btn secondary" type="button" (click)="closeScopedExport()">Cancelar</button>
+        <button
+          class="btn secondary"
+          type="button"
+          [disabled]="loading()"
+          (click)="closeScopedExport()"
+        >
+          Cancelar
+        </button>
         <button
           class="btn primary"
           type="button"
-          [disabled]="loading || !selectedScopedTargetId"
+          [disabled]="loading() || !selectedScopedTargetId"
           (click)="generateScopedExport()"
         >
           Generar documento
@@ -186,7 +240,14 @@
           <h2>Configurar evaluación anual</h2>
           <p>Seleccione qué desea comparar y defina los dos rangos de tiempo.</p>
         </div>
-        <button type="button" aria-label="Cerrar" (click)="closeAnnualEvaluation()">×</button>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="loading()"
+          (click)="closeAnnualEvaluation()"
+        >
+          ×
+        </button>
       </header>
       <form (ngSubmit)="generateAnnualEvaluation()" novalidate>
         <div class="annual-form">
@@ -314,9 +375,14 @@
           </div>
         </div>
         <footer>
-          <button class="btn secondary" type="button" (click)="closeAnnualEvaluation()">
+          <button
+            class="btn secondary"
+            type="button"
+            [disabled]="loading()"
+            (click)="closeAnnualEvaluation()"
+          >
             Cancelar</button
-          ><button class="btn primary" type="submit">
+          ><button class="btn primary" type="submit" [disabled]="loading()">
             {{
               annualForm.format === 'Vista previa'
                 ? 'Ver comparación'

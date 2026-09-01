@@ -58,13 +58,13 @@
     </div>
     <div class="access-block allowed">
       <h3>Puede realizar</h3>
-      @for (permission of role().permissions; track permission) {
+      @for (permission of role().permissions; track $index) {
         <p><i>✓</i>{{ permission }}</p>
       }
     </div>
     <div class="access-block denied">
       <h3>Límites del perfil</h3>
-      @for (restriction of role().restrictions; track restriction) {
+      @for (restriction of role().restrictions; track $index) {
         <p><i>—</i>{{ restriction }}</p>
       }
     </div>
@@ -82,7 +82,7 @@
     </button>
   </div>
   <div class="role-steps">
-    @for (step of role().workflow; track step; let index = $index) {
+    @for (step of role().workflow; track $index; let index = $index) {
       <div>
         <i>{{ index + 1 }}</i
         ><strong>{{ step }}</strong>

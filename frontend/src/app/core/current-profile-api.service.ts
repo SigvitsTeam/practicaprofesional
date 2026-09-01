@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { RuntimeConfigService } from './runtime-config.service';
+import { timeout } from 'rxjs';
 
 export interface CurrentInstitutionalProfile {
   userId: string;
@@ -21,6 +22,8 @@ export class CurrentProfileApiService {
   private readonly config = inject(RuntimeConfigService);
 
   get() {
-    return this.http.get<CurrentInstitutionalProfile>(`${this.config.apiUrl}/v1/auth/me`);
+    return this.http
+      .get<CurrentInstitutionalProfile>(`${this.config.apiUrl}/v1/auth/me`)
+      .pipe(timeout(10_000));
   }
 }

@@ -78,7 +78,7 @@
 @if (isLiveMunicipal) {
   <article class="panel live-actions">
     <div>
-      <span class="eyebrow">FLUJO REAL · AGOSTO 2026</span>
+      <span class="eyebrow">FLUJO REAL · {{ periodLabel }}</span>
       <h2>
         {{
           consolidation()
@@ -117,7 +117,7 @@
 @if (isLiveRegional) {
   <article class="panel live-actions">
     <div>
-      <span class="eyebrow">FLUJO REAL · AGOSTO 2026</span>
+      <span class="eyebrow">FLUJO REAL · {{ periodLabel }}</span>
       <h2>
         {{
           regionalConsolidation()
@@ -156,7 +156,7 @@
 @if (isLiveNational) {
   <article class="panel live-actions national-actions">
     <div>
-      <span class="eyebrow">CIERRE NACIONAL · AGOSTO 2026</span>
+      <span class="eyebrow">CIERRE NACIONAL · {{ periodLabel }}</span>
       <h2>
         {{
           nationalConsolidation()

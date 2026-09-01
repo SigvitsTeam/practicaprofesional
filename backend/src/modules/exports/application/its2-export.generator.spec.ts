@@ -29,7 +29,7 @@ const report = buildItsMonthlyReport(
     ],
     attentions: [
       {
-        sex: 'F',
+        sex: 'M',
         ageGroupCode: '15_19',
         populationTypeCode: 'GENERAL',
         isContact: false,
@@ -75,7 +75,7 @@ describe('Its2ExportGenerator', () => {
   it('generates the monthly ITS-2 workbook and neutralizes formula-like codes', async () => {
     const contents = await generator.generate(job);
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(contents);
+    await workbook.xlsx.load(new Uint8Array(contents).buffer);
     const sheet = workbook.getWorksheet('ITS 2');
     expect(sheet?.getCell('D7').value).toBe('Cortés');
     expect(sheet?.getCell('AA9').value).toBe("'=unsafe");
@@ -87,7 +87,7 @@ describe('Its2ExportGenerator', () => {
     expect(sheet?.getCell('AA14').value).toBe(1);
     expect(sheet?.getCell('C32').value).toEqual({ formula: 'SUM(C14:C31)', result: 1 });
     expect(sheet?.pageSetup.printArea).toBe('A1:AL32');
-    expect(sheet?.model.sheetProtection?.sheet).toBe(true);
+    expect(sheet?.model).toMatchObject({ sheetProtection: { sheet: true } });
   });
 
   it('delegates PDF output to the official ITS-2 renderer', async () => {

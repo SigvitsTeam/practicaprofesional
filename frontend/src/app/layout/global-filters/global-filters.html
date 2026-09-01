@@ -1,61 +1,92 @@
 <section class="filters filter-shell" [attr.data-role]="role().id">
   <div class="filter-row">
-    <fieldset class="range-group">
-      <legend>Período</legend>
-      <label
-        ><span>Desde</span
-        ><select
-          aria-label="Período inicial"
-          [value]="operationalPeriod.selectedStartKey()"
-          (change)="setPeriodStart($event)"
+    @if (demoMode) {
+      <fieldset class="range-group">
+        <legend>Período</legend>
+        <label
+          ><span>Desde</span
+          ><select
+            aria-label="Período inicial"
+            [value]="operationalPeriod.selectedStartKey()"
+            (change)="setPeriodStart($event)"
+          >
+            @for (period of operationalPeriod.periods(); track period.key) {
+              <option
+                [value]="period.key"
+                [selected]="period.key === operationalPeriod.selectedStartKey()"
+              >
+                {{ period.label }}
+              </option>
+            }
+          </select></label
+        ><i>→</i
+        ><label
+          ><span>Hasta</span
+          ><select
+            aria-label="Período final"
+            [value]="operationalPeriod.selectedEndKey()"
+            (change)="operationalPeriod.selectEnd($any($event.target).value)"
+          >
+            @for (period of periodEndOptions; track period.key) {
+              <option
+                [value]="period.key"
+                [selected]="period.key === operationalPeriod.selectedEndKey()"
+              >
+                {{ period.label }}
+              </option>
+            }
+          </select></label
         >
-          @for (period of operationalPeriod.periods(); track period.key) {
-            <option [value]="period.key">
-              {{ period.label }}
-            </option>
-          }
-        </select></label
-      ><i>→</i
-      ><label
-        ><span>Hasta</span
-        ><select
-          aria-label="Período final"
-          [value]="operationalPeriod.selectedEndKey()"
-          (change)="operationalPeriod.selectEnd($any($event.target).value)"
-        >
-          @for (period of periodEndOptions; track period.key) {
-            <option [value]="period.key">{{ period.label }}</option>
-          }
-        </select></label
-      >
-    </fieldset>
+      </fieldset>
+    } @else {
+      <fieldset class="range-group">
+        <legend>Período mensual</legend>
+        <label
+          ><span>Consultar y operar</span>
+          <select
+            aria-label="Período operativo"
+            [value]="operationalPeriod.selectedEndKey()"
+            (change)="operationalPeriod.selectEnd($any($event.target).value)"
+          >
+            @for (period of operationalPeriod.periods(); track period.key) {
+              <option
+                [value]="period.key"
+                [selected]="period.key === operationalPeriod.selectedEndKey()"
+              >
+                {{ period.label }} · {{ period.status }}
+              </option>
+            }
+          </select>
+        </label>
+      </fieldset>
+    }
     @if (demoMode) {
       <fieldset class="range-group week-range">
-      <legend>Semana epidemiológica</legend>
-      <label
-        ><span>Desde</span
-        ><select
-          aria-label="Semana inicial"
-          [value]="selectedWeekStart"
-          (change)="setWeekStart($event)"
+        <legend>Semana epidemiológica</legend>
+        <label
+          ><span>Desde</span
+          ><select
+            aria-label="Semana inicial"
+            [value]="selectedWeekStart"
+            (change)="setWeekStart($event)"
+          >
+            @for (week of weeks; track week) {
+              <option [value]="week" [selected]="week === selectedWeekStart">{{ week }}</option>
+            }
+          </select></label
+        ><i>→</i
+        ><label
+          ><span>Hasta</span
+          ><select
+            aria-label="Semana final"
+            [value]="selectedWeekEnd"
+            (change)="selectedWeekEnd = $any($event.target).value"
+          >
+            @for (week of weekEndOptions; track week) {
+              <option [value]="week" [selected]="week === selectedWeekEnd">{{ week }}</option>
+            }
+          </select></label
         >
-          @for (week of weeks; track week) {
-            <option [value]="week" [selected]="week === selectedWeekStart">{{ week }}</option>
-          }
-        </select></label
-      ><i>→</i
-      ><label
-        ><span>Hasta</span
-        ><select
-          aria-label="Semana final"
-          [value]="selectedWeekEnd"
-          (change)="selectedWeekEnd = $any($event.target).value"
-        >
-          @for (week of weekEndOptions; track week) {
-            <option [value]="week" [selected]="week === selectedWeekEnd">{{ week }}</option>
-          }
-        </select></label
-      >
       </fieldset>
     }
     <div class="scope-summary">
@@ -63,16 +94,18 @@
     </div>
     @if (demoMode) {
       <button
-      class="scope-toggle"
-      type="button"
-      [class.open]="showTerritoryFilters"
-      [attr.aria-expanded]="showTerritoryFilters"
-      (click)="showTerritoryFilters = !showTerritoryFilters"
-    >
-      <i>⌖</i>{{ showTerritoryFilters ? 'Ocultar alcance' : 'Cambiar alcance' }}<b>⌄</b>
+        class="scope-toggle"
+        type="button"
+        [class.open]="showTerritoryFilters"
+        [attr.aria-expanded]="showTerritoryFilters"
+        (click)="showTerritoryFilters = !showTerritoryFilters"
+      >
+        <i>⌖</i>{{ showTerritoryFilters ? 'Ocultar alcance' : 'Cambiar alcance' }}<b>⌄</b>
       </button>
     }
-    <div class="sync"><i></i>Actualizado hoy, 10:42</div>
+    <div class="sync">
+      <i></i>{{ demoMode ? 'Datos de demostración' : 'Períodos institucionales' }}
+    </div>
   </div>
 
   @if (demoMode && showTerritoryFilters) {

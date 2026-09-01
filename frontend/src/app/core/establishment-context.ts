@@ -3,7 +3,7 @@ import { Establishment } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class EstablishmentContext {
-  readonly establishments: Establishment[] = [
+  private readonly catalog = signal<Establishment[]>([
     { code: '2721', name: 'Policlínico Cornelio Moncada Puerto Cortés', type: 'Policlínico' },
     { code: '85481', name: 'CIS Linda Coello', type: 'CIS' },
     { code: '2771', name: 'UAPS La Pita', type: 'UAPS' },
@@ -16,13 +16,21 @@ export class EstablishmentContext {
     { code: '2780', name: 'UAPS Puente Alto', type: 'UAPS' },
     { code: '2755', name: 'UAPS Caoba', type: 'UAPS' },
     { code: '2763', name: 'UAPS Kele Kele', type: 'UAPS' },
-  ];
+  ]);
+
+  get establishments(): readonly Establishment[] {
+    return this.catalog();
+  }
 
   readonly selectedCode = signal('2721');
-  readonly selected = computed(
+  readonly selected = computed<Establishment>(
     () =>
       this.establishments.find((item) => item.code === this.selectedCode()) ??
-      this.establishments[0],
+      this.establishments[0] ?? {
+        code: '',
+        name: 'Establecimiento no disponible',
+        type: 'CIS' as const,
+      },
   );
 
   select(code: string) {
@@ -30,9 +38,8 @@ export class EstablishmentContext {
   }
 
   replace(establishments: Establishment[]) {
-    if (!establishments.length) return;
-    this.establishments.splice(0, this.establishments.length, ...establishments);
+    this.catalog.set([...establishments]);
     if (!establishments.some((item) => item.code === this.selectedCode()))
-      this.selectedCode.set(establishments[0].code);
+      this.selectedCode.set(establishments[0]?.code ?? '');
   }
 }

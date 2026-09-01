@@ -10,8 +10,13 @@
 **/coverage
 backend/.data
 deploy/secrets
+evidence
+backups
+frontend/public/config/runtime-config.json
 outputs
 output
 tmp
 *.tar.gz
-
+*.tar
+*.dump
+*.dump.sha256

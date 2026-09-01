@@ -5,6 +5,7 @@ import { AuthService } from '../../core/auth.service';
 import { ItsCaptureApiService } from '../../core/its-capture-api.service';
 import { ROLE_PROFILES } from '../../core/role-data';
 import { RoleDashboard } from './role-dashboard';
+import { OperationalPeriodService } from '../../core/operational-period';
 
 describe('RoleDashboard', () => {
   const getTerritorialAnalytics = vi.fn();
@@ -46,6 +47,7 @@ describe('RoleDashboard', () => {
         { provide: ItsCaptureApiService, useValue: { getTerritorialAnalytics } },
       ],
     }).compileComponents();
+    TestBed.inject(OperationalPeriodService).useDemoCatalog();
   });
 
   it('calcula métricas y prioridades desde la analítica autorizada', async () => {
@@ -69,5 +71,27 @@ describe('RoleDashboard', () => {
     expect(element.textContent).toContain('40');
     expect(element.textContent).toContain('1 territorio sin reporte vigente');
     expect(element.textContent).toContain('Atlántida');
+  });
+
+  it('reuses static checklist slots and updates their text when the role changes', async () => {
+    const fixture = TestBed.createComponent(RoleDashboard);
+    const previous = ROLE_PROFILES.find((role) => role.id === 'municipal-coordinator')!;
+    const next = ROLE_PROFILES.find((role) => role.id === 'regional-admin')!;
+    fixture.componentRef.setInput('role', previous);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    const element = fixture.nativeElement as HTMLElement;
+    const permission = element.querySelector('.allowed p');
+    const restriction = element.querySelector('.denied p');
+    const step = element.querySelector('.role-steps > div');
+    fixture.componentRef.setInput('role', next);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(element.querySelector('.allowed p')).toBe(permission);
+    expect(element.querySelector('.denied p')).toBe(restriction);
+    expect(element.querySelector('.role-steps > div')).toBe(step);
+    expect(permission?.textContent).toContain(next.permissions[0]);
+    expect(restriction?.textContent).toContain(next.restrictions[0]);
+    expect(step?.textContent).toContain(next.workflow[0]);
   });
 });

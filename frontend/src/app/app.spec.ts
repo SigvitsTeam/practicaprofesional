@@ -6,8 +6,11 @@ import {
 } from '@angular/core/testing';
 import { App } from './app';
 import { environment } from '../environments/environment';
-import { of } from 'rxjs';
+import { of, Subject } from 'rxjs';
 import { CurrentProfileApiService } from './core/current-profile-api.service';
+import { ItsCaptureApiService } from './core/its-capture-api.service';
+import type { MonthlyReportingPeriodResponse } from './core/its-capture-api.service';
+import { OperationalPeriodService } from './core/operational-period';
 
 const TEST_SESSION = 'sigvits-auth-session';
 const settleDeferred = async (fixture: ComponentFixture<App>) => {
@@ -52,6 +55,18 @@ describe('App', () => {
         },
       ],
     }).compileComponents();
+    vi.spyOn(TestBed.inject(ItsCaptureApiService), 'getMonthlyReportingPeriods').mockReturnValue(
+      of([
+        {
+          id: 'period-2026-08',
+          year: 2026,
+          month: 8,
+          startDate: '2026-08-01',
+          endDate: '2026-08-31',
+          status: 'ABIERTO',
+        },
+      ]),
+    );
   });
 
   afterEach(() => {
@@ -184,6 +199,71 @@ describe('App', () => {
     expect(compiled.querySelector('.profile-loading')).toBeNull();
     expect(compiled.querySelector('.app-shell')).toBeTruthy();
     expect(compiled.textContent).toContain('Coordinación Piloto');
+    expect(
+      compiled.querySelector<HTMLSelectElement>('select[aria-label="Período operativo"]')?.value,
+    ).toBe('2026-08');
+    expect(compiled.querySelector('.scope-toggle')).toBeNull();
+    expect(compiled.querySelector('select[aria-label="Semana inicial"]')).toBeNull();
+  });
+
+  it('blocks institutional access if the period catalog is empty', async () => {
+    localStorage.setItem(
+      TEST_SESSION,
+      JSON.stringify({
+        provider: 'supabase',
+        remember: true,
+        accessToken: 'test-token',
+        expiresAt: Date.now() + 3_600_000,
+        user: { id: 'institutional-user', email: 'pilot@example.test', name: 'Pilot' },
+      }),
+    );
+    vi.mocked(TestBed.inject(ItsCaptureApiService).getMonthlyReportingPeriods).mockReturnValue(
+      of([]),
+    );
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const element = fixture.nativeElement as HTMLElement;
+    expect(element.querySelector('.app-shell')).toBeNull();
+    expect(element.querySelector('.profile-loading')).toBeNull();
+    expect(element.querySelector('.profile-error')?.textContent).toContain(
+      'períodos institucionales',
+    );
+  });
+
+  it('cancels a pending period catalog when signing out', async () => {
+    localStorage.setItem(
+      TEST_SESSION,
+      JSON.stringify({
+        provider: 'supabase',
+        remember: true,
+        accessToken: 'test-token',
+        expiresAt: Date.now() + 3_600_000,
+        user: { id: 'institutional-user', email: 'pilot@example.test', name: 'Pilot' },
+      }),
+    );
+    const pending = new Subject<MonthlyReportingPeriodResponse[]>();
+    vi.mocked(TestBed.inject(ItsCaptureApiService).getMonthlyReportingPeriods).mockReturnValue(
+      pending,
+    );
+    const fixture = TestBed.createComponent(App);
+    fixture.detectChanges();
+    expect(pending.observed).toBe(true);
+    fixture.componentInstance.signOut();
+    fixture.detectChanges();
+    expect(pending.observed).toBe(false);
+    pending.next([
+      {
+        id: 'late',
+        year: 2026,
+        month: 9,
+        startDate: '2026-09-01',
+        endDate: '2026-09-30',
+        status: 'ABIERTO',
+      },
+    ]);
+    expect(TestBed.inject(OperationalPeriodService).periods()).toEqual([]);
+    expect(fixture.componentInstance.profileReady()).toBe(false);
   });
 
   it('should let only the global superadmin manage regions, municipalities and establishments', async () => {
@@ -387,8 +467,8 @@ describe('App', () => {
     const select = (label: string) =>
       compiled.querySelector<HTMLSelectElement>(`.filters select[aria-label="${label}"]`)!;
 
-    expect(select('Período inicial').value).toBe('Julio 2026');
-    expect(select('Período final').value).toBe('Julio 2026');
+    expect(select('Período inicial').value).toBe('2026-07');
+    expect(select('Período final').value).toBe('2026-07');
     expect(select('Período final').options).toHaveLength(1);
     expect(select('Semana inicial').value).toBe('SE 27');
     expect(select('Semana final').value).toBe('SE 29');
@@ -419,7 +499,7 @@ describe('App', () => {
     expectFilters('Redes', true);
     expectFilters('Reportes y exportaciones', true);
     expectFilters('Captura ITS 1', false);
-    expectFilters('Reporte ITS 2', false);
+    expectFilters('Reporte ITS 2', true);
     expectFilters('Administración', false);
   });
 

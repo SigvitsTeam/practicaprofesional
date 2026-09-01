@@ -165,231 +165,272 @@
           <button
             type="button"
             role="tab"
+            [id]="'network-tab-' + tab.id"
+            [attr.aria-controls]="'network-panel-' + tab.id"
             [class.selected]="activeTab === tab.id"
             [attr.aria-selected]="activeTab === tab.id"
+            [tabIndex]="activeTab === tab.id ? 0 : -1"
             (click)="selectTab(tab.id)"
+            (keydown)="onTabKeydown($event, tab.id)"
           >
             {{ tab.label }}
           </button>
         }
       </div>
       <div class="network-tab-content">
-        @switch (activeTab) {
-          @case ('summary') {
-            <section class="network-summary">
-              <div class="network-metrics">
-                <article>
-                  <span>Total ITS</span><strong>{{ selectedNetworkTotal }}</strong
-                  ><small>Atenciones agregadas</small>
-                </article>
-                <article>
-                  <span>Reportes recibidos</span
-                  ><strong
-                    >{{ selectedNetworkReports }}/{{
-                      filteredAssociatedMunicipalities.length
-                    }}</strong
-                  ><small>Municipios con consolidado</small>
-                </article>
-                <article>
-                  <span>Alertas</span><strong>{{ selectedNetworkAlerts }}</strong
-                  ><small>Hallazgos del período</small>
-                </article>
-              </div>
-              <div class="municipality-production">
-                <div class="section-heading">
-                  <div>
-                    <h2>Municipios de la Red</h2>
-                    <p>{{ metricLabel }} · {{ periodLabel }}</p>
+        @for (tab of tabs; track tab.id) {
+          <div
+            role="tabpanel"
+            [id]="'network-panel-' + tab.id"
+            [attr.aria-labelledby]="'network-tab-' + tab.id"
+            [hidden]="activeTab !== tab.id"
+            tabindex="0"
+          >
+            @switch (tab.id) {
+              @case ('summary') {
+                <section class="network-summary">
+                  <div class="network-metrics">
+                    <article>
+                      <span>Total ITS</span><strong>{{ selectedNetworkTotal }}</strong
+                      ><small>Atenciones agregadas</small>
+                    </article>
+                    <article>
+                      <span>Reportes recibidos</span
+                      ><strong
+                        >{{ selectedNetworkReports }}/{{
+                          filteredAssociatedMunicipalities.length
+                        }}</strong
+                      ><small>Municipios con consolidado</small>
+                    </article>
+                    <article>
+                      <span>Alertas</span><strong>{{ selectedNetworkAlerts }}</strong
+                      ><small>Hallazgos del período</small>
+                    </article>
                   </div>
-                </div>
-                @for (municipality of filteredAssociatedMunicipalities; track municipality.id) {
-                  <article>
-                    <div>
-                      <strong>{{ municipality.name }}</strong
-                      ><small
-                        >{{ municipality.establishments }} establecimientos ·
-                        {{ municipality.reports }}</small
-                      >
+                  <div class="municipality-production">
+                    <div class="section-heading">
+                      <div>
+                        <h2>Municipios de la Red</h2>
+                        <p>{{ metricLabel }} · {{ periodLabel }}</p>
+                      </div>
                     </div>
-                    <div class="production-bar">
-                      <i [style.width]="metricWidth(municipality)"></i>
-                    </div>
-                    <span
-                      ><strong>{{ metricValue(municipality) }}</strong
-                      ><small>{{ metricLabel }}</small></span
-                    >
-                  </article>
-                } @empty {
-                  <div class="inline-empty">No hay municipios que coincidan con el filtro.</div>
-                }
-              </div>
-            </section>
-          }
-          @case ('municipalities') {
-            <section class="network-members">
-              <div class="tab-section-heading">
-                <div>
-                  <h3>Composición municipal</h3>
-                  <p>Los cambios se guardan con vigencia y auditoría.</p>
-                </div>
-              </div>
-              @if (canManage) {
-                <div class="membership-controls">
-                  <label>Vigencia<input type="date" [(ngModel)]="membershipEffectiveDate" /></label
-                  ><label
-                    >Motivo<input
-                      [(ngModel)]="membershipReason"
-                      placeholder="Motivo administrativo" /></label
-                  ><button
-                    class="btn primary"
-                    type="button"
-                    (click)="saveMemberships()"
-                    [disabled]="loading || membershipReason.trim().length < 10"
-                  >
-                    Guardar asociaciones
-                  </button>
-                </div>
-              }
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Asociar</th>
-                      <th>Municipio</th>
-                      <th>Establecimientos</th>
-                      <th>Atenciones</th>
-                      <th>Estado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (municipality of municipalities; track municipality.id) {
-                      <tr>
-                        <td>
-                          <input
-                            type="checkbox"
-                            [checked]="draftMembershipIds.includes(municipality.id)"
-                            [disabled]="
-                              !canManage || municipality.regionId !== selectedNetwork.regionId
-                            "
-                            (change)="
-                              toggleDraftMembership(municipality.id, $any($event.target).checked)
-                            "
-                            [attr.aria-label]="'Asociar ' + municipality.name"
-                          />
-                        </td>
-                        <td>
-                          <strong>{{ municipality.name }}</strong
-                          ><small>Código {{ municipality.code }}</small>
-                        </td>
-                        <td>{{ municipality.establishments }}</td>
-                        <td>{{ municipality.total }}</td>
-                        <td>
-                          <span
-                            class="member-status"
-                            [class.available]="!draftMembershipIds.includes(municipality.id)"
-                            >{{
-                              draftMembershipIds.includes(municipality.id)
-                                ? 'Asociado'
-                                : 'Disponible'
-                            }}</span
-                          >
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          }
-          @case ('consolidated') {
-            <section class="network-consolidated">
-              <div class="tab-section-heading">
-                <div>
-                  <h3>Consolidado de la Red</h3>
-                  <p>Información ITS 2 agregada; nunca contiene registros individuales.</p>
-                </div>
-                <span class="frozen-chip">{{ periodLabel }}</span>
-              </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Municipio</th>
-                      <th>Atenciones</th>
-                      <th>Casos nuevos</th>
-                      <th>Controles</th>
-                      <th>Reporte</th>
-                    </tr>
-                  </thead>
-                  <tbody>
                     @for (municipality of filteredAssociatedMunicipalities; track municipality.id) {
-                      <tr>
-                        <td>
+                      <article>
+                        <div>
                           <strong>{{ municipality.name }}</strong
-                          ><small>{{ municipality.code }}</small>
-                        </td>
-                        <td>{{ municipality.total }}</td>
-                        <td>{{ municipality.newCases }}</td>
-                        <td>{{ municipality.controls }}</td>
-                        <td>{{ municipality.reports }}</td>
-                      </tr>
-                    }
-                    <tr class="total-row">
-                      <td><strong>Total Red</strong></td>
-                      <td>
-                        <strong>{{ selectedNetworkTotal }}</strong>
-                      </td>
-                      <td>
-                        <strong>{{ selectedNetworkNewCases }}</strong>
-                      </td>
-                      <td>
-                        <strong>{{ selectedNetworkControls }}</strong>
-                      </td>
-                      <td>
-                        <strong
-                          >{{ selectedNetworkReports }}/{{
-                            filteredAssociatedMunicipalities.length
-                          }}</strong
+                          ><small
+                            >{{ municipality.establishments }} establecimientos ·
+                            {{ municipality.reports }}</small
+                          >
+                        </div>
+                        <div class="production-bar">
+                          <i [style.width]="metricWidth(municipality)"></i>
+                        </div>
+                        <span
+                          ><strong>{{ metricValue(municipality) }}</strong
+                          ><small>{{ metricLabel }}</small></span
                         >
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          }
-          @case ('history') {
-            <section class="network-history">
-              <div class="tab-section-heading">
-                <div>
-                  <h3>Historial de la Red</h3>
-                  <p>Creación, composición y cambios de estado auditados.</p>
-                </div>
-              </div>
-              @if (historyLoading) {
-                <div class="inline-empty">Cargando historial…</div>
-              } @else if (historyUnavailable) {
-                <div class="inline-empty">
-                  El historial requiere permiso de auditoría territorial.
-                </div>
-              } @else {
-                @for (event of history; track event.id) {
-                  <article>
-                    <i></i><time>{{ formatAuditDate(event.createdAt) }}</time>
-                    <div>
-                      <strong>{{ actionLabel(event.action) }}</strong>
-                      <p>{{ event.reason || 'Sin motivo registrado' }}</p>
-                      <small>{{ event.actorName || 'Actor no disponible' }}</small>
-                    </div>
-                  </article>
-                } @empty {
-                  <div class="inline-empty">
-                    La red todavía no registra eventos administrativos.
+                      </article>
+                    } @empty {
+                      <div class="inline-empty">No hay municipios que coincidan con el filtro.</div>
+                    }
                   </div>
-                }
+                </section>
               }
-            </section>
-          }
+              @case ('municipalities') {
+                <section class="network-members">
+                  <div class="tab-section-heading">
+                    <div>
+                      <h3>Composición municipal</h3>
+                      <p>Los cambios se guardan con vigencia y auditoría.</p>
+                    </div>
+                  </div>
+                  @if (canManage) {
+                    <div class="membership-controls">
+                      <label
+                        >Vigencia<input type="date" [(ngModel)]="membershipEffectiveDate" /></label
+                      ><label
+                        >Motivo<input
+                          [(ngModel)]="membershipReason"
+                          placeholder="Motivo administrativo" /></label
+                      ><button
+                        class="btn primary"
+                        type="button"
+                        (click)="saveMemberships()"
+                        [disabled]="loading || membershipReason.trim().length < 10"
+                      >
+                        Guardar asociaciones
+                      </button>
+                    </div>
+                  }
+                  <div class="table-wrap">
+                    <table>
+                      <caption class="sr-only">
+                        Composición municipal de
+                        {{
+                          selectedNetwork.name
+                        }}
+                        ·
+                        {{
+                          periodLabel
+                        }}
+                      </caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Asociar</th>
+                          <th scope="col">Municipio</th>
+                          <th scope="col">Establecimientos</th>
+                          <th scope="col">Atenciones</th>
+                          <th scope="col">Estado</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (municipality of municipalities; track municipality.id) {
+                          <tr>
+                            <td>
+                              <input
+                                type="checkbox"
+                                [checked]="draftMembershipIds.includes(municipality.id)"
+                                [disabled]="
+                                  !canManage || municipality.regionId !== selectedNetwork.regionId
+                                "
+                                (change)="
+                                  toggleDraftMembership(
+                                    municipality.id,
+                                    $any($event.target).checked
+                                  )
+                                "
+                                [attr.aria-label]="'Asociar ' + municipality.name"
+                              />
+                            </td>
+                            <td>
+                              <strong>{{ municipality.name }}</strong
+                              ><small>Código {{ municipality.code }}</small>
+                            </td>
+                            <td>{{ municipality.establishments }}</td>
+                            <td>{{ municipality.total }}</td>
+                            <td>
+                              <span
+                                class="member-status"
+                                [class.available]="!draftMembershipIds.includes(municipality.id)"
+                                >{{
+                                  draftMembershipIds.includes(municipality.id)
+                                    ? 'Asociado'
+                                    : 'Disponible'
+                                }}</span
+                              >
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              }
+              @case ('consolidated') {
+                <section class="network-consolidated">
+                  <div class="tab-section-heading">
+                    <div>
+                      <h3>Consolidado de la Red</h3>
+                      <p>Información ITS 2 agregada; nunca contiene registros individuales.</p>
+                    </div>
+                    <span class="frozen-chip">{{ periodLabel }}</span>
+                  </div>
+                  <div class="table-wrap">
+                    <table>
+                      <caption class="sr-only">
+                        Consolidado ITS-2 de
+                        {{
+                          selectedNetwork.name
+                        }}
+                        ·
+                        {{
+                          periodLabel
+                        }}
+                      </caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Municipio</th>
+                          <th scope="col">Atenciones</th>
+                          <th scope="col">Casos nuevos</th>
+                          <th scope="col">Controles</th>
+                          <th scope="col">Reporte</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (
+                          municipality of filteredAssociatedMunicipalities;
+                          track municipality.id
+                        ) {
+                          <tr>
+                            <td>
+                              <strong>{{ municipality.name }}</strong
+                              ><small>{{ municipality.code }}</small>
+                            </td>
+                            <td>{{ municipality.total }}</td>
+                            <td>{{ municipality.newCases }}</td>
+                            <td>{{ municipality.controls }}</td>
+                            <td>{{ municipality.reports }}</td>
+                          </tr>
+                        }
+                        <tr class="total-row">
+                          <td><strong>Total Red</strong></td>
+                          <td>
+                            <strong>{{ selectedNetworkTotal }}</strong>
+                          </td>
+                          <td>
+                            <strong>{{ selectedNetworkNewCases }}</strong>
+                          </td>
+                          <td>
+                            <strong>{{ selectedNetworkControls }}</strong>
+                          </td>
+                          <td>
+                            <strong
+                              >{{ selectedNetworkReports }}/{{
+                                filteredAssociatedMunicipalities.length
+                              }}</strong
+                            >
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              }
+              @case ('history') {
+                <section class="network-history">
+                  <div class="tab-section-heading">
+                    <div>
+                      <h3>Historial de la Red</h3>
+                      <p>Creación, composición y cambios de estado auditados.</p>
+                    </div>
+                  </div>
+                  @if (historyLoading) {
+                    <div class="inline-empty">Cargando historial…</div>
+                  } @else if (historyUnavailable) {
+                    <div class="inline-empty">
+                      El historial requiere permiso de auditoría territorial.
+                    </div>
+                  } @else {
+                    @for (event of history; track event.id) {
+                      <article>
+                        <i></i><time>{{ formatAuditDate(event.createdAt) }}</time>
+                        <div>
+                          <strong>{{ actionLabel(event.action) }}</strong>
+                          <p>{{ event.reason || 'Sin motivo registrado' }}</p>
+                          <small>{{ event.actorName || 'Actor no disponible' }}</small>
+                        </div>
+                      </article>
+                    } @empty {
+                      <div class="inline-empty">
+                        La red todavía no registra eventos administrativos.
+                      </div>
+                    }
+                  }
+                </section>
+              }
+            }
+          </div>
         }
       </div>
     }

@@ -1,10 +1,15 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { Reflector } from '@nestjs/core';
-import type { RequestWithContext } from '../../../common/http/request-context';
+import { ExecutionContextHost } from '@nestjs/core/helpers/execution-context-host';
 import { IdentityRepository } from '../application/identity.repository';
 import { TokenVerifier, type VerifiedIdentity } from '../application/token-verifier';
 import { RoleCode, type AuthorizationSubject } from '../domain/authorization.types';
 import { AuthenticationGuard } from './authentication.guard';
+
+interface AuthenticationRequestStub {
+  header: (name: string) => string | undefined;
+  auth?: AuthorizationSubject;
+}
 
 class FakeTokenVerifier extends TokenVerifier {
   lastToken?: string;
@@ -33,21 +38,17 @@ describe('AuthenticationGuard', () => {
     territory: { national: true, regionIds: [], municipalityIds: [], facilityIds: [] },
   };
 
-  function context(request: Partial<RequestWithContext>): ExecutionContext {
-    return {
-      getHandler: () => (): void => undefined,
-      getClass: () => class TestController {},
-      switchToHttp: () => ({ getRequest: () => request }),
-    } as ExecutionContext;
+  function context(request: AuthenticationRequestStub): ExecutionContext {
+    return new ExecutionContextHost([request], class TestController {}, (): void => undefined);
   }
 
   it('verifies the bearer token and attaches only the institutional subject', async () => {
     const verifier = new FakeTokenVerifier();
     const reflector = { getAllAndOverride: () => false } as unknown as Reflector;
     const guard = new AuthenticationGuard(reflector, verifier, new FakeIdentityRepository(subject));
-    const request = {
+    const request: AuthenticationRequestStub = {
       header: (name: string) => (name === 'authorization' ? 'Bearer signed-token' : undefined),
-    } as RequestWithContext;
+    };
 
     await expect(guard.canActivate(context(request))).resolves.toBe(true);
     expect(verifier.lastToken).toBe('signed-token');
@@ -61,9 +62,9 @@ describe('AuthenticationGuard', () => {
       new FakeTokenVerifier(),
       new FakeIdentityRepository(null),
     );
-    const request = {
+    const request: AuthenticationRequestStub = {
       header: () => 'Bearer signed-token',
-    } as RequestWithContext;
+    };
 
     await expect(guard.canActivate(context(request))).rejects.toThrow('Credenciales no válidas.');
   });

@@ -155,6 +155,7 @@ export class Maps {
     )[this.mapLevel] satisfies TerritorialAnalyticsLevel;
     this.loading.set(true);
     this.loadError.set('');
+    this.liveReports.set([]);
     const period = this.operationalPeriod.selected();
     if (!period) return;
     const { year, month } = period;
@@ -172,6 +173,8 @@ export class Maps {
           this.liveReports.set(
             result.rows.map((row) => ({
               workflowId: row.reportId,
+              periodYear: year,
+              periodMonth: month,
               workflowLevel:
                 level === 'REGION' ? 'regional' : level === 'MUNICIPIO' ? 'municipal' : 'facility',
               version: row.reportVersion,

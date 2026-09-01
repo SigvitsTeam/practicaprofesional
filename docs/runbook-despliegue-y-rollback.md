@@ -32,6 +32,12 @@ identidad, seis secretos y una estación administrativa con `pg_dump`, `pg_resto
    rechaza conexiones remotas sin TLS. Nunca colocar `service_role` en variables del frontend.
 5. En una base ya creada, un DBA debe crear/rotar `sigvits_runtime` y aplicar los mismos grants que
    `deploy/postgres/init/10-runtime-role.sh`; los scripts de init sólo corren al crear un volumen.
+6. La imagen prepara `/var/lib/sigvits/exports` para el usuario `node` (UID/GID 1000), de modo que
+   un volumen nuevo herede permisos de escritura. Para volúmenes existentes o bind mounts,
+   verificar propietario y permisos antes del despliegue; el entrypoint falla con un mensaje
+   explícito si `EXPORT_STORAGE_DIRECTORY` no es escribible. No usar `chmod 777` ni borrar el
+   volumen para resolver permisos: conservar los artefactos vigentes y ajustar únicamente el
+   directorio validado mediante el operador de almacenamiento.
 
 ## Despliegue en staging
 
@@ -40,7 +46,7 @@ Desde la raíz del repositorio:
 ```powershell
 $compose = @('-f','deploy/compose.yaml','-f','deploy/compose.staging.yaml')
 docker compose --env-file deploy/config/staging.env @compose config --quiet
-docker compose --env-file deploy/config/staging.env @compose build --pull
+docker compose --env-file deploy/config/staging.env @compose build --pull --no-cache
 docker compose --env-file deploy/config/staging.env @compose up --detach --wait --wait-timeout 180
 docker compose --env-file deploy/config/staging.env @compose ps
 ```
@@ -48,6 +54,27 @@ docker compose --env-file deploy/config/staging.env @compose ps
 Comprobar `GET /api/health` y `GET /api/health/ready`. Ejecutar verificación de despliegue, smoke
 autenticado, UAT, carga y simulacro de recuperación. Conservar logs, métricas, hashes de artefactos,
 SBOM y acta en un repositorio de evidencia con acceso restringido.
+
+Antes de promover una imagen frontend, ejecutar el smoke reproducible (reemplazar
+la referencia por el tag local o digest descargado del candidato):
+
+```powershell
+node tools/qa/verify-frontend-container.mjs --image sigvits-frontend:ci --evidence evidence/container-security/frontend-smoke.json
+```
+
+El comando crea un contenedor propio sin privilegios, con raíz de solo lectura,
+puerto aleatorio limitado a loopback y configuración ficticia de QA. Comprueba
+arranque Nginx, cabeceras, caché de assets y configuración runtime, y elimina
+únicamente ese contenedor al terminar. No realiza login ni comprueba la identidad
+real del ambiente; esas comprobaciones siguen siendo parte del smoke autenticado.
+
+Las imágenes finales de API, worker y migrador no incluyen npm/npx/Yarn globales.
+El migrador arranca Prisma con Node directamente; para diagnósticos dentro de esa
+imagen usar `node node_modules/prisma/build/index.js migrate status`. No reinstalar
+gestores de paquetes en contenedores en ejecución. Para cada release, reconstruir
+sin caché de capas, escanear las cuatro imágenes y revisar además los avisos de
+Node/Nginx: los binarios de terceros no siempre quedan cubiertos por el inventario
+del escáner. Registrar versión de herramienta y fecha de su base de vulnerabilidades.
 
 ## Promoción a producción
 
@@ -61,6 +88,32 @@ SBOM y acta en un repositorio de evidencia con acceso restringido.
 5. Ejecutar el despliegue en ventana aprobada y observar error rate, latencia, conexiones, locks,
    backlog/edad de exportaciones, CPU y memoria.
 6. Completar smoke por rol y registrar decisión de continuidad antes de cerrar la ventana.
+
+## Cambio a workers con fencing de intentos
+
+No mezclar workers anteriores (que actualizan únicamente por id/estado) con los que verifican
+id/estado/intento. El despliegue inicial de este cambio requiere una ventana coordinada:
+
+1. Detener todas las réplicas antiguas con `SIGTERM` y una gracia suficiente para finalizar su
+   exportación activa. El worker deja de reclamar al terminar el ciclo actual; esperar el mensaje
+   `Export worker stopped` y confirmar que no quedan procesos o réplicas de la versión anterior.
+2. Actualizar API y worker al mismo release certificado. La API debe reconocer claves de artefacto
+   `.attempt-N.xlsx/pdf` antes de arrancar los nuevos workers. No borrar el volumen: la versión nueva
+   mantiene lectura y expiración de claves anteriores.
+3. Arrancar únicamente workers con fencing. Un intento interrumpido se reclama al vencer
+   `EXPORT_JOB_STALE_MS` si conserva intentos disponibles; no reiniciar contadores manualmente.
+4. Validar en staging una reclamación vencida: el intento viejo no puede completar/fallar el nuevo ni
+   eliminar su archivo. Si muere el último intento, cada poll recupera como máximo 25 trabajos
+   vencidos y los deja en `FALLIDO` con `EXPORT_ATTEMPTS_EXHAUSTED`. La transición y el evento
+   `EXPORT_JOB_ATTEMPTS_EXHAUSTED` se guardan en la misma transacción sin datos clínicos; el contador
+   permanece agotado y no vuelve a ejecutarse automáticamente. Revisar causa antes de solicitar
+   una exportación nueva con otra clave de idempotencia.
+
+El rollback también debe respetar este contrato: no volver a API/workers sin soporte de claves por
+intento mientras existan archivos vigentes con ese formato. Usar un release compatible certificado
+o mantener el procesamiento pausado hasta disponer de una corrección; no borrar datos para forzar
+compatibilidad. Si falla la limpieza de un artefacto obsoleto, conservar logs y abrir seguimiento de
+almacenamiento; todavía no existe una cola durable para reintentar esa eliminación.
 
 ## Señales para rollback
 

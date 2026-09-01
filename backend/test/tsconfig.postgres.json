@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false,
+    "declaration": false
+  },
+  "include": ["integration/**/*.ts"],
+  "exclude": ["../node_modules", "../dist", "../dist-worker", "../dist-scripts"]
+}

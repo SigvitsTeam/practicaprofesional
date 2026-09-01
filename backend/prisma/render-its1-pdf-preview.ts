@@ -5,6 +5,7 @@ import type { Its1PrintRegister } from '../src/modules/its-capture/domain/its1-p
 
 const diseases = Array.from({ length: 18 }, (_, index) => ({
   id: `disease-${index + 1}`,
+  name: `Patología sintética ${index + 1}`,
   formatOrder: index + 1,
 }));
 
@@ -31,6 +32,7 @@ const register: Its1PrintRegister = {
     diagnoses: [
       {
         diseaseId: `disease-${(index % 18) + 1}`,
+        diseaseName: `Patología sintética ${(index % 18) + 1}`,
         caseType: index % 2 === 0 ? 'NUEVO' : 'CONTROL',
       },
     ],

@@ -61,4 +61,9 @@ NODE
 validate_database_tls DATABASE_URL
 validate_database_tls DIRECT_URL
 
+if [ -n "${EXPORT_STORAGE_DIRECTORY:-}" ] && [ ! -w "$EXPORT_STORAGE_DIRECTORY" ]; then
+  echo "El volumen de exportaciones no permite escritura al usuario de servicio. Revise propietario y permisos antes de arrancar." >&2
+  exit 73
+fi
+
 exec "$@"

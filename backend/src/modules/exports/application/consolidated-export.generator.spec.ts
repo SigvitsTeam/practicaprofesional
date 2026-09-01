@@ -77,7 +77,7 @@ describe('ConsolidatedExportGenerator', () => {
   it('generates a national workbook from the persisted source report versions', async () => {
     const contents = await generator.generate(baseJob);
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(contents);
+    await workbook.xlsx.load(new Uint8Array(contents).buffer);
     const sheet = workbook.getWorksheet('Consolidado');
     expect(sheet?.getCell('A10').value).toBe("'=R01");
     expect(sheet?.getCell('C10').value).toBe(3);

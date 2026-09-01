@@ -11,7 +11,11 @@ import {
   type CreateExportJobInput,
   type ExportArtifactDownload,
   type ExportJob,
+  type ExportJobClaim,
 } from '../domain/export-job';
+
+const MAX_EXHAUSTED_RECOVERIES_PER_POLL = 25;
+const EXHAUSTED_ATTEMPTS_ERROR_CODE = 'EXPORT_ATTEMPTS_EXHAUSTED';
 
 @Injectable()
 export class PrismaExportJobRepository extends ExportJobRepository {
@@ -79,6 +83,55 @@ export class PrismaExportJobRepository extends ExportJobRepository {
     }
   }
 
+  async recoverStaleExhausted(staleAfterMs: number): Promise<number> {
+    const staleBefore = new Date(Date.now() - staleAfterMs);
+    return this.prisma.client.$transaction(async (tx) => {
+      const recovered = await tx.$queryRaw<
+        Array<{ id: string; attempts: number; reportType: string }>
+      >(Prisma.sql`
+        WITH exhausted AS (
+          SELECT "id", "intentos"
+          FROM "trabajos_exportacion"
+          WHERE "estado" = 'PROCESANDO'
+            AND "intentos" >= "max_intentos"
+            AND "iniciado_at" < ${staleBefore}
+          ORDER BY "iniciado_at" ASC, "id" ASC
+          FOR UPDATE SKIP LOCKED
+          LIMIT ${MAX_EXHAUSTED_RECOVERIES_PER_POLL}
+        )
+        UPDATE "trabajos_exportacion" AS job
+        SET "estado" = 'FALLIDO', "codigo_error" = ${EXHAUSTED_ATTEMPTS_ERROR_CODE},
+            "finalizado_at" = NOW(), "updated_at" = NOW()
+        FROM exhausted
+        WHERE job."id" = exhausted."id"
+          AND job."intentos" = exhausted."intentos"
+          AND job."estado" = 'PROCESANDO'
+          AND job."intentos" >= job."max_intentos"
+          AND job."iniciado_at" < ${staleBefore}
+        RETURNING job."id", job."intentos" AS "attempts", job."tipo_reporte" AS "reportType"
+      `);
+      if (recovered.length > 0) {
+        await tx.auditEvent.createMany({
+          data: recovered.map((job) => ({
+            action: 'EXPORT_JOB_ATTEMPTS_EXHAUSTED',
+            entity: 'EXPORT_JOB',
+            entityId: job.id,
+            dataLevel: job.reportType === 'ITS1_REGISTER' ? 'INDIVIDUAL' : 'AGREGADO',
+            previousData: { status: 'PROCESANDO', attempts: job.attempts },
+            newData: {
+              status: 'FALLIDO',
+              attempts: job.attempts,
+              errorCode: EXHAUSTED_ATTEMPTS_ERROR_CODE,
+            },
+            reason: 'El último intento de exportación venció sin confirmar su finalización.',
+            requestId: `export-worker:${job.id}:attempt:${job.attempts}`,
+          })),
+        });
+      }
+      return recovered.length;
+    });
+  }
+
   async claimNext(staleAfterMs: number): Promise<ClaimedExportJob | null> {
     const staleBefore = new Date(Date.now() - staleAfterMs);
     const rows = await this.prisma.client.$queryRaw<
@@ -139,9 +192,9 @@ export class PrismaExportJobRepository extends ExportJobRepository {
     };
   }
 
-  async complete(jobId: string, storageKey: string, expiresAt: Date): Promise<void> {
+  async complete(claim: ExportJobClaim, storageKey: string, expiresAt: Date): Promise<boolean> {
     const updated = await this.prisma.client.exportJob.updateMany({
-      where: { id: jobId, status: 'PROCESANDO' },
+      where: { id: claim.id, attempts: claim.attempts, status: 'PROCESANDO' },
       data: {
         status: 'COMPLETADO',
         outputStorageKey: storageKey,
@@ -150,15 +203,15 @@ export class PrismaExportJobRepository extends ExportJobRepository {
         finishedAt: new Date(),
       },
     });
-    if (updated.count !== 1)
-      throw new ExportJobConflictError('El trabajo ya no está en procesamiento.');
+    return updated.count === 1;
   }
 
-  async fail(jobId: string, errorCode: string): Promise<void> {
-    await this.prisma.client.exportJob.updateMany({
-      where: { id: jobId, status: 'PROCESANDO' },
+  async fail(claim: ExportJobClaim, errorCode: string): Promise<boolean> {
+    const updated = await this.prisma.client.exportJob.updateMany({
+      where: { id: claim.id, attempts: claim.attempts, status: 'PROCESANDO' },
       data: { status: 'FALLIDO', errorCode: errorCode.slice(0, 80), finishedAt: new Date() },
     });
+    return updated.count === 1;
   }
 
   async listExpiredArtifacts(expiredBefore: Date, limit: number): Promise<ExpiredArtifact[]> {

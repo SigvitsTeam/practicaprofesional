@@ -47,7 +47,7 @@ describe('TerritorialExportGenerator', () => {
   it('generates a valid XLSX and neutralizes spreadsheet formulas', async () => {
     const contents = await generator.generate(baseJob);
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(contents);
+    await workbook.xlsx.load(new Uint8Array(contents).buffer);
     expect(workbook.getWorksheet('Resumen territorial')?.getCell('A5').value).toBe("'=unsafe");
   });
 

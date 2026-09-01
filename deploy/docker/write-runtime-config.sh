@@ -24,7 +24,10 @@ case "$SUPABASE_URL" in
   *) echo "SUPABASE_URL debe ser una URL HTTP(S)." >&2; exit 65 ;;
 esac
 
-map_tile_url="${SIGVITS_MAP_TILE_URL:-https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png}"
+map_tile_url="${SIGVITS_MAP_TILE_URL:-}"
+if [ -z "$map_tile_url" ]; then
+  map_tile_url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+fi
 map_attribution="${SIGVITS_MAP_ATTRIBUTION:-© OpenStreetMap contributors}"
 map_max_zoom="${SIGVITS_MAP_MAX_ZOOM:-18}"
 map_small_count_threshold="${SIGVITS_MAP_SMALL_COUNT_THRESHOLD:-5}"

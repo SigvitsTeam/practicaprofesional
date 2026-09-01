@@ -10,16 +10,25 @@
   }
   <div class="table-wrap">
     <table>
+      <caption class="sr-only">
+        {{
+          title() || 'Bandeja de reportes ITS-2'
+        }}
+        ·
+        {{
+          entityLabel()
+        }}
+      </caption>
       <thead>
         <tr>
-          <th>{{ entityLabel() }}</th>
-          <th>Estado</th>
-          <th>Nuevos</th>
-          <th>Controles</th>
-          <th>Total ITS</th>
-          <th>Alertas</th>
-          <th>Último envío</th>
-          <th></th>
+          <th scope="col">{{ entityLabel() }}</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Nuevos</th>
+          <th scope="col">Controles</th>
+          <th scope="col">Total ITS</th>
+          <th scope="col">Alertas</th>
+          <th scope="col">Último envío</th>
+          <th scope="col"><span class="sr-only">Acciones</span></th>
         </tr>
       </thead>
       <tbody>

@@ -32,6 +32,7 @@
     "format": "prettier --write \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\"",
     "format:check": "prettier --check \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\"",
     "lint": "eslint \"{src,test,prisma}/**/*.ts\" \"prisma.config.ts\" --max-warnings=0",
+    "typecheck": "tsc --noEmit --incremental false -p tsconfig.json",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
@@ -39,8 +40,9 @@
     "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
     "test:cov": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
     "test:e2e": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-e2e.json --runInBand",
+    "test:postgres:qa": "tsc -p test/tsconfig.postgres.json && node --experimental-vm-modules ./node_modules/jest/bin/jest.js --config ./test/jest-postgres.json --runInBand",
     "load:critical": "k6 run test/load/critical-read-paths.k6.js",
-    "check": "npm run format:check && npm run lint && npm test && npm run test:e2e && npm run build && npm run build:worker"
+    "check": "npm run format:check && npm run typecheck && npm run lint && npm test && npm run test:e2e && npm run build && npm run build:worker"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.29",

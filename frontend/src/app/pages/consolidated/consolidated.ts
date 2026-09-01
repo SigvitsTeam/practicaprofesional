@@ -1,6 +1,14 @@
 import { Component, DestroyRef, effect, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { finalize, forkJoin } from 'rxjs';
+import {
+  catchError,
+  EMPTY,
+  filter,
+  finalize,
+  forkJoin,
+  throwError,
+  type MonoTypeOperatorFunction,
+} from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { OperationalPeriodService } from '../../core/operational-period';
 import {
@@ -54,6 +62,9 @@ export class Consolidated {
   private get month() {
     return this.operationalPeriod.selected()?.month ?? 0;
   }
+  protected get periodLabel() {
+    return this.operationalPeriod.selected()?.label ?? '—';
+  }
 
   get isLiveMunicipal() {
     return !this.auth.isDemo() && this.roleContext.activeRoleId() === 'municipal-coordinator';
@@ -68,6 +79,17 @@ export class Consolidated {
 
   reload() {
     const requestVersion = ++this.requestVersion;
+    this.facilityReports.set([]);
+    this.consolidation.set(null);
+    this.municipalReports.set([]);
+    this.regionalConsolidation.set(null);
+    this.regionalReports.set([]);
+    this.nationalConsolidation.set(null);
+    this.activeFacilities = 0;
+    this.activeMunicipalities = 0;
+    this.activeRegions = 0;
+    this.municipalityId = '';
+    this.regionId = '';
     if (this.isLiveNational) {
       this.reloadNational(requestVersion);
       return;
@@ -180,8 +202,7 @@ export class Consolidated {
             )
             .subscribe({
               next: (report) => {
-                if (requestVersion === this.requestVersion)
-                  this.regionalConsolidation.set(report);
+                if (requestVersion === this.requestVersion) this.regionalConsolidation.set(report);
               },
               error: () => {
                 if (requestVersion === this.requestVersion)
@@ -202,7 +223,7 @@ export class Consolidated {
     this.loading.set(true);
     this.api
       .prepareMunicipalConsolidation(this.municipalityId, this.year, this.month)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(this.forCurrentPeriod())
       .subscribe({
         next: (report) => {
           this.consolidation.set(report);
@@ -221,7 +242,7 @@ export class Consolidated {
     this.loading.set(true);
     this.api
       .submitMunicipalConsolidation(report.id)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(this.forCurrentPeriod())
       .subscribe({
         next: (updated) => {
           this.consolidation.set(updated);
@@ -237,7 +258,7 @@ export class Consolidated {
     this.loading.set(true);
     this.api
       .prepareRegionalConsolidation(this.regionId, this.year, this.month)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(this.forCurrentPeriod())
       .subscribe({
         next: (report) => {
           this.regionalConsolidation.set(report);
@@ -256,7 +277,7 @@ export class Consolidated {
     this.loading.set(true);
     this.api
       .submitRegionalConsolidation(report.id)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(this.forCurrentPeriod())
       .subscribe({
         next: (updated) => {
           this.regionalConsolidation.set(updated);
@@ -270,10 +291,11 @@ export class Consolidated {
   }
 
   prepareNational() {
+    if (this.loading() || this.loadError()) return;
     this.loading.set(true);
     this.api
       .prepareNationalConsolidation(this.year, this.month)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(this.forCurrentPeriod())
       .subscribe({
         next: (report) => {
           this.nationalConsolidation.set(report);
@@ -288,11 +310,11 @@ export class Consolidated {
 
   finalizeNational() {
     const report = this.nationalConsolidation();
-    if (!report) return;
+    if (!report || this.loading()) return;
     this.loading.set(true);
     this.api
       .finalizeNationalConsolidation(report.id)
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(this.forCurrentPeriod())
       .subscribe({
         next: (updated) => {
           this.nationalConsolidation.set(updated);
@@ -306,6 +328,7 @@ export class Consolidated {
   }
 
   closeNational(reason: string) {
+    if (this.loading()) return;
     const report = this.nationalConsolidation();
     if (!report || reason.trim().length < 10) {
       this.notify.emit('Escriba un motivo de al menos 10 caracteres.');
@@ -314,7 +337,7 @@ export class Consolidated {
     this.loading.set(true);
     this.api
       .closeNationalConsolidation(report.id, reason.trim())
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(this.forCurrentPeriod())
       .subscribe({
         next: (updated) => {
           this.nationalConsolidation.set(updated);
@@ -326,6 +349,7 @@ export class Consolidated {
   }
 
   reopenNational(reason: string) {
+    if (this.loading()) return;
     const report = this.nationalConsolidation();
     if (!report || reason.trim().length < 10) {
       this.notify.emit('La reapertura requiere un motivo de al menos 10 caracteres.');
@@ -334,7 +358,7 @@ export class Consolidated {
     this.loading.set(true);
     this.api
       .reopenNationalConsolidation(report.id, reason.trim())
-      .pipe(finalize(() => this.loading.set(false)))
+      .pipe(this.forCurrentPeriod())
       .subscribe({
         next: (updated) => {
           this.nationalConsolidation.set(updated);
@@ -343,6 +367,21 @@ export class Consolidated {
         error: (error) =>
           this.notify.emit(error.error?.detail ?? 'No fue posible reabrir el cierre.'),
       });
+  }
+
+  private forCurrentPeriod<T>(): MonoTypeOperatorFunction<T> {
+    const requestVersion = this.requestVersion;
+    return (operation) =>
+      operation.pipe(
+        takeUntilDestroyed(this.destroyRef),
+        filter(() => requestVersion === this.requestVersion),
+        catchError((error: unknown) =>
+          requestVersion === this.requestVersion ? throwError(() => error) : EMPTY,
+        ),
+        finalize(() => {
+          if (requestVersion === this.requestVersion) this.loading.set(false);
+        }),
+      );
   }
 
   get view() {

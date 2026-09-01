@@ -122,7 +122,16 @@ de usuarios concurrentes se fijará con la proyección institucional y se certif
 33. Smoke autenticado de comparación anual completado de extremo a extremo (cola, worker y descarga XLSX válida); la entrega binaria usa `StreamableFile` para impedir serialización JSON y archivos corruptos.
 34. Exportaciones XLSX ITS-1 e ITS-2 migradas a los formatos institucionales entregados, con llenado celda a celda, totales por fórmula, protección, neutralización de fórmulas, paginación ITS-1 y plantillas reutilizadas de forma segura por el worker.
 35. Aplicabilidad de patologías por sexo reforzada en tres capas: filtrado por sexo y clasificación en Angular, validación compartida para creación/corrección en NestJS y restricciones transaccionales en PostgreSQL.
+36. Catálogo mensual institucional habilitado para los ocho roles, selector productivo efectivo y aislamiento de respuestas tardías entre períodos; limpieza de totales, reportes y establecimientos al cambiar contexto.
+37. Preparación ITS-2 serializable con numeración histórica tras invalidación ITS-1, transiciones condicionales y conflictos controlados. Suite PostgreSQL aislada incorporada a CI y ejecutada localmente: 30 pruebas aprobadas de ITS-2, worker, ITS-1/sexo y guardas de conexión.
+38. Publicación de exportaciones protegida por intento, archivos independientes, recuperación acotada de intentos agotados y refresco frontend con timeout, backoff, límite y cancelación.
+39. Tipado de fuente, scripts y pruebas obligatorio en CI; regresiones de accesibilidad, períodos, sesiones y exportaciones. Evidencia del lote: [QA 2026-08-31](qa-cierre-2026-08-31.md).
+40. Cuatro imágenes construidas y ejecutadas con usuario no-root; migración desde cero con 23 migraciones, volumen nuevo escribible y recuperación API/worker tras pérdida simulada de DB sin reiniciar, en entorno desechable local.
+41. Arranque Nginx, expresiones de assets, herencia de cabeceras de seguridad, caché y URL runtime de mapas corregidos; smoke del frontend en contenedor incorporado a CI. OpenSSL disponible para el motor Prisma del migrador.
+42. Imágenes finales actualizadas a Node 24.20.0 LTS y Nginx 1.30.4; parches Debian/Alpine aplicados, npm/npx/Yarn retirados de runtime y cuatro escaneos Trivy 0.74.0 sin hallazgos HIGH/CRITICAL corregibles. Segunda migración desde cero y recuperación API/worker aprobadas sobre los IDs finales.
 
 ### Siguiente ejecución
 
-1. Ejecutar k6, UAT por rol, restauración de backup y prueba de recuperación API/worker en un ambiente de staging aislado; conservar métricas y acta como evidencia de salida.
+1. Ejecutar las puertas de CI/staging sobre el release candidato, con identidad real, TLS y almacenamiento compartido durable de exportaciones.
+2. Ejecutar k6, UAT por rol, restauración de backup y rollback en staging; conservar métricas y acta como evidencia de salida. No certificar miles de usuarios sin esa ejecución.
+3. Drenar todas las réplicas antiguas antes de activar workers con claves por intento y promover únicamente un release con API compatible; seguir el runbook de despliegue.

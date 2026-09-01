@@ -51,6 +51,9 @@ export interface ClaimedExportJob extends ExportJob {
   maxAttempts: number;
 }
 
+// claimNext increments attempts atomically; an older claim must never mutate a newer attempt.
+export type ExportJobClaim = Readonly<Pick<ClaimedExportJob, 'id' | 'attempts'>>;
+
 export class InvalidExportJobError extends Error {}
 export class ExportJobScopeError extends Error {}
 export class ExportJobConflictError extends Error {}

@@ -1,4 +1,13 @@
-import { Component, effect, inject, signal, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+  Component,
+  DestroyRef,
+  effect,
+  inject,
+  signal,
+  ViewChild,
+  ViewEncapsulation,
+} from '@angular/core';
+import { Subscription } from 'rxjs';
 import { AuthService } from './core/auth.service';
 import { SCREEN_META } from './core/mock-data';
 import { Report, RoleId } from './core/models';
@@ -55,6 +64,8 @@ export class App {
   private readonly currentProfileApi = inject(CurrentProfileApiService);
   private readonly establishmentContext = inject(EstablishmentContext);
   private readonly operationalPeriod = inject(OperationalPeriodService);
+  private readonly destroyRef = inject(DestroyRef);
+  private profileSubscriptions = new Subscription();
   active = 'Inicio';
   selectedReport: Report | null = null;
   notice = '';
@@ -63,11 +74,16 @@ export class App {
   readonly profileError = signal('');
   private allowedRoleIds: RoleId[] = [];
   private profileLoading = false;
+  private profileRequestVersion = 0;
   private loadedProfileUserId = '';
   private institutionalDisplayName = '';
   private noticeTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.profileSubscriptions.unsubscribe();
+      if (this.noticeTimer) clearTimeout(this.noticeTimer);
+    });
     const savedTheme =
       typeof localStorage !== 'undefined' ? localStorage.getItem('sigvits-theme') : null;
     const systemPrefersDark =
@@ -79,6 +95,9 @@ export class App {
     effect(() => {
       const user = this.auth.user();
       if (!user) {
+        this.profileSubscriptions.unsubscribe();
+        this.profileRequestVersion += 1;
+        this.profileLoading = false;
         this.profileReady.set(false);
         this.profileError.set('');
         this.allowedRoleIds = [];
@@ -87,6 +106,9 @@ export class App {
         return;
       }
       if (this.auth.isDemo()) {
+        this.profileSubscriptions.unsubscribe();
+        this.profileRequestVersion += 1;
+        this.profileLoading = false;
         this.operationalPeriod.useDemoCatalog();
         this.allowedRoleIds = this.roleContext.roles.map((role) => role.id);
         this.loadedProfileUserId = user.id;
@@ -98,42 +120,61 @@ export class App {
   }
 
   private loadProfile(userId: string) {
+    this.profileSubscriptions.unsubscribe();
+    this.profileSubscriptions = new Subscription();
+    const requestVersion = ++this.profileRequestVersion;
     this.profileLoading = true;
     this.profileError.set('');
-    this.currentProfileApi.get().subscribe({
-      next: (profile) => {
-        this.allowedRoleIds = mapInstitutionalRoleCodes(profile.roles);
-        this.institutionalDisplayName = profile.displayName?.trim() ?? '';
-        const initialRole = this.allowedRoleIds[0];
-        if (!initialRole) {
-          this.profileError.set('La cuenta no tiene un rol institucional vigente.');
+    this.profileSubscriptions.add(
+      this.currentProfileApi.get().subscribe({
+        next: (profile) => {
+          if (requestVersion !== this.profileRequestVersion || this.auth.user()?.id !== userId)
+            return;
+          this.allowedRoleIds = mapInstitutionalRoleCodes(profile.roles);
+          this.institutionalDisplayName = profile.displayName?.trim() ?? '';
+          const initialRole = this.allowedRoleIds[0];
+          if (!initialRole) {
+            this.profileError.set('La cuenta no tiene un rol institucional vigente.');
+            this.profileLoading = false;
+            return;
+          }
+          this.roleContext.select(initialRole);
+          this.profileSubscriptions.add(
+            this.operationalPeriod.load().subscribe({
+              next: () => {
+                if (
+                  requestVersion !== this.profileRequestVersion ||
+                  this.auth.user()?.id !== userId
+                )
+                  return;
+                this.loadedProfileUserId = userId;
+                this.profileLoading = false;
+                this.profileReady.set(true);
+              },
+              error: () => {
+                if (
+                  requestVersion !== this.profileRequestVersion ||
+                  this.auth.user()?.id !== userId
+                )
+                  return;
+                this.profileLoading = false;
+                this.profileError.set(
+                  'No fue posible cargar los períodos institucionales. Verifique la configuración de base de datos.',
+                );
+              },
+            }),
+          );
+        },
+        error: () => {
+          if (requestVersion !== this.profileRequestVersion || this.auth.user()?.id !== userId)
+            return;
           this.profileLoading = false;
-          return;
-        }
-        this.roleContext.select(initialRole);
-        this.operationalPeriod.load().subscribe({
-          next: () => {
-            if (this.auth.user()?.id !== userId) return;
-            this.loadedProfileUserId = userId;
-            this.profileLoading = false;
-            this.profileReady.set(true);
-          },
-          error: () => {
-            if (this.auth.user()?.id !== userId) return;
-            this.profileLoading = false;
-            this.profileError.set(
-              'No fue posible cargar los períodos institucionales. Verifique la configuración de base de datos.',
-            );
-          },
-        });
-      },
-      error: () => {
-        this.profileLoading = false;
-        this.profileError.set(
-          'No fue posible cargar el perfil institucional. Verifique la conexión o vuelva a iniciar sesión.',
-        );
-      },
-    });
+          this.profileError.set(
+            'No fue posible cargar el perfil institucional. Verifique la conexión o vuelva a iniciar sesión.',
+          );
+        },
+      }),
+    );
   }
 
   get role() {
@@ -339,17 +380,15 @@ export class App {
     return this.active === 'Inicio' || this.active === 'Administración';
   }
   get showGlobalFilters() {
-    return (
-      this.auth.isDemo() &&
-      [
-        'Inicio',
-        'Bandeja de revisión',
-        'Consolidados',
-        'Mapas',
-        'Redes',
-        'Reportes y exportaciones',
-      ].includes(this.active)
-    );
+    return [
+      'Inicio',
+      'Bandeja de revisión',
+      'Consolidados',
+      'Mapas',
+      'Redes',
+      'Reportes y exportaciones',
+      'Reporte ITS 2',
+    ].includes(this.active);
   }
 
   navigate(page: string) {

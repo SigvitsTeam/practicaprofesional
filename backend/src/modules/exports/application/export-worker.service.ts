@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { MetricsService } from '../../../common/observability/metrics.service';
 import { exportConfig } from '../../../config/app.config';
+import type { ExportJobClaim } from '../domain/export-job';
 import { ExportArtifactStorage } from './ports/export-artifact.storage';
 import { ExportJobRepository, type ExpiredArtifact } from './ports/export-job.repository';
 import { ExportArtifactGenerator } from './export-artifact.generator';
@@ -23,27 +24,45 @@ export class ExportWorkerService {
 
   async runOnce(): Promise<boolean> {
     await this.cleanupExpiredArtifactsIfDue();
+    const recovered = await this.jobs.recoverStaleExhausted(this.config.staleAfterMs);
+    if (recovered > 0) this.logger.warn(`Exhausted export claims terminalized count=${recovered}`);
     const job = await this.jobs.claimNext(this.config.staleAfterMs);
     this.metrics.recordWorkerPoll(true);
     if (!job) return false;
     const startedAt = performance.now();
     this.metrics.recordWorkerJobStarted();
     this.metrics.recordExportJob('claimed', job.format);
+    const claim: ExportJobClaim = { id: job.id, attempts: job.attempts };
+    let storageKey: string | undefined;
     try {
       const contents = await this.generator.generate(job);
-      const storageKey = await this.storage.write(job.id, job.format, contents);
-      await this.jobs.complete(
-        job.id,
+      storageKey = await this.storage.write(claim, job.format, contents);
+      const completed = await this.jobs.complete(
+        claim,
         storageKey,
         new Date(Date.now() + this.config.artifactTtlMs),
       );
+      if (!completed) {
+        await this.discardUnpublishedArtifact(claim, storageKey);
+        this.logger.warn(`Export claim superseded id=${claim.id} attempt=${claim.attempts}`);
+        return true;
+      }
       this.metrics.recordExportJob('completed', job.format);
-      this.logger.log(`Export job completed id=${job.id} format=${job.format}`);
+      this.logger.log(
+        `Export job completed id=${job.id} attempt=${claim.attempts} format=${job.format}`,
+      );
     } catch {
       const code = 'EXPORT_GENERATION_FAILED';
-      await this.jobs.fail(job.id, code);
-      this.metrics.recordExportJob('failed', job.format);
-      this.logger.error(`Export job failed id=${job.id} code=${code}`);
+      const failed = await this.jobs.fail(claim, code);
+      if (failed) {
+        if (storageKey) await this.discardUnpublishedArtifact(claim, storageKey);
+        this.metrics.recordExportJob('failed', job.format);
+        this.logger.error(`Export job failed id=${job.id} attempt=${claim.attempts} code=${code}`);
+      } else {
+        // complete may have committed before its response was lost. Do not delete an artifact
+        // whose publication is uncertain; only a confirmed rejected completion is safe to discard.
+        this.logger.warn(`Export claim no longer active id=${claim.id} attempt=${claim.attempts}`);
+      }
     } finally {
       this.metrics.recordExportDuration(job.format, (performance.now() - startedAt) / 1_000);
       this.metrics.recordWorkerJobFinished();
@@ -61,6 +80,21 @@ export class ExportWorkerService {
 
   isReady(maxPollAgeMs: number): boolean {
     return this.metrics.isWorkerReady(maxPollAgeMs);
+  }
+
+  private async discardUnpublishedArtifact(
+    claim: ExportJobClaim,
+    storageKey: string,
+  ): Promise<void> {
+    try {
+      await this.storage.delete(storageKey);
+      this.metrics.recordArtifactCleanup('deleted');
+    } catch {
+      this.metrics.recordArtifactCleanup('failed');
+      this.logger.warn(
+        `Unpublished export cleanup failed id=${claim.id} attempt=${claim.attempts}`,
+      );
+    }
   }
 
   private async cleanupExpiredArtifactsIfDue(): Promise<void> {

@@ -94,10 +94,12 @@ class Repository extends TerritorialCatalogRepository {
     id: string;
     status: OperationalStatus;
   }): Promise<TerritorialStatusContext> {
+    const region = this.regions[0];
+    if (!region) return Promise.reject(new Error('The repository fixture requires a region.'));
     return Promise.resolve({
       id: input.id,
       entityType: input.entityType,
-      regionId: this.regions[0].id,
+      regionId: region.id,
       operationalStatus: input.status,
       active: true,
       updatedAt: new Date(),
@@ -136,10 +138,11 @@ describe('TerritorialCatalogUseCase', () => {
   });
 
   it('rechaza crear un municipio fuera del alcance regional', async () => {
-    repository.regions.push({ id: '22222222-2222-4222-8222-222222222222', active: true });
+    const outsideRegion = { id: '22222222-2222-4222-8222-222222222222', active: true };
+    repository.regions.push(outsideRegion);
     await expect(
       useCase.createMunicipality(
-        { regionId: repository.regions[1].id, officialCode: '0801', name: 'Distrito Central' },
+        { regionId: outsideRegion.id, officialCode: '0801', name: 'Distrito Central' },
         subject,
         audit,
       ),

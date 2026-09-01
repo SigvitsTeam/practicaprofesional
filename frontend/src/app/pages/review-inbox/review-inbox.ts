@@ -4,10 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { forkJoin, map, Observable, of } from 'rxjs';
 import { MUNICIPAL_REPORTS, REGIONAL_REPORTS, REPORTS } from '../../core/mock-data';
 import { AuthService } from '../../core/auth.service';
-import {
-  formatHondurasDateTime,
-  formatHondurasMonth,
-} from '../../core/honduras-date';
+import { formatHondurasDateTime, formatHondurasMonth } from '../../core/honduras-date';
 import {
   ItsCaptureApiService,
   Its2WorkflowReport,
@@ -73,6 +70,7 @@ export class ReviewInbox {
   reload() {
     if (this.auth.isDemo()) return;
     const requestVersion = ++this.requestVersion;
+    this.liveReports.set([]);
     this.loading.set(true);
     this.loadError.set('');
     this.inboxRequest()

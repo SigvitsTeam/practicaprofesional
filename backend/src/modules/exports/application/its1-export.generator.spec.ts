@@ -67,7 +67,7 @@ describe('Its1ExportGenerator', () => {
   it('generates a protected workbook and neutralizes individual text fields', async () => {
     const contents = await generator.generate(job);
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(contents);
+    await workbook.xlsx.load(new Uint8Array(contents).buffer);
     const sheet = workbook.getWorksheet('Registro ITS');
     expect(sheet?.getCell('C5').value).toBe('Cortés');
     expect(sheet?.getCell('U5').value).toBe('CIS Norte');
@@ -77,7 +77,7 @@ describe('Its1ExportGenerator', () => {
     expect(sheet?.getCell('G11').value).toBe('X');
     expect(sheet?.getCell('K11').value).toBe('X');
     expect(sheet?.pageSetup.printArea).toBe('A1:AT35');
-    expect(sheet?.model.sheetProtection?.sheet).toBe(true);
+    expect(sheet?.model).toMatchObject({ sheetProtection: { sheet: true } });
     expect(getIts1PrintRegister).toHaveBeenCalledWith({
       facilityId: register.facility.id,
       userId: job.requestedByUserId,
@@ -102,7 +102,7 @@ describe('Its1ExportGenerator', () => {
     });
     const contents = await generator.generate(job);
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(contents);
+    await workbook.xlsx.load(new Uint8Array(contents).buffer);
     const sheet = workbook.getWorksheet('Registro ITS');
     expect(sheet?.getCell('A36').value).toBe(26);
     expect(sheet?.getCell('C36').value).toBe('EXP-26');

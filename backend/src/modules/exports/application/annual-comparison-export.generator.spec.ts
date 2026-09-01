@@ -56,7 +56,7 @@ describe('AnnualComparisonExportGenerator', () => {
     const repository = new AnalyticsRepository();
     const contents = await new AnnualComparisonExportGenerator(repository).generate(baseJob);
     const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(contents);
+    await workbook.xlsx.load(new Uint8Array(contents).buffer);
     expect(repository.calls).toBe(4);
     expect(workbook.getWorksheet('Comparación')?.getCell('H7').value).toBe(30);
     expect(workbook.getWorksheet('Detalle mensual')?.rowCount).toBe(5);

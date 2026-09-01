@@ -1,5 +1,4 @@
 import { createServer, type Server } from 'node:http';
-import type { AddressInfo } from 'node:net';
 import { ConfigService } from '@nestjs/config';
 import { InvalidAccessTokenError } from '../application/token-verifier';
 import { JwksTokenVerifier } from './jwks-token-verifier';
@@ -15,12 +14,15 @@ describe('JwksTokenVerifier', () => {
     const publicJwk = await jose.exportJWK(publicKey);
     Object.assign(publicJwk, { kid: 'test-key-1', alg: 'ES256', use: 'sig' });
 
-    server = createServer((_request, response) => {
+    const localServer = createServer((_request, response) => {
       response.writeHead(200, { 'content-type': 'application/json' });
       response.end(JSON.stringify({ keys: [publicJwk] }));
     });
-    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-    const address = server.address() as AddressInfo;
+    server = localServer;
+    await new Promise<void>((resolve) => localServer.listen(0, '127.0.0.1', resolve));
+    const address = localServer.address();
+    if (!address || typeof address === 'string')
+      throw new Error('JWKS test server has no TCP address.');
     issuer = `http://127.0.0.1:${address.port}`;
     validToken = await new jose.SignJWT({ purpose: 'test' })
       .setProtectedHeader({ alg: 'ES256', kid: 'test-key-1' })
@@ -33,9 +35,10 @@ describe('JwksTokenVerifier', () => {
   });
 
   afterAll(async () => {
-    if (!server) return;
+    const localServer = server;
+    if (!localServer) return;
     await new Promise<void>((resolve, reject) => {
-      server.close((error) => (error ? reject(error) : resolve()));
+      localServer.close((error) => (error ? reject(error) : resolve()));
     });
   });
 
