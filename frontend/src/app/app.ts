@@ -7,7 +7,7 @@ import {
   ViewChild,
   ViewEncapsulation,
 } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { catchError, forkJoin, map, Subscription, throwError } from 'rxjs';
 import { AuthService } from './core/auth.service';
 import { SCREEN_META } from './core/mock-data';
 import { Report, RoleId } from './core/models';
@@ -73,7 +73,7 @@ export class App {
   readonly profileReady = signal(false);
   readonly profileError = signal('');
   private allowedRoleIds: RoleId[] = [];
-  private profileLoading = false;
+  private loadingProfileUserId = '';
   private profileRequestVersion = 0;
   private loadedProfileUserId = '';
   private institutionalDisplayName = '';
@@ -97,7 +97,8 @@ export class App {
       if (!user) {
         this.profileSubscriptions.unsubscribe();
         this.profileRequestVersion += 1;
-        this.profileLoading = false;
+        this.loadingProfileUserId = '';
+        this.operationalPeriod.clear();
         this.profileReady.set(false);
         this.profileError.set('');
         this.allowedRoleIds = [];
@@ -108,14 +109,15 @@ export class App {
       if (this.auth.isDemo()) {
         this.profileSubscriptions.unsubscribe();
         this.profileRequestVersion += 1;
-        this.profileLoading = false;
+        this.loadingProfileUserId = '';
         this.operationalPeriod.useDemoCatalog();
         this.allowedRoleIds = this.roleContext.roles.map((role) => role.id);
         this.loadedProfileUserId = user.id;
         this.profileReady.set(true);
         return;
       }
-      if (!this.profileLoading && this.loadedProfileUserId !== user.id) this.loadProfile(user.id);
+      if (this.loadingProfileUserId !== user.id && this.loadedProfileUserId !== user.id)
+        this.loadProfile(user.id);
     });
   }
 
@@ -123,55 +125,59 @@ export class App {
     this.profileSubscriptions.unsubscribe();
     this.profileSubscriptions = new Subscription();
     const requestVersion = ++this.profileRequestVersion;
-    this.profileLoading = true;
+    this.loadingProfileUserId = userId;
+    this.loadedProfileUserId = '';
+    this.profileReady.set(false);
     this.profileError.set('');
+    this.allowedRoleIds = [];
+    this.institutionalDisplayName = '';
+    this.operationalPeriod.clear();
+    const profile = this.currentProfileApi.get().pipe(
+      catchError(() =>
+        throwError(
+          () =>
+            new Error(
+              'No fue posible cargar el perfil institucional. Verifique la conexión o vuelva a iniciar sesión.',
+            ),
+        ),
+      ),
+      map((profile) => {
+        const roleIds = mapInstitutionalRoleCodes(profile.roles);
+        const initialRole = roleIds[0];
+        if (!initialRole) throw new Error('La cuenta no tiene un rol institucional vigente.');
+        return { profile, roleIds, initialRole };
+      }),
+    );
+    const periods = this.operationalPeriod
+      .fetchCatalog()
+      .pipe(
+        catchError(() =>
+          throwError(
+            () =>
+              new Error(
+                'No fue posible cargar los períodos institucionales. Verifique la configuración de base de datos.',
+              ),
+          ),
+        ),
+      );
     this.profileSubscriptions.add(
-      this.currentProfileApi.get().subscribe({
-        next: (profile) => {
+      forkJoin({ profile, periods }).subscribe({
+        next: ({ profile: { profile, roleIds, initialRole }, periods }) => {
           if (requestVersion !== this.profileRequestVersion || this.auth.user()?.id !== userId)
             return;
-          this.allowedRoleIds = mapInstitutionalRoleCodes(profile.roles);
+          this.allowedRoleIds = roleIds;
           this.institutionalDisplayName = profile.displayName?.trim() ?? '';
-          const initialRole = this.allowedRoleIds[0];
-          if (!initialRole) {
-            this.profileError.set('La cuenta no tiene un rol institucional vigente.');
-            this.profileLoading = false;
-            return;
-          }
           this.roleContext.select(initialRole);
-          this.profileSubscriptions.add(
-            this.operationalPeriod.load().subscribe({
-              next: () => {
-                if (
-                  requestVersion !== this.profileRequestVersion ||
-                  this.auth.user()?.id !== userId
-                )
-                  return;
-                this.loadedProfileUserId = userId;
-                this.profileLoading = false;
-                this.profileReady.set(true);
-              },
-              error: () => {
-                if (
-                  requestVersion !== this.profileRequestVersion ||
-                  this.auth.user()?.id !== userId
-                )
-                  return;
-                this.profileLoading = false;
-                this.profileError.set(
-                  'No fue posible cargar los períodos institucionales. Verifique la configuración de base de datos.',
-                );
-              },
-            }),
-          );
+          this.operationalPeriod.useCatalog(periods);
+          this.loadedProfileUserId = userId;
+          this.loadingProfileUserId = '';
+          this.profileReady.set(true);
         },
-        error: () => {
+        error: (error: Error) => {
           if (requestVersion !== this.profileRequestVersion || this.auth.user()?.id !== userId)
             return;
-          this.profileLoading = false;
-          this.profileError.set(
-            'No fue posible cargar el perfil institucional. Verifique la conexión o vuelva a iniciar sesión.',
-          );
+          this.loadingProfileUserId = '';
+          this.profileError.set(error.message);
         },
       }),
     );

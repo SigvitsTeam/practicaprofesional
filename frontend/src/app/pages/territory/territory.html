@@ -21,7 +21,9 @@
       <h2>Usuarios y alcance</h2>
       <p>Los perfiles nuevos permanecen inactivos hasta vincular su identidad externa.</p>
     </div>
-    <button class="btn primary" type="button" (click)="openUserCreate()">＋ Nuevo usuario</button>
+    <button class="btn primary" type="button" (click)="openUserCreate()" [disabled]="loading">
+      ＋ Nuevo usuario
+    </button>
   </div>
   <div class="table-wrap">
     <table>
@@ -118,43 +120,68 @@
             ><span>Rol *</span
             ><select
               name="userRole"
-              [(ngModel)]="userForm.roleCode"
-              (ngModelChange)="roleChanged()"
+              [ngModel]="userForm.roleCode"
+              (ngModelChange)="roleChanged($event)"
+              [disabled]="loading"
+              required
             >
-              @if (globalScope) {
-                <option value="ADMIN_CENTRAL">Admin Central</option>
-                <option value="SUPERADMIN_REGIONAL">SuperAdmin Regional</option>
+              @for (role of assignableUserRoles; track role.code) {
+                <option [value]="role.code">{{ role.label }}</option>
               }
-              <option value="ADMIN_REGIONAL">Admin Regional</option>
-              <option value="COORDINADOR_MUNICIPAL">Coordinador Municipal</option>
-              <option value="DIGITADOR_COORDINACION">Digitador de Coordinación</option>
-              <option value="RESPONSABLE_ESTABLECIMIENTO">Responsable de Establecimiento</option>
-              <option value="SUPERVISOR_CONSULTA">Supervisor o Consulta</option>
             </select></label
           >
           <label
             ><span>Tipo de alcance *</span
             ><select
               name="userScope"
-              [(ngModel)]="userForm.scopeType"
-              (ngModelChange)="scopeChanged()"
+              [ngModel]="userForm.scopeType"
+              (ngModelChange)="scopeChanged($event)"
+              [disabled]="loading || allowedUserScopes.length <= 1"
+              aria-describedby="user-scope-help"
+              required
             >
-              @if (globalScope) {
-                <option value="NACIONAL">Nacional</option>
+              @for (scope of allowedUserScopes; track scope) {
+                <option [value]="scope">{{ userScopeLabels[scope] }}</option>
               }
-              <option value="REGION">Región</option>
-              <option value="MUNICIPIO">Municipio</option>
-              <option value="ESTABLECIMIENTO">Establecimiento</option>
-            </select></label
+            </select>
+            <small id="user-scope-help" aria-live="polite">{{
+              allowedUserScopes.length === 1
+                ? 'Este rol tiene un tipo de alcance fijo.'
+                : 'Seleccione uno de los alcances permitidos para este rol.'
+            }}</small></label
           >
-          <label class="wide"
-            ><span>Territorio *</span
-            ><select name="userTarget" [(ngModel)]="userForm.targetId">
-              @for (target of userTargets(); track target.id) {
-                <option [value]="target.id">{{ target.name }}</option>
-              }
-            </select></label
-          >
+          @if (userForm.scopeType === 'NACIONAL') {
+            <p class="wide" role="status">
+              Alcance nacional: Honduras. No requiere seleccionar un territorio local.
+            </p>
+          } @else {
+            <label class="wide">
+              <span>{{ userTargetLabel }} *</span>
+              <select
+                name="userTarget"
+                [(ngModel)]="userForm.targetId"
+                [disabled]="loading || !userTargets().length"
+                [class.invalid]="userFormSubmitted && !userAccessValid"
+                [attr.aria-invalid]="userFormSubmitted && !userAccessValid"
+                aria-describedby="user-target-help"
+                required
+              >
+                <option value="">Seleccione un territorio…</option>
+                @for (target of userTargets(); track target.id) {
+                  <option [value]="target.id">{{ target.name }}</option>
+                }
+              </select>
+              <small id="user-target-help" aria-live="polite">
+                @if (!userTargets().length) {
+                  No hay territorios activos disponibles para este alcance.
+                } @else if (userFormSubmitted && !userAccessValid) {
+                  Seleccione un territorio activo dentro de su alcance autorizado.
+                } @else {
+                  Solo se muestran territorios activos devueltos por su alcance autorizado.
+                }
+              </small>
+            </label>
+          }
           <label
             ><span>Inicio de vigencia *</span
             ><input name="userStart" type="date" [(ngModel)]="userForm.startDate"

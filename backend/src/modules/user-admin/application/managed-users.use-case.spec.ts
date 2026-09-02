@@ -118,6 +118,25 @@ const basePersisted: CreateManagedUserInput = {
 };
 
 describe('ManagedUsersUseCase', () => {
+  const national: AuthorizationSubject = {
+    userId: 'superadmin-1',
+    roles: [RoleCode.SuperAdmin],
+    permissions: [],
+    territory: { national: true, regionIds: [], municipalityIds: [], facilityIds: [] },
+  };
+  const roleScopes: { role: RoleCode; scopes: TerritorialScopeType[] }[] = [
+    { role: RoleCode.CentralAdmin, scopes: ['NACIONAL'] },
+    { role: RoleCode.RegionalSuperAdmin, scopes: ['REGION'] },
+    { role: RoleCode.RegionalAdmin, scopes: ['REGION'] },
+    { role: RoleCode.MunicipalCoordinator, scopes: ['MUNICIPIO'] },
+    { role: RoleCode.CoordinationDataEntry, scopes: ['ESTABLECIMIENTO'] },
+    { role: RoleCode.FacilityManager, scopes: ['ESTABLECIMIENTO'] },
+    { role: RoleCode.ReadOnlySupervisor, scopes: ['REGION', 'MUNICIPIO', 'ESTABLECIMIENTO'] },
+  ];
+  const scopes: TerritorialScopeType[] = ['NACIONAL', 'REGION', 'MUNICIPIO', 'ESTABLECIMIENTO'];
+  const compatibilityCases = roleScopes.flatMap(({ role, scopes: allowed }) =>
+    scopes.map((scope) => ({ role, scope, allowed: allowed.includes(scope) })),
+  );
   const regional: AuthorizationSubject = {
     userId: 'admin-1',
     roles: [RoleCode.RegionalSuperAdmin],
@@ -171,6 +190,36 @@ describe('ManagedUsersUseCase', () => {
       hasExternalIdentity: false,
     });
     expect(repository.created?.actorUserId).toBe('admin-1');
+  });
+
+  describe.each(['create', 'changeAccess'] as const)('%s scope compatibility', (operation) => {
+    it.each(compatibilityCases)(
+      '$role with $scope: allowed=$allowed',
+      async ({ role, scope, allowed }) => {
+        const input = {
+          ...base,
+          roleCode: role,
+          scopeType: scope,
+          regionId: scope === 'REGION' ? 'region-cortes' : undefined,
+          municipalityId: scope === 'MUNICIPIO' ? 'municipality-cortes' : undefined,
+          facilityId: scope === 'ESTABLECIMIENTO' ? 'facility-cortes' : undefined,
+          expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+        };
+        const result =
+          operation === 'create'
+            ? useCase.create(input, national)
+            : useCase.changeAccess('user-2', input, national);
+        if (allowed) {
+          await expect(result).resolves.toMatchObject({
+            role: { code: role },
+            assignment: { scopeType: scope },
+          });
+        } else {
+          await expect(result).rejects.toBeInstanceOf(ManagedUserRoleError);
+          expect(repository.created).toBeUndefined();
+        }
+      },
+    );
   });
 
   it('invita por correo y vincula el subject devuelto por el proveedor', async () => {

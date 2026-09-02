@@ -1,5 +1,5 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
-import { tap, timeout } from 'rxjs';
+import { map, tap, timeout } from 'rxjs';
 import { formatHondurasMonth, hondurasDateParts } from './honduras-date';
 import {
   ItsCaptureApiService,
@@ -49,13 +49,18 @@ export class OperationalPeriodService {
   });
 
   load() {
+    return this.fetchCatalog().pipe(tap((periods) => this.useCatalog(periods)));
+  }
+
+  /** Fetch without publishing state until the entire session bootstrap succeeds. */
+  fetchCatalog() {
     return this.api.getMonthlyReportingPeriods().pipe(
       timeout(10_000),
-      tap((periods) => {
+      map((periods) => {
         const normalized = normalizeReportingPeriods(periods);
         if (!normalized.length)
           throw new Error('No existen períodos mensuales configurados para SIGVITS.');
-        this.replace(normalized);
+        return normalized;
       }),
     );
   }
@@ -72,7 +77,7 @@ export class OperationalPeriodService {
         status: month === 7 ? ('ABIERTO' as const) : ('CERRADO' as const),
       };
     });
-    this.replace(normalizeReportingPeriods(periods));
+    this.useCatalog(normalizeReportingPeriods(periods));
   }
 
   selectStart(key: string) {
@@ -87,7 +92,13 @@ export class OperationalPeriodService {
     if (this.selectedStartKey() > key) this.selectedStartKey.set(key);
   }
 
-  private replace(periods: OperationalPeriod[]) {
+  clear() {
+    this.periods.set([]);
+    this.selectedStartKey.set('');
+    this.selectedEndKey.set('');
+  }
+
+  useCatalog(periods: OperationalPeriod[]) {
     this.periods.set(periods);
     const current = hondurasDateParts();
     const currentKey = reportingPeriodKey(current.year, current.month);

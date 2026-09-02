@@ -16,6 +16,7 @@ import {
   type ManagedUserContext,
 } from '../domain/managed-user';
 import { ManagedUserRepository } from '../application/ports/managed-user.repository';
+import { managedUserListQuery, type ManagedUserListRow } from './managed-user-list.query';
 
 type ManagedUserRow = Prisma.AppUserGetPayload<{
   include: {
@@ -37,49 +38,28 @@ export class PrismaManagedUserRepository extends ManagedUserRepository {
     if (regionIds && regionIds.length === 0) return [];
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
-    const current = {
-      active: true,
-      startDate: { lte: today },
-      OR: [{ endDate: null }, { endDate: { gte: today } }],
-    };
-    const rows = await this.prisma.client.appUser.findMany({
-      where: regionIds
-        ? {
-            assignments: {
-              some: {
-                active: true,
-                startDate: { lte: today },
-                AND: [
-                  { OR: [{ endDate: null }, { endDate: { gte: today } }] },
-                  {
-                    OR: [
-                      { regionId: { in: [...regionIds] } },
-                      { municipality: { regionId: { in: [...regionIds] } } },
-                      { facility: { municipality: { regionId: { in: [...regionIds] } } } },
-                    ],
-                  },
-                ],
-              },
-            },
-          }
-        : undefined,
-      include: {
-        externalIdentities: { take: 1 },
-        roles: { where: current, include: { role: true }, orderBy: { startDate: 'desc' }, take: 1 },
-        assignments: {
-          where: current,
-          include: {
-            region: true,
-            municipality: true,
-            facility: { include: { municipality: true } },
-          },
-          orderBy: { startDate: 'desc' },
-          take: 1,
-        },
+    const rows = await this.prisma.client.$queryRaw<ManagedUserListRow[]>(
+      managedUserListQuery(today, regionIds),
+    );
+    return rows.map((row) => ({
+      id: row.id,
+      fullName: row.fullName,
+      email: row.email,
+      phone: row.phone,
+      active: row.active,
+      hasExternalIdentity: row.hasExternalIdentity,
+      role: { code: row.roleCode, name: row.roleName, startDate: row.roleStartDate },
+      assignment: {
+        scopeType: row.scopeType,
+        regionId: row.regionId,
+        municipalityId: row.municipalityId,
+        facilityId: row.facilityId,
+        label: row.scopeLabel,
+        startDate: row.scopeStartDate,
       },
-      orderBy: [{ fullName: 'asc' }, { email: 'asc' }],
-    });
-    return rows.flatMap((row) => (row.roles[0] && row.assignments[0] ? [this.toDomain(row)] : []));
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    }));
   }
 
   async roleExists(code: RoleCode): Promise<boolean> {

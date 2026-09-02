@@ -10,6 +10,12 @@ import {
   type TerritorialAuditEventRecord,
 } from '../../core/territorial-api.service';
 import { ManagedUserRecord, UserAdminApiService } from '../../core/user-admin-api.service';
+import {
+  USER_SCOPE_LABELS,
+  USER_TARGET_LABELS,
+  userRoleOptions,
+  userScopeOptions,
+} from './user-access-policy';
 
 type TerritoryTab = 'general' | 'geography' | 'responsibles' | 'history';
 type CreateTerritoryKind = 'region' | 'municipality' | 'establishment';
@@ -316,11 +322,7 @@ export class Territory implements OnInit {
       phone: user.phone ?? '',
       roleCode: user.role.code,
       scopeType: user.assignment.scopeType,
-      targetId:
-        user.assignment.regionId ??
-        user.assignment.municipalityId ??
-        user.assignment.facilityId ??
-        '',
+      targetId: this.assignmentTargetId(user),
       startDate: hondurasTodayIso(),
       reason: '',
     };
@@ -328,13 +330,15 @@ export class Territory implements OnInit {
   }
 
   protected saveUser() {
+    if (this.loading) return;
     this.userFormSubmitted = true;
     const form = this.userForm;
     if (
       !form.fullName.trim() ||
       !form.email.trim() ||
       form.reason.trim().length < 10 ||
-      !form.targetId
+      !form.startDate ||
+      !this.userAccessValid
     )
       return;
     const target =
@@ -365,24 +369,29 @@ export class Territory implements OnInit {
           startDate: form.startDate,
           reason: form.reason,
         });
-    operation.pipe(finalize(() => (this.loading = false))).subscribe({
-      next: (user) => {
-        this.users = [...this.users.filter((item) => item.id !== user.id), user].sort((a, b) =>
-          a.fullName.localeCompare(b.fullName),
-        );
-        this.showUserForm = false;
-        this.notify.emit(
-          this.editingUser
-            ? `Acceso de “${user.fullName}” actualizado con historial.`
-            : `Perfil de “${user.fullName}” creado pendiente de vincular su identidad.`,
-        );
-        this.editingUser = null;
-      },
-      error: () =>
-        this.notify.emit(
-          'No fue posible guardar el usuario. Verifique versión, jerarquía y alcance territorial.',
-        ),
-    });
+    operation
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => (this.loading = false)),
+      )
+      .subscribe({
+        next: (user) => {
+          this.users = [...this.users.filter((item) => item.id !== user.id), user].sort((a, b) =>
+            a.fullName.localeCompare(b.fullName),
+          );
+          this.showUserForm = false;
+          this.notify.emit(
+            this.editingUser
+              ? `Acceso de “${user.fullName}” actualizado con historial.`
+              : `Perfil de “${user.fullName}” creado pendiente de vincular su identidad.`,
+          );
+          this.editingUser = null;
+        },
+        error: () =>
+          this.notify.emit(
+            'No fue posible guardar el usuario. Verifique versión, jerarquía y alcance territorial.',
+          ),
+      });
   }
 
   protected openStatus(user: ManagedUserRecord) {
@@ -541,35 +550,65 @@ export class Territory implements OnInit {
       phone: '',
       roleCode: 'ADMIN_REGIONAL',
       scopeType: 'REGION',
-      targetId: this.regions?.[0]?.id ?? '',
+      targetId: '',
       startDate: hondurasTodayIso(),
       reason: '',
     };
   }
+  protected readonly userScopeLabels = USER_SCOPE_LABELS;
+  protected get assignableUserRoles() {
+    return userRoleOptions(this.globalScope);
+  }
+  protected get allowedUserScopes() {
+    return userScopeOptions(this.userForm.roleCode, this.globalScope);
+  }
+  protected get userTargetLabel() {
+    const scope = this.allowedUserScopes.find((scope) => scope === this.userForm.scopeType);
+    return scope ? USER_TARGET_LABELS[scope] : 'Territorio';
+  }
+  protected get userAccessValid() {
+    if (!this.allowedUserScopes.some((scope) => scope === this.userForm.scopeType)) return false;
+    return (
+      this.userForm.scopeType === 'NACIONAL' ||
+      this.userTargets().some((target) => target.id === this.userForm.targetId)
+    );
+  }
   protected userTargets() {
-    if (this.userForm.scopeType === 'NACIONAL') return [{ id: 'NATIONAL', name: 'Honduras' }];
     if (this.userForm.scopeType === 'REGION')
-      return this.regions.map((row) => ({ id: row.id, name: row.name }));
+      return this.regions
+        .filter((row) => row.active)
+        .map((row) => ({ id: row.id, name: row.name }));
     if (this.userForm.scopeType === 'MUNICIPIO')
-      return this.municipalities.map((row) => ({ id: row.id, name: row.name }));
-    return this.facilities.map((row) => ({ id: row.id, name: row.name }));
+      return this.municipalities
+        .filter((row) => row.active)
+        .map((row) => ({ id: row.id, name: `${row.name} — ${row.region}` }));
+    if (this.userForm.scopeType === 'ESTABLECIMIENTO')
+      return this.facilities
+        .filter((row) => row.active)
+        .map((row) => ({ id: row.id, name: `${row.code} · ${row.name} — ${row.municipality}` }));
+    return [];
   }
-  protected scopeChanged() {
-    this.userForm.targetId = this.userTargets()[0]?.id ?? '';
+  protected scopeChanged(scope: string) {
+    this.userForm.scopeType = this.allowedUserScopes.find((allowed) => allowed === scope) ?? '';
+    this.userForm.targetId = '';
   }
-  protected roleChanged() {
-    const role = this.userForm.roleCode;
-    this.userForm.scopeType =
-      role === 'ADMIN_CENTRAL'
-        ? 'NACIONAL'
-        : ['SUPERADMIN_REGIONAL', 'ADMIN_REGIONAL'].includes(role)
-          ? 'REGION'
-          : role === 'COORDINADOR_MUNICIPAL'
-            ? 'MUNICIPIO'
-            : ['DIGITADOR_COORDINACION', 'RESPONSABLE_ESTABLECIMIENTO'].includes(role)
-              ? 'ESTABLECIMIENTO'
-              : this.userForm.scopeType;
-    this.scopeChanged();
+  protected roleChanged(role: string) {
+    this.userForm.roleCode = role;
+    const scopes = this.allowedUserScopes;
+    this.scopeChanged(scopes.find((scope) => scope === this.userForm.scopeType) ?? scopes[0] ?? '');
+  }
+
+  private assignmentTargetId(user: ManagedUserRecord): string {
+    switch (user.assignment.scopeType) {
+      case 'REGION':
+        return user.assignment.regionId ?? '';
+      case 'MUNICIPIO':
+        return user.assignment.municipalityId ?? '';
+      case 'ESTABLECIMIENTO':
+        return user.assignment.facilityId ?? '';
+      default:
+        return '';
+    }
   }
 
   private saved(label: string, name: string) {
@@ -648,7 +687,6 @@ export class Territory implements OnInit {
           if (!this.municipalities.some((row) => row.id === this.selectedMunicipalityId))
             this.selectedMunicipalityId = this.municipalities[0]?.id ?? '';
           this.loadHistory(false);
-          this.userForm.targetId ||= this.userTargets()[0]?.id ?? '';
         },
         error: () => this.notify.emit('No se pudo cargar el catálogo territorial real.'),
       });

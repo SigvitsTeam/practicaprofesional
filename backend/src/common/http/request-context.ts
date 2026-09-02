@@ -3,5 +3,6 @@ import type { AuthorizationSubject } from '../../modules/authorization/domain/au
 
 export interface RequestWithContext extends Request {
   requestId: string;
+  startedAt?: number;
   auth?: AuthorizationSubject;
 }

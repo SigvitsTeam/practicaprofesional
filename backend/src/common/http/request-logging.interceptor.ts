@@ -17,7 +17,8 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     const http = context.switchToHttp();
     const request = http.getRequest<RequestWithContext>();
     const response = http.getResponse<Response>();
-    const startedAt = performance.now();
+    // Middleware runs before guards, so authentication latency is included.
+    const startedAt = request.startedAt ?? performance.now();
     const safePath = request.originalUrl.split('?')[0] ?? request.path;
 
     return next.handle().pipe(
