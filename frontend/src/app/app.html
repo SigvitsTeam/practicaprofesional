@@ -110,10 +110,36 @@
             }
           }
           @case ('Administración') {
-            @defer (on immediate) {
-              <app-territory #territory (notify)="showNotice($event)" />
-            } @placeholder {
-              <p class="page-loading">Cargando administración…</p>
+            @if (role.id === 'superadmin') {
+              <div class="admin-sections" role="group" aria-label="Secciones de administración">
+                <button
+                  class="btn secondary"
+                  [attr.aria-pressed]="adminSection === 'territory'"
+                  (click)="adminSection = 'territory'"
+                >
+                  Territorios y usuarios
+                </button>
+                <button
+                  class="btn secondary"
+                  [attr.aria-pressed]="adminSection === 'periods'"
+                  (click)="adminSection = 'periods'"
+                >
+                  Períodos
+                </button>
+              </div>
+            }
+            @if (showPeriodAdministration) {
+              @defer (on immediate) {
+                <app-period-administration />
+              } @placeholder {
+                <p class="page-loading">Cargando períodos…</p>
+              }
+            } @else {
+              @defer (on immediate) {
+                <app-territory #territory (notify)="showNotice($event)" />
+              } @placeholder {
+                <p class="page-loading">Cargando administración…</p>
+              }
             }
           }
         }

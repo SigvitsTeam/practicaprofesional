@@ -17,6 +17,16 @@ app-root {
   display: block;
   min-height: 100vh;
 }
+.admin-sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.admin-sections [aria-pressed='true'] {
+  border-color: var(--green);
+  color: var(--green);
+}
 .app-shell {
   min-height: 100vh;
   display: flex;

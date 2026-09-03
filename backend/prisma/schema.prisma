@@ -485,7 +485,7 @@ model ReportingPeriod {
   epidemiologicalWeekId String?              @map("semana_epidemiologica_id") @db.Uuid
   startDate             DateTime             @map("fecha_inicio") @db.Date
   endDate               DateTime             @map("fecha_fin") @db.Date
-  status                PeriodStatus         @default(ABIERTO) @map("estado")
+  status                PeriodStatus         @default(BLOQUEADO) @map("estado")
   createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
   epidemiologicalWeek   EpidemiologicalWeek? @relation(fields: [epidemiologicalWeekId], references: [id], onDelete: Restrict)

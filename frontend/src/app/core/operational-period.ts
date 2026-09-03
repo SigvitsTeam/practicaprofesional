@@ -53,12 +53,12 @@ export class OperationalPeriodService {
   }
 
   /** Fetch without publishing state until the entire session bootstrap succeeds. */
-  fetchCatalog() {
+  fetchCatalog(allowEmpty = false) {
     return this.api.getMonthlyReportingPeriods().pipe(
       timeout(10_000),
       map((periods) => {
         const normalized = normalizeReportingPeriods(periods);
-        if (!normalized.length)
+        if (!normalized.length && !allowEmpty)
           throw new Error('No existen períodos mensuales configurados para SIGVITS.');
         return normalized;
       }),
@@ -78,6 +78,16 @@ export class OperationalPeriodService {
       };
     });
     this.useCatalog(normalizeReportingPeriods(periods));
+  }
+
+  refreshCatalog(periods: OperationalPeriod[]) {
+    const start = this.selectedStartKey();
+    const end = this.selectedEndKey();
+    this.useCatalog(periods);
+    if (periods.some((p) => p.key === start) && periods.some((p) => p.key === end)) {
+      this.selectedStartKey.set(start);
+      this.selectedEndKey.set(end);
+    }
   }
 
   selectStart(key: string) {

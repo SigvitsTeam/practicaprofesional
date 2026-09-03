@@ -44,6 +44,14 @@ cuenta como aprobada. Datos de prueba sintéticos; nunca anexar expedientes o cr
 
 Configuración y recorrido: [runbook de invitaciones y recuperación](runbook-invitaciones-y-recuperacion.md).
 
+## Períodos mensuales
+
+- [ ] Solo SuperAdmin/Admin Central nacional puede entrar a Administración → Períodos.
+- [ ] Crear/completar un año es idempotente, no sobrescribe fechas existentes y deja meses nuevos bloqueados.
+- [ ] Abrir exige motivo, confirmación nacional, calendario epidemiológico completo y versión vigente.
+- [ ] Dos aperturas simultáneas producen un éxito y un conflicto controlado, con un solo evento de auditoría.
+- [ ] El cierre/reapertura oficial se realiza únicamente desde Consolidados y exige motivo.
+
 ## Reglas clínicas y privacidad
 
 - [ ] Hombre no puede seleccionar ni enviar patologías exclusivas de mujer.

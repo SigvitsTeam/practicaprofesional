@@ -32,6 +32,7 @@ import { mapInstitutionalRoleCodes } from './core/institutional-role';
 import { OperationalPeriodService } from './core/operational-period';
 import { EmailAccessService } from './core/email-access.service';
 import { PasswordSetup } from './pages/password-setup/password-setup';
+import { PeriodAdministration } from './pages/period-administration/period-administration';
 
 @Component({
   selector: 'app-root',
@@ -51,6 +52,7 @@ import { PasswordSetup } from './pages/password-setup/password-setup';
     ReportDrawer,
     Login,
     PasswordSetup,
+    PeriodAdministration,
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -71,6 +73,16 @@ export class App {
   private readonly destroyRef = inject(DestroyRef);
   private profileSubscriptions = new Subscription();
   active = 'Inicio';
+  adminSection: 'territory' | 'periods' = 'territory';
+  get canManagePeriods() {
+    return this.role.id === 'superadmin' || this.role.id === 'central-validator';
+  }
+  get showPeriodAdministration() {
+    return (
+      this.canManagePeriods &&
+      (this.adminSection === 'periods' || this.role.id === 'central-validator')
+    );
+  }
   selectedReport: Report | null = null;
   notice = '';
   darkMode = false;
@@ -154,7 +166,7 @@ export class App {
       }),
     );
     const periods = this.operationalPeriod
-      .fetchCatalog()
+      .fetchCatalog(true)
       .pipe(
         catchError(() =>
           throwError(
@@ -170,6 +182,23 @@ export class App {
         next: ({ profile: { profile, roleIds, initialRole }, periods }) => {
           if (requestVersion !== this.profileRequestVersion || this.auth.user()?.id !== userId)
             return;
+          if (!periods.length) {
+            const adminRole = roleIds.find((r) => r === 'superadmin' || r === 'central-validator');
+            if (
+              !adminRole ||
+              !profile.territory.national ||
+              !profile.permissions.some((p) => p === 'reporting:periods:manage' || p === '*')
+            ) {
+              this.loadingProfileUserId = '';
+              this.profileError.set(
+                'No existen períodos institucionales mensuales configurados para SIGVITS. Contacte al administrador.',
+              );
+              return;
+            }
+            initialRole = adminRole;
+            this.active = 'Administración';
+            this.adminSection = 'periods';
+          }
           this.allowedRoleIds = roleIds;
           this.institutionalDisplayName = profile.displayName?.trim() ?? '';
           this.roleContext.select(initialRole);
@@ -209,6 +238,12 @@ export class App {
     );
   }
   get meta() {
+    if (this.active === 'Administración' && this.showPeriodAdministration)
+      return {
+        eyebrow: 'ADMINISTRACIÓN NACIONAL',
+        title: 'Períodos mensuales',
+        description: 'Calendario institucional, apertura nacional y trazabilidad.',
+      };
     if (!this.auth.isDemo()) return this.productionMeta();
     if (this.active === 'Inicio') return this.role.dashboardMeta;
     if (this.active === 'Captura ITS 1' && this.role.id === 'establishment-manager') {
@@ -388,7 +423,10 @@ export class App {
     return metadata[this.active] ?? metadata['Inicio']!;
   }
   get showPrimaryAction() {
-    return this.active === 'Inicio' || this.active === 'Administración';
+    return (
+      this.active === 'Inicio' ||
+      (this.active === 'Administración' && !this.showPeriodAdministration)
+    );
   }
   get showGlobalFilters() {
     return [
@@ -403,6 +441,16 @@ export class App {
   }
 
   navigate(page: string) {
+    if (
+      !this.auth.isDemo() &&
+      !this.operationalPeriod.periods().length &&
+      page !== 'Administración'
+    ) {
+      this.showNotice(
+        'Configure primero el calendario institucional desde Administración → Períodos.',
+      );
+      return;
+    }
     this.active = page;
     this.selectedReport = null;
   }

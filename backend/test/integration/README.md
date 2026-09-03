@@ -36,6 +36,11 @@ el aislamiento PostgreSQL sin carreras aleatorias ni pausas temporizadas:
 - Creación, corrección y anulación válidas para hombre/mujer con auditoría.
 - Rechazo transaccional de patologías incompatibles, embarazo masculino y
   cambios de sexo o catálogo que invalidarían diagnósticos existentes.
+- Creación idempotente y concurrente del calendario mensual/epidemiológico.
+- Apertura mensual con bloqueo de fila, versión optimista y una sola auditoría
+  frente a solicitudes simultáneas.
+- Apertura anual atómica: rollback ante calendario/auditoría inválidos, un solo ganador
+  concurrente, reintentos sin auditorías duplicadas y conservación de cierres oficiales.
 
 La suite del worker exige una cola QA vacía y ningún worker externo conectado a
 esa base: `claimNext` y la recuperación operan sobre la cola global por diseño.

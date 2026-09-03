@@ -15,6 +15,7 @@
     "prisma/seed-calendar-2026.ts",
     "prisma/seed-pilot.ts",
     "prisma/set-monthly-period-status.ts",
+    "prisma/verify-period-data.ts",
     "prisma/smoke-its2-workflow.ts",
     "prisma/smoke-annual-export.ts",
     "prisma/smoke-its1-sex-rules.ts",

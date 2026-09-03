@@ -95,6 +95,7 @@ export const ROLE_PROFILES: RoleProfile[] = [
       'Redes',
       'Mapas',
       'Reportes y exportaciones',
+      'Administración',
     ],
     metrics: [
       {

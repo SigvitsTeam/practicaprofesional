@@ -17,6 +17,7 @@ import { ItsCaptureModule } from './modules/its-capture/its-capture.module';
 import { TerritorialModule } from './modules/territorial/territorial.module';
 import { UserAdminModule } from './modules/user-admin/user-admin.module';
 import { ExportsModule } from './modules/exports/exports.module';
+import { ReportingAdminModule } from './modules/reporting-admin/reporting-admin.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { ExportsModule } from './modules/exports/exports.module';
     UserAdminModule,
     ItsCaptureModule,
     ExportsModule,
+    ReportingAdminModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },

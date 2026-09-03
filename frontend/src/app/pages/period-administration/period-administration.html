@@ -1,0 +1,223 @@
+<section class="period-panel" aria-labelledby="period-title">
+  <header>
+    <div>
+      <h2 id="period-title">Períodos mensuales</h2>
+      <p>Administración nacional del calendario y apertura de captura.</p>
+    </div>
+  </header>
+  @if (!allowed) {
+    <p role="alert">Esta sección requiere SuperAdmin o Admin Central.</p>
+  } @else if (demo) {
+    <p role="status">
+      La administración de períodos requiere una sesión institucional real. El modo demostración no
+      modifica calendarios.
+    </p>
+  } @else {
+    <p class="scope-warning">
+      Abrir un mes habilita ese período para todos los territorios, respetando los permisos de cada
+      usuario. No se cierra automáticamente el mes anterior.
+    </p>
+    <div class="period-toolbar">
+      <label
+        >Año<input
+          type="number"
+          min="2020"
+          max="2100"
+          [ngModel]="year()"
+          (ngModelChange)="changeYear($event)"
+          [disabled]="saving() || !!action()"
+      /></label>
+      <button
+        class="btn secondary"
+        type="button"
+        (click)="load()"
+        [disabled]="loading() || saving() || !!action()"
+      >
+        Actualizar
+      </button>
+      <button
+        class="btn primary"
+        type="button"
+        (click)="create()"
+        [disabled]="loading() || saving() || !!action()"
+      >
+        Crear / completar calendario
+      </button>
+      <button
+        class="btn primary"
+        type="button"
+        (click)="openYear()"
+        [disabled]="loading() || saving() || !!action() || !canOpenYear"
+      >
+        Abrir todos los meses de {{ year() }}
+      </button>
+    </div>
+    <p>
+      Puede habilitar el año completo en una sola operación. Los meses con cierre oficial no se
+      reabren aquí.
+    </p>
+    @if (feedback()) {
+      <p class="period-success" role="status">{{ feedback() }}</p>
+    }
+    @if (error() && !action()) {
+      <p class="period-error" role="alert">{{ error() }}</p>
+    }
+    @if (loading()) {
+      <p role="status">Cargando períodos…</p>
+    } @else if (!periods().length && !error()) {
+      <p>
+        No hay meses configurados para este año. Cree el calendario; los meses nuevos quedarán
+        bloqueados.
+      </p>
+    } @else if (periods().length) {
+      <div
+        class="period-table"
+        tabindex="0"
+        role="region"
+        aria-label="Listado desplazable de períodos"
+      >
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Mes</th>
+              <th scope="col">Estado</th>
+              <th scope="col">Semanas epidemiológicas</th>
+              <th scope="col">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (period of periods(); track period.id) {
+              <tr>
+                <th scope="row">{{ monthLabel(period.year, period.month) }}</th>
+                <td>
+                  <span class="period-state" [class.is-open]="period.status === 'ABIERTO'">{{
+                    period.status
+                  }}</span>
+                </td>
+                <td>{{ period.calendarReady ? 'Completas' : 'Calendario incompleto' }}</td>
+                <td>
+                  @if (period.status === 'BLOQUEADO') {
+                    <button
+                      class="btn primary"
+                      type="button"
+                      (click)="open(period)"
+                      [disabled]="saving() || !period.calendarReady"
+                      [attr.aria-label]="'Abrir ' + monthLabel(period.year, period.month)"
+                    >
+                      Abrir mes
+                    </button>
+                  } @else if (period.status === 'CERRADO') {
+                    <span>Cierre oficial: gestionar desde Consolidados.</span>
+                  } @else {
+                    <span>Captura habilitada</span>
+                  }
+                  <button
+                    class="btn secondary"
+                    type="button"
+                    (click)="showHistory(period)"
+                    [disabled]="saving()"
+                    [attr.aria-label]="'Historial de ' + monthLabel(period.year, period.month)"
+                  >
+                    Historial
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>
+@if (action(); as operation) {
+  <dialog
+    class="period-dialog"
+    aria-labelledby="period-confirm-title"
+    (cancel)="$event.preventDefault(); cancel()"
+  >
+    <form (ngSubmit)="submit()">
+      <h2 id="period-confirm-title">
+        {{
+          operation.kind === 'create'
+            ? 'Crear / completar calendario ' + operation.year
+            : operation.kind === 'open-year'
+              ? 'Abrir todos los meses disponibles de ' + operation.year
+              : 'Abrir ' + monthLabel(operation.period.year, operation.period.month)
+        }}
+      </h2>
+      <p>
+        {{
+          operation.kind === 'create'
+            ? 'Se crearán los meses faltantes bloqueados y las semanas epidemiológicas según la regla OPS (domingo a sábado). No se sobrescriben fechas ni estados existentes.'
+            : operation.kind === 'open-year'
+              ? 'Se abrirán juntos los meses bloqueados de este año para todo el país, incluidos meses pasados y futuros. Los meses abiertos o con cierre oficial se conservarán. No cambia los roles ni el alcance de los usuarios.'
+              : 'La apertura afecta a todo el país. No cambia los roles ni el alcance de los usuarios.'
+        }}
+      </p>
+      <label
+        >Motivo administrativo<textarea
+          name="reason"
+          [(ngModel)]="reason"
+          minlength="10"
+          maxlength="500"
+          required
+          [disabled]="saving()"
+        ></textarea>
+      </label>
+      <label class="period-check"
+        ><input
+          name="confirmed"
+          type="checkbox"
+          [(ngModel)]="confirmed"
+          [disabled]="saving()"
+        /><span>Confirmo el alcance nacional de esta operación.</span></label
+      >
+      @if (error()) {
+        <p class="period-error" role="alert">{{ error() }}</p>
+      }
+      <footer>
+        <button class="btn secondary" type="button" (click)="cancel()" [disabled]="saving()">
+          Cancelar</button
+        ><button
+          class="btn primary"
+          type="submit"
+          [disabled]="saving() || !confirmed || reason.trim().length < 10"
+        >
+          {{ saving() ? 'Procesando…' : 'Confirmar operación' }}
+        </button>
+      </footer>
+    </form>
+  </dialog>
+}
+@if (historyFor(); as period) {
+  <dialog
+    class="period-dialog"
+    aria-labelledby="period-history-title"
+    (cancel)="$event.preventDefault(); closeHistory()"
+  >
+    <h2 id="period-history-title">Historial: {{ monthLabel(period.year, period.month) }}</h2>
+    <p>
+      Últimos 50 eventos administrativos del período. Los cierres oficiales se auditan en el
+      consolidado nacional.
+    </p>
+    @if (historyLoading()) {
+      <p role="status">Cargando historial…</p>
+    }
+    @if (historyError()) {
+      <p class="period-error" role="alert">{{ historyError() }}</p>
+    }
+    @for (event of history(); track event.id) {
+      <article class="period-event">
+        <strong>{{ event.action }}</strong>
+        <p>{{ dateTime(event.createdAt) }} · {{ event.actorName || 'Usuario no disponible' }}</p>
+        <p>{{ event.reason }}</p>
+      </article>
+    }
+    @if (!historyLoading() && !historyError() && !history().length) {
+      <p>No hay eventos administrativos para este período.</p>
+    }
+    <footer>
+      <button class="btn secondary" type="button" (click)="closeHistory()">Cerrar historial</button>
+    </footer>
+  </dialog>
+}

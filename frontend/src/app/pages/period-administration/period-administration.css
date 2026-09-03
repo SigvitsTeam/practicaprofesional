@@ -1,0 +1,155 @@
+:host {
+  display: block;
+  min-width: 0;
+  --period-surface: #fff;
+  --period-ink: #18313d;
+  --period-muted: #516974;
+  --period-tint: #effaf6;
+  --period-error: #a82f3b;
+  --period-button-ink: #fff;
+}
+:host-context([data-theme='dark']) {
+  --period-surface: #11242d;
+  --period-ink: #e7f1f4;
+  --period-muted: #9eb1ba;
+  --period-tint: #123c32;
+  --period-error: #ef8a91;
+  --period-button-ink: #073325;
+}
+.period-panel {
+  background: var(--period-surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: clamp(14px, 3vw, 24px);
+  min-width: 0;
+}
+h2 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+p {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.scope-warning,
+.period-success {
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--period-tint);
+}
+.period-toolbar {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+}
+label {
+  display: grid;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  min-width: 0;
+}
+input[type='number'] {
+  width: 110px;
+  max-width: 100%;
+  min-height: 44px;
+}
+.period-table {
+  overflow: auto;
+  max-width: 100%;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 600px;
+}
+th,
+td {
+  text-align: left;
+  padding: 14px 10px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.85rem;
+  white-space: normal;
+}
+td .btn {
+  margin: 4px;
+}
+.period-state {
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.is-open {
+  color: var(--green);
+}
+.period-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-modal, 90);
+  margin: auto;
+  max-height: calc(100dvh - 32px);
+  width: min(600px, calc(100% - 32px));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--period-surface);
+  color: var(--period-ink);
+  padding: 24px;
+  overflow: auto;
+}
+.period-dialog::backdrop {
+  background: #061d28a6;
+}
+.period-dialog form {
+  display: grid;
+  gap: 18px;
+}
+.period-dialog textarea {
+  width: 100%;
+  min-height: 100px;
+  resize: vertical;
+  padding: 10px;
+}
+.period-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.period-check input {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: var(--green);
+}
+:host .period-error {
+  color: var(--period-error);
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  padding: 12px;
+}
+.period-event {
+  border-bottom: 1px solid var(--line);
+  padding: 14px 0;
+  overflow-wrap: anywhere;
+}
+footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+.period-dialog .primary {
+  color: var(--period-button-ink);
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+.period-table:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 3px;
+}

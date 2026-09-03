@@ -175,6 +175,23 @@ async function verify(): Promise<void> {
       throw new Error(
         'El catálogo de períodos no está habilitado para los ocho roles institucionales.',
       );
+    const reportingPeriodManagers = await directClient.query<{
+      total: number;
+      expected: number;
+    }>(
+      `SELECT count(DISTINCT r.codigo)::int AS total,
+              count(DISTINCT r.codigo) FILTER (
+                WHERE r.codigo = ANY($1::text[])
+              )::int AS expected
+       FROM roles r JOIN rol_permiso rp ON rp.rol_id = r.id JOIN permisos p ON p.id = rp.permiso_id
+       WHERE p.codigo = 'reporting:periods:manage'`,
+      [['SUPERADMIN', 'ADMIN_CENTRAL']],
+    );
+    if (
+      reportingPeriodManagers.rows[0]?.total !== 2 ||
+      reportingPeriodManagers.rows[0]?.expected !== 2
+    )
+      throw new Error('La administración de períodos no está limitada a los dos roles nacionales.');
     const operators = await directClient.query<{ roleCode: string; total: number }>(
       `SELECT r.codigo AS "roleCode", count(DISTINCT u.id) FILTER (WHERE ie.id IS NOT NULL)::int AS total
        FROM roles r

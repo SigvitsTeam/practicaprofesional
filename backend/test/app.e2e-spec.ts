@@ -87,6 +87,22 @@ describe('Application (e2e)', () => {
     await request(app.getHttpServer()).get('/api/v1/reporting-periods/monthly').expect(401);
   });
 
+  it('protects period calendar administration before validating payloads', async () => {
+    await request(app.getHttpServer()).get('/api/v1/admin/reporting-periods?year=2026').expect(401);
+    await request(app.getHttpServer())
+      .post('/api/v1/admin/reporting-periods/calendar')
+      .send({})
+      .expect(401);
+    await request(app.getHttpServer())
+      .post('/api/v1/admin/reporting-periods/open-year')
+      .send({})
+      .expect(401);
+    await request(app.getHttpServer())
+      .post('/api/v1/admin/reporting-periods/11111111-1111-4111-8111-111111111111/open')
+      .send({})
+      .expect(401);
+  });
+
   it('protects territorial audit history before validating its query', async () => {
     await request(app.getHttpServer()).get('/api/v1/territories/audit-events').expect(401);
   });

@@ -193,10 +193,27 @@ o aprovisionamiento inicial. Requiere que la identidad ya exista en el proveedor
 `PROVISION_USER_SUBJECT`, `PROVISION_USER_EMAIL`, `PROVISION_USER_NAME`, `PROVISION_USER_ROLE`,
 `PROVISION_SCOPE_TYPE` y, salvo para alcance nacional, `PROVISION_SCOPE_CODE`.
 
-El estado de un período mensual se administra con `npm run db:set-period-status`, usando
-`PERIOD_YEAR`, `PERIOD_MONTH`, `PERIOD_STATUS`, `PERIOD_REASON` y `PERIOD_ACTOR_EMAIL`. Solo un
-SuperAdmin o Admin Central puede ejecutar la transición, los períodos cerrados no se reabren y
-cada cambio queda auditado.
+Los períodos se administran en **Administración → Períodos**. Solo un SuperAdmin o Admin Central
+con permiso nacional puede crear/completar un calendario y abrir un mes bloqueado; cada operación
+requiere motivo, confirmación del alcance nacional, control de versión y auditoría. El comando
+directo de cambio de estado fue retirado para que no eluda esas garantías. Los cierres oficiales y
+sus reaperturas excepcionales continúan en **Consolidados**.
+
+**Abrir todos los meses de [año]** permite habilitar los meses bloqueados con una sola
+confirmación. `POST /api/v1/admin/reporting-periods/open-year` exige las doce versiones
+observadas, conserva meses abiertos/cerrados y confirma cambios y auditorías de forma
+atómica. No hay apertura automática de años futuros ni reapertura masiva de cierres oficiales.
+
+`npm run db:seed:calendar:2026` se conserva exclusivamente para preparar una instalación inicial
+del piloto 2026. Los años siguientes se crean desde la interfaz y comienzan bloqueados. Las semanas
+siguen la regla OPS: domingo a sábado y semana 1 con al menos cuatro días de enero.
+
+Antes de aplicar `202609030001_period_administration`, ejecute `npm run db:verify-periods`.
+Es una comprobación de solo lectura: debe devolver cero grupos duplicados y cero períodos
+mensuales inválidos. La migración no abre, cierra ni elimina meses existentes; añade unicidad,
+validaciones y un estado predeterminado bloqueado para nuevas inserciones. Si detecta datos
+incompatibles, deténgase y revíselos; no elimine historia para hacer pasar la migración.
+La guía operativa está en [`docs/administracion-periodos.md`](../docs/administracion-periodos.md).
 
 ## Cola de exportaciones
 

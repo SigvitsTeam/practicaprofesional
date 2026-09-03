@@ -255,6 +255,38 @@ describe('App', () => {
     );
   });
 
+  it('lets an authorized national administrator bootstrap an empty period catalog', async () => {
+    localStorage.setItem(
+      TEST_SESSION,
+      JSON.stringify({
+        provider: 'supabase',
+        remember: true,
+        accessToken: 'test-token',
+        expiresAt: Date.now() + 3600000,
+        user: { id: 'institutional-user', email: 'admin@example.test', name: 'Admin' },
+      }),
+    );
+    vi.spyOn(TestBed.inject(CurrentProfileApiService), 'get').mockReturnValue(
+      of({
+        userId: 'institutional-user',
+        displayName: 'Admin QA',
+        roles: ['ADMIN_CENTRAL'],
+        permissions: ['reporting:periods:manage'],
+        territory: { national: true, regionIds: [], municipalityIds: [], facilityIds: [] },
+      }),
+    );
+    vi.mocked(TestBed.inject(ItsCaptureApiService).getMonthlyReportingPeriods).mockReturnValue(
+      of([]),
+    );
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.profile-error')).toBeNull();
+    expect(fixture.componentInstance.profileReady()).toBe(true);
+    expect(fixture.componentInstance.active).toBe('Administración');
+    expect(fixture.nativeElement.textContent).toContain('Períodos mensuales');
+  });
+
   it('cancels a pending period catalog when signing out', async () => {
     localStorage.setItem(
       TEST_SESSION,
