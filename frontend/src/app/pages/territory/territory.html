@@ -307,15 +307,12 @@
               maxlength="500"
             ></textarea>
           </label>
-          <label class="wide"
-            ><span
-              ><input
-                name="activateIdentityUser"
-                type="checkbox"
-                [(ngModel)]="identityForm.activate"
-              />
-              Activar el acceso en la misma operación atómica</span
-            ></label
+          <label class="wide check-line"
+            ><input
+              name="activateIdentityUser"
+              type="checkbox"
+              [(ngModel)]="identityForm.activate"
+            /><span>Activar el acceso en la misma operación atómica</span></label
           >
         </div>
         <footer>
@@ -351,7 +348,14 @@
           <h2>Enviar invitación</h2>
           <p>{{ invitationUser.fullName }} · {{ invitationUser.email }}</p>
         </div>
-        <button type="button" (click)="invitationUser = null">×</button>
+        <button
+          type="button"
+          aria-label="Cerrar invitación"
+          (click)="invitationUser = null"
+          [disabled]="loading"
+        >
+          ×
+        </button>
       </header>
       <form (ngSubmit)="sendInvitation()">
         <div class="creation-form">
@@ -363,9 +367,9 @@
               minlength="10"
               maxlength="500"
             ></textarea
-            ><small
-              >El proveedor enviará el correo y el identificador externo quedará vinculado con
-              auditoría.</small
+            ><small class="field-hint"
+              >Se solicitará el envío a Supabase. El destinatario deberá abrir el enlace y definir
+              su contraseña; aceptar la solicitud no confirma la entrega al buzón.</small
             ></label
           ><label class="wide check-line"
             ><input
@@ -375,8 +379,16 @@
             /><span>Activar el perfil al vincular la identidad</span></label
           >
         </div>
+        @if (invitationError()) {
+          <p class="invitation-error" role="alert">{{ invitationError() }}</p>
+        }
         <footer>
-          <button class="btn secondary" type="button" (click)="invitationUser = null">
+          <button
+            class="btn secondary"
+            type="button"
+            (click)="invitationUser = null"
+            [disabled]="loading"
+          >
             Cancelar</button
           ><button
             class="btn primary"

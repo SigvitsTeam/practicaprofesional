@@ -82,7 +82,9 @@
             ><input formControlName="remember" type="checkbox" /><span
               >Recordarme en este equipo</span
             ></label
-          ><button type="button" (click)="recoverPassword()">¿Olvidaste tu contraseña?</button>
+          ><button type="button" (click)="recoverPassword()" [disabled]="loading()">
+            ¿Olvidaste tu contraseña?
+          </button>
         </div>
         @if (error()) {
           <div class="form-message error" role="alert">
@@ -96,7 +98,8 @@
         }
         <button class="submit-button" type="submit" [disabled]="loading()">
           @if (loading()) {
-            <i class="spinner"></i> Verificando…
+            <i class="spinner"></i>
+            {{ recovering() ? 'Solicitando instrucciones…' : 'Verificando…' }}
           } @else {
             Iniciar sesión <span>→</span>
           }

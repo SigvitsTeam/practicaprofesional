@@ -13,6 +13,7 @@ export class Login {
   private readonly auth = inject(AuthService);
   private readonly runtimeConfig = inject(RuntimeConfigService);
   readonly loading = signal(false);
+  readonly recovering = signal(false);
   readonly passwordVisible = signal(false);
   readonly error = signal('');
   readonly recoveryMessage = signal('');
@@ -31,6 +32,7 @@ export class Login {
   });
 
   async submit(): Promise<void> {
+    if (this.loading()) return;
     this.error.set('');
     this.recoveryMessage.set('');
     if (this.form.invalid) {
@@ -58,6 +60,7 @@ export class Login {
   }
 
   async recoverPassword(): Promise<void> {
+    if (this.loading()) return;
     const email = this.form.controls.email;
     this.error.set('');
     this.recoveryMessage.set('');
@@ -67,6 +70,7 @@ export class Login {
       return;
     }
     this.loading.set(true);
+    this.recovering.set(true);
     try {
       await this.auth.requestPasswordReset(email.value);
       this.recoveryMessage.set(
@@ -79,6 +83,7 @@ export class Login {
           : 'No fue posible procesar la solicitud.',
       );
     } finally {
+      this.recovering.set(false);
       this.loading.set(false);
     }
   }

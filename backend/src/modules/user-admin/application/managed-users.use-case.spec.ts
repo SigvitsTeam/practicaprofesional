@@ -164,6 +164,7 @@ describe('ManagedUsersUseCase', () => {
   const invitations: IdentityInvitationGateway = { invite };
 
   beforeEach(() => {
+    invite.mockClear();
     repository = new Repository();
     useCase = new ManagedUsersUseCase(
       repository,
@@ -237,6 +238,21 @@ describe('ManagedUsersUseCase', () => {
     expect(invite).toHaveBeenCalledWith('maria@example.org');
     expect(result).toMatchObject({ active: true, hasExternalIdentity: true });
   });
+
+  it.each([
+    { reason: 'breve', expectedUpdatedAt: '2026-08-17T00:00:00Z' },
+    { reason: 'Invitación aprobada', expectedUpdatedAt: 'invalid-date' },
+    { reason: 'Invitación aprobada', expectedUpdatedAt: '2001-01-01T00:00:00Z' },
+  ])(
+    'validates invitation input and version before contacting the provider ($expectedUpdatedAt)',
+    async (invalid) => {
+      repository.context = { ...repository.context, active: false, hasExternalIdentity: false };
+      await expect(
+        useCase.invite('user-2', { activate: true, requestId: 'qa', ...invalid }, regional),
+      ).rejects.toThrow();
+      expect(invite).not.toHaveBeenCalled();
+    },
+  );
 
   it('impide asignar un rol igual o superior al del actor', async () => {
     await expect(

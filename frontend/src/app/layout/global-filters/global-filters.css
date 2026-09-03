@@ -7,11 +7,13 @@
 }
 .filter-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 11px;
 }
 .range-group {
-  min-width: 285px;
+  min-width: min(285px, 100%);
+  max-width: 100%;
   margin: 0;
   padding: 5px 9px 9px;
   display: grid;

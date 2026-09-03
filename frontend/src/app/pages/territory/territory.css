@@ -9,7 +9,7 @@
 .form-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: var(--layer-modal, 90);
   padding: 24px;
   display: grid;
   place-items: center;
@@ -18,7 +18,7 @@
 }
 .form-modal {
   width: min(640px, 100%);
-  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px);
   overflow: auto;
   border-radius: 12px;
   background: var(--surface, #fff);
@@ -39,8 +39,10 @@
   margin: 5px 0 0;
   color: var(--muted);
   font-size: 0.72rem;
+  overflow-wrap: anywhere;
 }
 .form-modal header > button {
+  flex-shrink: 0;
   width: 34px;
   height: 34px;
   border: 0;
@@ -64,9 +66,35 @@
   font-size: 0.7rem;
   font-weight: 750;
 }
-.creation-form input,
-.creation-form select {
+.creation-form input:not([type='checkbox']),
+.creation-form select,
+.creation-form textarea {
+  min-width: 0;
   width: 100%;
+}
+.creation-form textarea {
+  min-height: 88px;
+  padding: 10px;
+  resize: vertical;
+}
+.creation-form .check-line {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.creation-form .check-line > span {
+  min-width: 0;
+  margin: 0;
+}
+.creation-form input[type='checkbox'] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--green);
 }
 .creation-form small {
   min-height: 14px;
@@ -74,6 +102,10 @@
   margin-top: 4px;
   color: var(--red);
   font-size: 0.62rem;
+}
+.creation-form .field-hint {
+  color: var(--muted);
+  line-height: 1.5;
 }
 .creation-form .invalid {
   border-color: var(--red);
@@ -84,6 +116,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 9px;
+  flex-wrap: wrap;
   border-top: 1px solid var(--line);
 }
 :host-context([data-theme='dark']) .form-modal {
@@ -810,8 +843,19 @@
   max-width: 520px;
 }
 .user-actions {
-  display: flex;
-  gap: 6px;
+  min-width: 150px;
+}
+.user-actions button {
+  margin: 3px;
+  min-height: 36px;
+}
+.invitation-error {
+  margin: 0 22px 18px;
+  padding: 12px;
+  border: 1px solid var(--red);
+  border-radius: 8px;
+  color: var(--red);
+  overflow-wrap: anywhere;
 }
 .user-actions button {
   border: 0;

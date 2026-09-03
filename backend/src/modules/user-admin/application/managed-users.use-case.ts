@@ -8,6 +8,7 @@ import {
 } from '../../authorization/domain/authorization.types';
 import {
   InvalidManagedUserError,
+  ManagedUserConcurrencyError,
   ManagedUserInvariantError,
   ManagedUserNotFoundError,
   ManagedUserRoleError,
@@ -248,16 +249,23 @@ export class ManagedUsersUseCase {
       throw new ManagedUserInvariantError(
         'El proveedor de identidad externo no está configurado en el servidor.',
       );
+    // Validate locally before causing an external email side effect.
+    const expectedUpdatedAt = this.timestamp(input.expectedUpdatedAt);
+    const reason = this.reason(input.reason);
+    if (context.updatedAt.getTime() !== expectedUpdatedAt.getTime())
+      throw new ManagedUserConcurrencyError(
+        'El usuario cambió. Recargue antes de enviar la invitación.',
+      );
     const invited = await this.invitations.invite(context.email);
     return this.repository.linkExternalIdentity({
       userId,
       issuer,
       subject: invited.subject,
       activate: input.activate,
-      expectedUpdatedAt: this.timestamp(input.expectedUpdatedAt),
+      expectedUpdatedAt,
       actorUserId: subject.userId,
       requestId: input.requestId,
-      reason: this.reason(input.reason),
+      reason,
     });
   }
 

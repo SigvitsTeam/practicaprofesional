@@ -93,14 +93,33 @@ export class AuthService {
   async requestPasswordReset(email: string): Promise<void> {
     const auth = this.runtimeConfig.auth;
     if (!auth.supabaseUrl || !auth.supabaseAnonKey) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      return;
+      throw new AuthenticationError(
+        'La recuperación por correo no está configurada en este entorno. Contacta al administrador.',
+      );
     }
-    const response = await fetch(`${auth.supabaseUrl}/auth/v1/recover`, {
-      method: 'POST',
-      headers: this.authHeaders(),
-      body: JSON.stringify({ email: email.trim().toLowerCase() }),
-    });
+    const redirect = new URL(window.location.pathname, window.location.origin);
+    redirect.searchParams.set('auth', 'recovery');
+    const url = new URL(`${auth.supabaseUrl}/auth/v1/recover`);
+    url.searchParams.set('redirect_to', redirect.toString());
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        method: 'POST',
+        headers: this.authHeaders(),
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        signal: AbortSignal.timeout(10_000),
+        credentials: 'omit',
+        referrerPolicy: 'no-referrer',
+      });
+    } catch {
+      throw new AuthenticationError(
+        'No pudimos conectar con el servicio de recuperación. Intenta nuevamente.',
+      );
+    }
+    if (response.status === 429)
+      throw new AuthenticationError(
+        'Se alcanzó el límite de solicitudes de correo. Espera unos minutos antes de volver a intentar.',
+      );
     if (!response.ok)
       throw new AuthenticationError('No fue posible iniciar la recuperación. Intenta nuevamente.');
   }

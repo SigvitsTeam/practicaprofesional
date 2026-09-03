@@ -8,6 +8,10 @@
   --blue: #3479ad;
   --red: #bc4a52;
   --amber: #bd8326;
+  --layer-sidebar: 20;
+  --layer-drawer: 50;
+  --layer-modal: 90;
+  --layer-notice: 100;
 }
 app-root {
   display: block;
@@ -20,7 +24,8 @@ app-root {
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;
-  z-index: 20;
+  z-index: var(--layer-sidebar);
+  overflow-y: auto;
   width: 250px;
   padding: 23px 14px;
   display: flex;
@@ -61,6 +66,7 @@ app-root {
   font-size: 11px;
 }
 nav {
+  flex-shrink: 0;
   margin-top: 23px;
 }
 .nav-label {
@@ -117,6 +123,7 @@ nav {
   font-weight: 800;
 }
 .privacy-card {
+  flex-shrink: 0;
   margin-top: auto;
   padding: 13px;
   display: flex;
@@ -140,20 +147,25 @@ nav {
   line-height: 1.45;
 }
 .workspace {
+  min-width: 0;
   width: calc(100% - 250px);
   min-height: 100vh;
   margin-left: 250px;
 }
 .topbar {
-  height: 68px;
-  padding: 0 30px;
+  min-height: 68px;
+  padding: 12px 30px;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
   border-bottom: 1px solid var(--line);
   background: #fff;
 }
 .breadcrumb {
+  min-width: 0;
+  flex-wrap: wrap;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -173,7 +185,10 @@ nav {
   align-items: center;
 }
 .top-actions {
-  gap: 18px;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 .notification {
   position: relative;
@@ -1841,7 +1856,7 @@ td small {
 .drawer-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: var(--layer-drawer);
   display: flex;
   justify-content: flex-end;
   background: #081d286b;
@@ -1943,12 +1958,14 @@ td small {
 }
 .toast {
   position: fixed;
-  z-index: 80;
+  z-index: var(--layer-notice);
+  pointer-events: none;
   right: 24px;
   bottom: 24px;
   min-height: 44px;
-  max-width: 390px;
-  padding: 0 16px;
+  max-width: min(390px, calc(100vw - 48px));
+  padding: 12px 16px;
+  overflow-wrap: anywhere;
   display: flex;
   align-items: center;
   gap: 9px;

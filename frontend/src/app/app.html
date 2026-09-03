@@ -1,4 +1,6 @@
-@if (!auth.isAuthenticated()) {
+@if (emailAccess.active()) {
+  <app-password-setup (exit)="leaveEmailAction()" />
+} @else if (!auth.isAuthenticated()) {
   <app-login />
 } @else if (profileError()) {
   <main class="profile-error">
@@ -131,7 +133,7 @@
       }
     }
     @if (notice) {
-      <div class="toast"><b>✓</b>{{ notice }}</div>
+      <div class="toast" role="status" aria-live="polite">{{ notice }}</div>
     }
   </main>
 }

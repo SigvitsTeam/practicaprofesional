@@ -34,6 +34,16 @@ cuenta como aprobada. Datos de prueba sintéticos; nunca anexar expedientes o cr
 | Admin central               | Revisión regional, consolidado nacional y cierre            | Acción sin permiso o estado previo inválido     | Pendiente   | Pendiente             |
 | SuperAdmin                  | Administración global e identidad                           | Repetición, versión obsoleta y payload inválido | Pendiente   | Pendiente             |
 
+## Identidad y acceso por correo
+
+- [ ] Invitación real recibida por un buzón autorizado, enlace verificado y contraseña definida.
+- [ ] Recuperación real recibida, contraseña cambiada, login anterior rechazado y nuevo login válido.
+- [ ] Enlaces vencidos/reutilizados rechazados; cuenta inactiva no obtiene acceso institucional.
+- [ ] SMTP, remitente y redirecciones HTTPS configurados en el ambiente que se va a publicar.
+- [ ] Cabecera, filtros y diálogos revisados en dispositivos objetivo, incluidos errores de envío.
+
+Configuración y recorrido: [runbook de invitaciones y recuperación](runbook-invitaciones-y-recuperacion.md).
+
 ## Reglas clínicas y privacidad
 
 - [ ] Hombre no puede seleccionar ni enviar patologías exclusivas de mujer.

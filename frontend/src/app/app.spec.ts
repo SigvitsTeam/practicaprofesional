@@ -80,6 +80,30 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
+  it('isolates email recovery from an existing login and removes link parameters', async () => {
+    const getProfile = vi.spyOn(TestBed.inject(CurrentProfileApiService), 'get');
+    window.history.replaceState(
+      null,
+      '',
+      '/?auth=recovery#error=access_denied&error_code=otp_expired',
+    );
+    try {
+      const fixture = TestBed.createComponent(App);
+      await fixture.whenStable();
+      const compiled = fixture.nativeElement as HTMLElement;
+      expect(compiled.querySelector('app-password-setup')).not.toBeNull();
+      expect(compiled.querySelector('.app-shell')).toBeNull();
+      expect(compiled.querySelector('input[type="password"]')).toBeNull();
+      expect(localStorage.getItem(TEST_SESSION)).toBeNull();
+      expect(sessionStorage.getItem(TEST_SESSION)).toBeNull();
+      expect(getProfile).not.toHaveBeenCalled();
+      expect(window.location.search).toBe('');
+      expect(window.location.hash).toBe('');
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
+  });
+
   it('should render the institutional dashboard', async () => {
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();

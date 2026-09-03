@@ -1,4 +1,12 @@
-import { Component, DestroyRef, OnInit, inject, output } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  OnInit,
+  inject,
+  output,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
@@ -32,6 +40,7 @@ export class Territory implements OnInit {
   private readonly api = inject(TerritorialApiService);
   private readonly userApi = inject(UserAdminApiService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly changeDetector = inject(ChangeDetectorRef);
   protected loading = false;
   protected activeTab: TerritoryTab = 'general';
   protected readonly tabs: { id: TerritoryTab; label: string }[] = [
@@ -99,6 +108,7 @@ export class Territory implements OnInit {
   protected statusReason = '';
   protected identityUser: ManagedUserRecord | null = null;
   protected invitationUser: ManagedUserRecord | null = null;
+  protected readonly invitationError = signal('');
   protected invitationForm = { activate: true, reason: '' };
   protected identityForm = { externalSubject: '', activate: true, reason: '' };
   protected userFormSubmitted = false;
@@ -222,7 +232,10 @@ export class Territory implements OnInit {
       .listMunicipalityAudit(municipalityId, append ? this.historyNextCursor : undefined)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => (this.historyLoading = false)),
+        finalize(() => {
+          this.historyLoading = false;
+          this.changeDetector.markForCheck();
+        }),
       )
       .subscribe({
         next: (page) => {
@@ -403,12 +416,14 @@ export class Territory implements OnInit {
     this.identityForm = { externalSubject: '', activate: true, reason: '' };
   }
   protected openInvitation(user: ManagedUserRecord) {
+    this.invitationError.set('');
     this.invitationUser = user;
     this.invitationForm = { activate: true, reason: '' };
   }
   protected sendInvitation() {
     const user = this.invitationUser;
-    if (!user || this.invitationForm.reason.trim().length < 10) return;
+    if (!user || this.loading || this.invitationForm.reason.trim().length < 10) return;
+    this.invitationError.set('');
     this.loading = true;
     this.userApi
       .invite(user.id, {
@@ -416,15 +431,20 @@ export class Territory implements OnInit {
         expectedUpdatedAt: user.updatedAt,
         reason: this.invitationForm.reason,
       })
-      .pipe(finalize(() => (this.loading = false)))
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => (this.loading = false)),
+      )
       .subscribe({
         next: (updated) => {
           this.users = this.users.map((item) => (item.id === updated.id ? updated : item));
           this.invitationUser = null;
-          this.notify.emit(`Invitación enviada a “${updated.email}” e identidad vinculada.`);
+          this.notify.emit(
+            `Supabase aceptó la invitación para “${updated.email}”. El destinatario debe abrir el correo y establecer su contraseña.`,
+          );
         },
         error: (error) =>
-          this.notify.emit(
+          this.invitationError.set(
             error.error?.message ?? 'No fue posible enviar la invitación institucional.',
           ),
       });
@@ -626,7 +646,10 @@ export class Territory implements OnInit {
     })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
-        finalize(() => (this.loading = false)),
+        finalize(() => {
+          this.loading = false;
+          this.changeDetector.markForCheck();
+        }),
       )
       .subscribe({
         next: ({ regions, catalog, users }) => {

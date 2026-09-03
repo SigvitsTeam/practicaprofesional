@@ -41,6 +41,10 @@ identidad, seis secretos y una estación administrativa con `pg_dump`, `pg_resto
 
 ## Despliegue en staging
 
+Completar también el [runbook de invitaciones y recuperación](runbook-invitaciones-y-recuperacion.md):
+SMTP, remitente, plantillas, URLs permitidas y recepción real son requisitos independientes de
+que la API inicie correctamente.
+
 Desde la raíz del repositorio:
 
 ```powershell

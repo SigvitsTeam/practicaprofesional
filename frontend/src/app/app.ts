@@ -30,6 +30,8 @@ import { ReportDrawer } from './shared/report-drawer/report-drawer';
 import { CurrentProfileApiService } from './core/current-profile-api.service';
 import { mapInstitutionalRoleCodes } from './core/institutional-role';
 import { OperationalPeriodService } from './core/operational-period';
+import { EmailAccessService } from './core/email-access.service';
+import { PasswordSetup } from './pages/password-setup/password-setup';
 
 @Component({
   selector: 'app-root',
@@ -48,6 +50,7 @@ import { OperationalPeriodService } from './core/operational-period';
     Territory,
     ReportDrawer,
     Login,
+    PasswordSetup,
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -61,6 +64,7 @@ export class App {
   @ViewChild('maps') private maps?: { reload(): void };
   protected readonly roleContext = inject(RoleContext);
   protected readonly auth = inject(AuthService);
+  protected readonly emailAccess = inject(EmailAccessService);
   private readonly currentProfileApi = inject(CurrentProfileApiService);
   private readonly establishmentContext = inject(EstablishmentContext);
   private readonly operationalPeriod = inject(OperationalPeriodService);
@@ -80,6 +84,7 @@ export class App {
   private noticeTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
+    if (this.emailAccess.active()) this.auth.signOut();
     this.destroyRef.onDestroy(() => {
       this.profileSubscriptions.unsubscribe();
       if (this.noticeTimer) clearTimeout(this.noticeTimer);
@@ -420,6 +425,11 @@ export class App {
     this.auth.signOut();
     this.active = 'Inicio';
     this.selectedReport = null;
+  }
+
+  leaveEmailAction() {
+    this.auth.signOut();
+    this.emailAccess.close();
   }
 
   toggleTheme() {

@@ -169,10 +169,18 @@
   text-transform: uppercase;
 }
 .login-access {
+  /* This panel stays light even when the authenticated workspace uses dark mode. */
+  --ink: #18313d;
+  --muted: #516974;
+  --green: #087a5b;
+  color: var(--ink);
   min-height: 100vh;
   padding: 45px clamp(38px, 6vw, 90px);
   display: grid;
   place-items: center;
+}
+:host .login-access input[type='checkbox'] {
+  color-scheme: light;
 }
 .access-card {
   width: min(100%, 430px);

@@ -78,9 +78,11 @@ describe('Territory user role and scope form', () => {
   let create: ReturnType<typeof vi.fn>;
   let changeAccess: ReturnType<typeof vi.fn>;
   let users: ManagedUserRecord[];
+  let invite: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     users = [];
+    invite = vi.fn(() => new Subject<ManagedUserRecord>());
     create = vi.fn(() => new Subject<ManagedUserRecord>());
     changeAccess = vi.fn(() => new Subject<ManagedUserRecord>());
     await TestBed.configureTestingModule({
@@ -94,7 +96,10 @@ describe('Territory user role and scope form', () => {
             listMunicipalityAudit: () => of({ items: [] }),
           },
         },
-        { provide: UserAdminApiService, useValue: { list: () => of(users), create, changeAccess } },
+        {
+          provide: UserAdminApiService,
+          useValue: { list: () => of(users), create, changeAccess, invite },
+        },
       ],
     }).compileComponents();
     TestBed.inject(RoleContext).select('superadmin');
@@ -106,6 +111,96 @@ describe('Territory user role and scope form', () => {
     fixture.detectChanges();
     await fixture.whenStable();
   }
+
+  it('renders an asynchronous catalog without requiring another user interaction', async () => {
+    const pending = new Subject<ManagedUserRecord[]>();
+    vi.spyOn(TestBed.inject(UserAdminApiService), 'list').mockReturnValue(pending);
+    await render();
+    pending.next([pendingUser()]);
+    pending.complete();
+    // No detectChanges or click: zoneless Angular must be notified by the subscription.
+    await fixture.whenStable();
+    expect(host.textContent).toContain('Invitación QA');
+    expect(
+      Array.from(host.querySelectorAll('button')).find((button) =>
+        button.textContent?.includes('Nuevo usuario'),
+      )?.disabled,
+    ).toBe(false);
+  });
+
+  function pendingUser(): ManagedUserRecord {
+    return {
+      id: 'user-qa',
+      fullName: 'Invitación QA',
+      email: 'qa@example.invalid',
+      active: false,
+      hasExternalIdentity: false,
+      role: { code: 'ADMIN_CENTRAL', name: 'Admin Central', startDate: '2026-09-01' },
+      assignment: { scopeType: 'NACIONAL', label: 'Honduras', startDate: '2026-09-01' },
+      updatedAt: '2026-09-03T00:00:00Z',
+    };
+  }
+
+  async function openInvitation() {
+    users.push(pendingUser());
+    await render();
+    await clickButton('Invitar por correo');
+    const reason = host.querySelector<HTMLTextAreaElement>('[name="invitationReason"]')!;
+    reason.value = 'Invitación autorizada para prueba de QA';
+    reason.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  it('keeps provider errors inside the invitation dialog and prevents duplicate sends', async () => {
+    const pending = new Subject<ManagedUserRecord>();
+    invite.mockReturnValue(pending);
+    await openInvitation();
+    const form = host.querySelector<HTMLFormElement>('[aria-label="Invitar usuario"] form')!;
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    form.dispatchEvent(new Event('submit', { cancelable: true }));
+    fixture.detectChanges();
+    expect(invite).toHaveBeenCalledTimes(1);
+    pending.error({ error: { message: 'Configure SMTP propio' } });
+    fixture.detectChanges();
+    expect(
+      host.querySelector('[aria-label="Invitar usuario"] [role="alert"]')?.textContent,
+    ).toContain('Configure SMTP propio');
+    expect(
+      host
+        .querySelector('[aria-label="Invitar usuario"] button[type="submit"]')
+        ?.hasAttribute('disabled'),
+    ).toBe(false);
+  });
+
+  it('reports provider acceptance without claiming inbox delivery', async () => {
+    const pending = new Subject<ManagedUserRecord>();
+    invite.mockReturnValue(pending);
+    await openInvitation();
+    const notice = vi.fn();
+    fixture.componentInstance.notify.subscribe(notice);
+    host
+      .querySelector<HTMLFormElement>('[aria-label="Invitar usuario"] form')!
+      .dispatchEvent(new Event('submit', { cancelable: true }));
+    pending.next({ ...pendingUser(), active: true, hasExternalIdentity: true });
+    pending.complete();
+    fixture.detectChanges();
+    expect(host.querySelector('[aria-label="Invitar usuario"]')).toBeNull();
+    expect(notice).toHaveBeenCalledWith(expect.stringContaining('Supabase aceptó'));
+    expect(notice).toHaveBeenCalledWith(expect.stringContaining('establecer su contraseña'));
+  });
+
+  it('cancels an in-flight invitation subscription when the page is destroyed', async () => {
+    const pending = new Subject<ManagedUserRecord>();
+    invite.mockReturnValue(pending);
+    await openInvitation();
+    host
+      .querySelector<HTMLFormElement>('[aria-label="Invitar usuario"] form')!
+      .dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(pending.observed).toBe(true);
+    fixture.destroy();
+    expect(pending.observed).toBe(false);
+  });
 
   async function clickButton(label: string) {
     const button = Array.from(host.querySelectorAll('button')).find((item) =>
