@@ -10,6 +10,7 @@ Subir a la rama conectada a Railway estos archivos nuevos:
 
 - `deploy/docker/railway-demo.Dockerfile`
 - `deploy/docker/run-demo.mjs`
+- `deploy/certs/prod-ca-2021.crt` (certificado CA público de Supabase)
 - `deploy/config/railway.env.example`
 - `docs/despliegue-demo-railway.md`
 
@@ -36,6 +37,12 @@ runtime configurado puede ser diferente del propietario usado para migraciones.
 Las URL remotas deben incluir `sslmode=require` (o `verify-ca`/`verify-full`). Si ya
 hay parámetros, agregar `&sslmode=require`; de lo contrario, `?sslmode=require`.
 Codificar caracteres especiales de la contraseña dentro de la URL.
+
+La imagen de demostración incluye el certificado CA público de Supabase y configura
+`NODE_EXTRA_CA_CERTS=/app/certs/prod-ca-2021.crt` para la API y el worker. Esto permite
+verificar la cadena TLS sin desactivar validaciones. Preferir `sslmode=verify-full`
+en `DATABASE_URL`; no usar `NODE_TLS_REJECT_UNAUTHORIZED=0`. El archivo CA puede
+versionarse: no contiene contraseñas ni claves privadas.
 
 No reemplazar el usuario runtime por `anon` o `authenticated`: el backend requiere
 los permisos descritos en `runbook-despliegue-y-rollback.md`. Si se prepara una base
