@@ -214,11 +214,11 @@ describe('ITS1 / ITS2 PostgreSQL concurrency', () => {
     await result;
     const current = await workflow.getCurrent(report);
     expect(current?.status).toBe('ENVIADO_A_MUNICIPIO');
-    expect(current?.attentions15Plus).toBe(2);
+    expect(current?.attentions15Plus).toBe(1);
     await assertCurrentTotal(1);
   });
 
-  it('does not submit after a concurrent preparation clears completeness', async () => {
+  it('does not submit a stale snapshot after a concurrent automatic recalculation', async () => {
     const first = await workflow.prepare(report);
     const gate = createGate();
     const instrumented = client.$extends({
@@ -239,14 +239,16 @@ describe('ITS1 / ITS2 PostgreSQL concurrency', () => {
     const result = expect(submitting).rejects.toBeInstanceOf(ItsReportWorkflowError);
     try {
       await bounded(gate.reached);
-      await workflow.prepare({ ...report, attentionTotalsSource: undefined });
+      await workflow.prepare(report);
     } finally {
       gate.release();
     }
     await result;
     const current = await workflow.getCurrent(report);
     expect(current?.status).toBe('BORRADOR');
-    expect(current?.attentionTotalsComplete).toBe(false);
+    expect(current?.attentionTotalsComplete).toBe(true);
+    expect(current?.attentionsUnder15).toBe(0);
+    expect(current?.attentions15Plus).toBe(1);
   });
 
   it('rejects a capture whose report was concurrently submitted', async () => {
