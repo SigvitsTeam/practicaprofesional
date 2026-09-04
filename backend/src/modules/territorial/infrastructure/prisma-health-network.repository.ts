@@ -12,6 +12,7 @@ import {
   type HealthNetworkSummary,
 } from '../domain/health-network';
 import { OperationalStatus } from '../domain/region';
+import { networkMembershipDate } from '../domain/network-membership-date';
 
 type NetworkRow = Prisma.HealthNetworkGetPayload<{
   include: { region: true; memberships: { include: { municipality: true } } };
@@ -23,27 +24,56 @@ export class PrismaHealthNetworkRepository extends HealthNetworkRepository {
     super();
   }
 
-  async list(regionIds?: readonly string[]): Promise<HealthNetworkSummary[]> {
-    if (regionIds && regionIds.length === 0) return [];
-    const today = this.today();
+  async list(
+    filter: Parameters<HealthNetworkRepository['list']>[0],
+  ): Promise<HealthNetworkSummary[]> {
+    if (!filter.national && !filter.regionGrantIds.length && !filter.municipalityIds.length)
+      return [];
+    const membershipWhere = this.membershipAt(filter.asOf);
     const rows = await this.prisma.client.healthNetwork.findMany({
-      where: { ...(regionIds ? { regionId: { in: [...regionIds] } } : {}) },
+      where: {
+        startDate: { lte: filter.asOf },
+        ...(filter.national
+          ? {}
+          : {
+              OR: [
+                { regionId: { in: [...filter.regionGrantIds] } },
+                {
+                  memberships: {
+                    some: {
+                      ...membershipWhere,
+                      municipalityId: { in: [...filter.municipalityIds] },
+                    },
+                  },
+                },
+              ],
+            }),
+      },
       include: {
         region: true,
         memberships: {
-          where: {
-            programId: null,
-            active: true,
-            startDate: { lte: today },
-            OR: [{ endDate: null }, { endDate: { gte: today } }],
-          },
+          where: membershipWhere,
           include: { municipality: true },
           orderBy: { municipality: { name: 'asc' } },
         },
       },
       orderBy: [{ region: { name: 'asc' } }, { name: 'asc' }],
     });
-    return rows.map((row) => this.toDomain(row));
+    return rows.map((row) => {
+      const scopeLimited = !filter.national && !filter.regionGrantIds.includes(row.regionId);
+      return {
+        ...this.toDomain({
+          ...row,
+          memberships: scopeLimited
+            ? row.memberships.filter(({ municipalityId }) =>
+                filter.municipalityIds.includes(municipalityId),
+              )
+            : row.memberships,
+        }),
+        scopeLimited,
+        membershipAsOf: filter.asOf,
+      };
+    });
   }
 
   resolveRegion(regionId: string): Promise<{ id: string; active: boolean } | null> {
@@ -100,6 +130,7 @@ export class PrismaHealthNetworkRepository extends HealthNetworkRepository {
             throw new InvalidHealthNetworkError(
               'La composición municipal cambió durante la creación.',
             );
+          await this.requireAvailableMemberships(tx, input.municipalityIds, input.startDate);
           const network = await tx.healthNetwork.create({
             data: {
               regionId: input.regionId,
@@ -162,6 +193,8 @@ export class PrismaHealthNetworkRepository extends HealthNetworkRepository {
             },
           });
           if (!network) throw new HealthNetworkNotFoundError('La red no existe.');
+          if (input.effectiveDate < network.startDate)
+            throw new InvalidHealthNetworkError('La asociación no puede iniciar antes que la red.');
           const valid = await tx.municipality.count({
             where: { id: { in: input.municipalityIds }, regionId: network.regionId, active: true },
           });
@@ -199,6 +232,7 @@ export class PrismaHealthNetworkRepository extends HealthNetworkRepository {
           const added = input.municipalityIds.filter(
             (municipalityId) => !current.has(municipalityId),
           );
+          await this.requireAvailableMemberships(tx, added, input.effectiveDate);
           if (added.length)
             await tx.networkMunicipality.createMany({
               data: added.map((municipalityId) => ({
@@ -297,12 +331,7 @@ export class PrismaHealthNetworkRepository extends HealthNetworkRepository {
       include: {
         region: true,
         memberships: {
-          where: {
-            programId: null,
-            active: true,
-            startDate: { lte: today },
-            OR: [{ endDate: null }, { endDate: { gte: today } }],
-          },
+          where: this.membershipAt(today),
           include: { municipality: true },
         },
       },
@@ -331,9 +360,43 @@ export class PrismaHealthNetworkRepository extends HealthNetworkRepository {
     };
   }
   private today(): Date {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    return today;
+    return networkMembershipDate(
+      new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Tegucigalpa',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date()),
+    );
+  }
+  private membershipAt(asOf: Date): Prisma.NetworkMunicipalityWhereInput {
+    // Closed records remain part of history. active=false with no end date is not a valid grant.
+    return {
+      programId: null,
+      startDate: { lte: asOf },
+      OR: [{ active: true, endDate: null }, { endDate: { gt: asOf } }],
+    };
+  }
+  private async requireAvailableMemberships(
+    tx: Prisma.TransactionClient,
+    municipalityIds: readonly string[],
+    startDate: Date,
+  ): Promise<void> {
+    if (!municipalityIds.length) return;
+    // New associations are open-ended. A later or historical overlapping assignment also
+    // conflicts, even in another network. Serializable transactions protect competing inserts.
+    const conflict = await tx.networkMunicipality.findFirst({
+      where: {
+        municipalityId: { in: [...municipalityIds] },
+        programId: null,
+        OR: [{ active: true, endDate: null }, { endDate: { gt: startDate } }],
+      },
+      select: { id: true },
+    });
+    if (conflict)
+      throw new HealthNetworkConflictError(
+        'Un municipio ya tiene una asociación de red que se superpone con la vigencia solicitada. Retire primero la asociación anterior.',
+      );
   }
   private mapError(error: unknown, code: string): never {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')

@@ -286,7 +286,7 @@ export class ManagedUsersUseCase {
       [RoleCode.RegionalSuperAdmin]: ['REGION'],
       [RoleCode.RegionalAdmin]: ['REGION'],
       [RoleCode.MunicipalCoordinator]: ['MUNICIPIO'],
-      [RoleCode.CoordinationDataEntry]: ['ESTABLECIMIENTO'],
+      [RoleCode.CoordinationDataEntry]: ['MUNICIPIO', 'ESTABLECIMIENTO'],
       [RoleCode.FacilityManager]: ['ESTABLECIMIENTO'],
       [RoleCode.ReadOnlySupervisor]: ['REGION', 'MUNICIPIO', 'ESTABLECIMIENTO'],
     };

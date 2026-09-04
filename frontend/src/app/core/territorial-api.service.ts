@@ -42,6 +42,8 @@ export interface TerritorialCatalog {
   facilities: FacilityRecord[];
 }
 export interface HealthNetworkRecord {
+  scopeLimited?: boolean;
+  membershipAsOf?: string;
   id: string;
   regionId: string;
   regionName: string;
@@ -102,8 +104,10 @@ export class TerritorialApiService {
   }) {
     return this.http.post<FacilityRecord>(`${this.base}/territories/facilities`, input);
   }
-  listNetworks() {
-    return this.http.get<HealthNetworkRecord[]>(`${this.base}/territories/networks`);
+  listNetworks(asOf?: string) {
+    return this.http.get<HealthNetworkRecord[]>(`${this.base}/territories/networks`, {
+      params: asOf ? { asOf } : {},
+    });
   }
   listMunicipalityAudit(municipalityId: string, cursor?: string) {
     const params: Record<string, string> = { municipalityId, limit: '25' };

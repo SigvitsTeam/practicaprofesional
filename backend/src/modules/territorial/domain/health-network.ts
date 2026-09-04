@@ -9,6 +9,9 @@ export interface NetworkMunicipalitySummary {
 }
 
 export interface HealthNetworkSummary {
+  /** A municipal view must never be presented as the complete network total. */
+  scopeLimited?: boolean;
+  membershipAsOf?: Date;
   id: string;
   regionId: string;
   regionName: string;

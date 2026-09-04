@@ -88,6 +88,20 @@ const server = createServer(async (req, res) => {
     else if (url.pathname === "/api/v1/territories/catalog")
       json({ municipalities: [municipality], facilities: [facility] });
     else if (url.pathname === "/api/v1/admin/users") json([user]);
+    else if (url.pathname === "/api/v1/territories/networks")
+      json([{
+        id: "qa-network", regionId: region.id, regionName: region.name,
+        code: "QA-RED", name: "Red sintética para revisión de alcance municipal",
+        operationalStatus: "EN_PILOTAJE", active: true, startDate: "2026-01-01",
+        updatedAt: stamp, scopeLimited: true,
+        membershipAsOf: url.searchParams.get("asOf") ?? "2026-09-04",
+        municipalities: [{ id: municipality.id, code: municipality.officialCode, name: municipality.name, startDate: "2026-01-01" }],
+      }]);
+    else if (url.pathname === "/api/v1/analytics/territorial")
+      json({ level: "MUNICIPIO", year: 2026, month: 7, rows: [{
+        id: municipality.id, code: municipality.officialCode, name: municipality.name,
+        status: "BORRADOR", attentions: 14, newCases: 9, controls: 5, alerts: 0, reportId: "qa-report",
+      }] });
     else if (url.pathname === "/api/v1/territories/audit-events")
       json({ items: [] });
     else json([]);

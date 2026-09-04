@@ -25,12 +25,33 @@ export class TerritorialCatalogUseCase {
     facilities: FacilitySummary[];
   }> {
     const regionIds = subject.territory.national ? undefined : subject.territory.regionIds;
-    const municipalities = await this.repository.listMunicipalities(regionIds);
+    const rows = await this.repository.listMunicipalities(regionIds);
+    const municipalities = subject.territory.national
+      ? rows
+      : rows.filter(
+          ({ id, regionId }) =>
+            subject.territory.municipalityIds.includes(id) ||
+            subject.territory.regionGrantIds?.includes(regionId),
+        );
     const allowedMunicipalityIds = municipalities.map(({ id }) => id);
+    const regionalMunicipalityIds = new Set(
+      municipalities
+        .filter(({ regionId }) => subject.territory.regionGrantIds?.includes(regionId))
+        .map(({ id }) => id),
+    );
+    const facilityGrants = new Set(subject.territory.facilityIds);
     const facilities = await this.repository.listFacilities(
       subject.territory.national ? undefined : allowedMunicipalityIds,
     );
-    return { municipalities, facilities };
+    return {
+      municipalities,
+      facilities: subject.territory.national
+        ? facilities
+        : facilities.filter(
+            ({ id, municipalityId }) =>
+              facilityGrants.has(id) || regionalMunicipalityIds.has(municipalityId),
+          ),
+    };
   }
 
   async createMunicipality(

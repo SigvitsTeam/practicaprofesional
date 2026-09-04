@@ -4,11 +4,12 @@
     <strong>{{
       isGlobal
         ? 'Redes configurables por región sanitaria'
-        : 'Redes dentro del alcance regional asignado'
+        : 'Redes dentro del alcance territorial asignado'
     }}</strong
     ><span
-      >El catálogo y la composición municipal provienen de PostgreSQL y conservan vigencias
-      históricas.</span
+      >Composición consultada al cierre de {{ periodLabel }} ({{ compositionDate }}). La fecha de
+      retiro es el primer día sin asociación. Los indicadores usan los consolidados municipales del
+      mes, sin prorratear por días.</span
     >
   </div>
   @if (canManage) {
@@ -17,6 +18,13 @@
     <span class="read-only-chip">SOLO CONSULTA</span>
   }
 </section>
+
+@if (selectedNetwork.scopeLimited) {
+  <section class="network-state" role="note">
+    Vista limitada a sus municipios autorizados. Los indicadores son un subtotal de su alcance, no
+    el total completo de la Red. No concede acceso a ITS 1 de otros territorios.
+  </section>
+}
 
 @if (loading) {
   <section class="network-state" role="status" aria-live="polite">
@@ -37,7 +45,7 @@
   </article>
   <article>
     <span>Redes habilitadas</span><strong>{{ activeNetworks }}</strong
-    ><small>Excluye suspendidas e inactivas</small><i class="blue"></i>
+    ><small>Estado operativo actual</small><i class="blue"></i>
   </article>
   <article>
     <span>Municipios asociados</span><strong>{{ selectedNetwork.municipalities }}</strong
@@ -91,7 +99,7 @@
       <option value="total">Atenciones</option>
       <option value="newCases">Casos nuevos</option>
       <option value="controls">Controles</option>
-      <option value="reports">Reportes recibidos</option>
+      <option value="reports">Consolidados disponibles</option>
     </select></label
   >
 </section>
@@ -195,7 +203,7 @@
                       ><small>Atenciones agregadas</small>
                     </article>
                     <article>
-                      <span>Reportes recibidos</span
+                      <span>Consolidados disponibles</span
                       ><strong
                         >{{ selectedNetworkReports }}/{{
                           filteredAssociatedMunicipalities.length
@@ -242,7 +250,11 @@
                   <div class="tab-section-heading">
                     <div>
                       <h3>Composición municipal</h3>
-                      <p>Los cambios se guardan con vigencia y auditoría.</p>
+                      <p>
+                        La consulta corresponde al cierre del mes; las casillas administrativas
+                        muestran las asociaciones vigentes hoy. Los cambios se guardan con vigencia
+                        y auditoría.
+                      </p>
                     </div>
                   </div>
                   @if (canManage) {
@@ -374,7 +386,13 @@
                           </tr>
                         }
                         <tr class="total-row">
-                          <td><strong>Total Red</strong></td>
+                          <td>
+                            <strong>{{
+                              selectedNetwork.scopeLimited
+                                ? 'Subtotal autorizado'
+                                : 'Total de municipios mostrados'
+                            }}</strong>
+                          </td>
                           <td>
                             <strong>{{ selectedNetworkTotal }}</strong>
                           </td>

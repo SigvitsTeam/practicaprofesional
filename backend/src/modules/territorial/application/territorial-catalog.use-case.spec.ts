@@ -113,7 +113,13 @@ describe('TerritorialCatalogUseCase', () => {
     userId: 'user-1',
     roles: [RoleCode.RegionalSuperAdmin],
     permissions: [],
-    territory: { national: false, regionIds: [regionId], municipalityIds: [], facilityIds: [] },
+    territory: {
+      national: false,
+      regionIds: [regionId],
+      regionGrantIds: [regionId],
+      municipalityIds: [],
+      facilityIds: [],
+    },
   };
   const audit = {
     actorUserId: 'user-1',
@@ -185,5 +191,41 @@ describe('TerritorialCatalogUseCase', () => {
       audit,
     );
     expect(result.operationalStatus).toBe(OperationalStatus.Active);
+  });
+
+  it('does not expose sibling municipalities or facilities from contextual parent IDs', async () => {
+    const municipality = await repository.createMunicipality({
+      regionId,
+      officialCode: '0506',
+      name: 'Puerto Cortés',
+      audit,
+    });
+    repository.municipalities.push({ ...municipality, id: 'municipality-other' });
+    const facility = await repository.createFacility({
+      municipalityId: municipality.id,
+      code: 'F1',
+      name: 'CIS QA',
+      type: 'CIS',
+      address: null,
+      audit,
+    });
+    repository.facilities.push({ ...facility, id: 'facility-sibling' });
+    repository.facilities.push({
+      ...facility,
+      id: 'facility-other',
+      municipalityId: 'municipality-other',
+    });
+    const result = await useCase.list({
+      ...subject,
+      territory: {
+        national: false,
+        regionIds: [regionId],
+        regionGrantIds: [],
+        municipalityIds: [municipality.id],
+        facilityIds: [facility.id],
+      },
+    });
+    expect(result.municipalities.map(({ id }) => id)).toEqual([municipality.id]);
+    expect(result.facilities.map(({ id }) => id)).toEqual([facility.id]);
   });
 });

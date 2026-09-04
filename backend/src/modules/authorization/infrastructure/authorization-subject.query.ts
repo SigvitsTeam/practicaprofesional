@@ -7,6 +7,7 @@ export interface AuthorizationSubjectRow {
   permissions: string[];
   national: boolean;
   regionIds: string[];
+  regionGrantIds: string[];
   municipalityIds: string[];
   facilityIds: string[];
 }
@@ -66,6 +67,10 @@ export function authorizationSubjectQuery(
         UNION SELECT region_id::text FROM municipality_grants
         UNION SELECT region_id::text FROM direct_facilities
       ) AS "regionIds",
+      ARRAY(
+        SELECT DISTINCT region_id::text FROM current_assignments
+        WHERE tipo_alcance = 'REGION' AND region_id IS NOT NULL
+      ) AS "regionGrantIds",
       ARRAY(
         SELECT id::text FROM municipality_grants
         UNION SELECT municipio_id::text FROM direct_facilities

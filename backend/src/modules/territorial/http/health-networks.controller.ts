@@ -11,6 +11,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   Req,
 } from '@nestjs/common';
 import type { RequestWithContext } from '../../../common/http/request-context';
@@ -32,6 +33,7 @@ import {
 import { TerritorialScopeDeniedError } from '../domain/territorial-catalog';
 import {
   CreateHealthNetworkDto,
+  ListHealthNetworksDto,
   ReplaceNetworkMunicipalitiesDto,
   UpdateHealthNetworkStatusDto,
 } from './health-networks.dto';
@@ -45,8 +47,16 @@ export class HealthNetworksController {
     dataLevel: DataLevel.Configuration,
     scope: 'OWN',
   })
-  list(@CurrentSubject() subject: AuthorizationSubject): Promise<HealthNetworkSummary[]> {
-    return this.networks.list(subject);
+  async list(
+    @CurrentSubject() subject: AuthorizationSubject,
+    @Query() query: ListHealthNetworksDto,
+  ): Promise<HealthNetworkSummary[]> {
+    try {
+      return await this.networks.list(subject, query.asOf);
+    } catch (error: unknown) {
+      if (error instanceof InvalidHealthNetworkError) throw new BadRequestException(error.message);
+      throw error;
+    }
   }
 
   @Post()

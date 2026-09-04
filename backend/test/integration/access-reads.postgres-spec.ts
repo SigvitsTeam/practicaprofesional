@@ -164,6 +164,7 @@ describe('Optimized access reads (isolated PostgreSQL)', () => {
     await assign({ scopeType: 'REGION', regionId: regionIds[0]! });
     const territory = (await identity.findSubject(issuer, userId))!.territory;
     expect(territory.national).toBe(false);
+    expect(territory.regionGrantIds).toEqual([regionIds[0]]);
     expect(territory.regionIds).toEqual([regionIds[0]]);
     expect(territory.municipalityIds).toEqual([municipalityIds[0]]);
     expect([...territory.facilityIds].sort()).toEqual(facilityIds.slice(0, 2).sort());
@@ -172,6 +173,7 @@ describe('Optimized access reads (isolated PostgreSQL)', () => {
   it('expands a municipal grant without granting another region', async () => {
     await assign({ scopeType: 'MUNICIPIO', municipalityId: municipalityIds[0]! });
     const territory = (await identity.findSubject(issuer, userId))!.territory;
+    expect(territory.regionGrantIds).toEqual([]);
     expect(territory.regionIds).toEqual([regionIds[0]]);
     expect(territory.municipalityIds).toEqual([municipalityIds[0]]);
     expect([...territory.facilityIds].sort()).toEqual(facilityIds.slice(0, 2).sort());
@@ -182,6 +184,7 @@ describe('Optimized access reads (isolated PostgreSQL)', () => {
     expect((await identity.findSubject(issuer, userId))?.territory).toEqual({
       national: false,
       regionIds: [regionIds[0]],
+      regionGrantIds: [],
       municipalityIds: [municipalityIds[0]],
       facilityIds: [facilityIds[index]],
     });

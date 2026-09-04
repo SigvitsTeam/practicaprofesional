@@ -9,15 +9,28 @@ import {
 import { OperationalStatus, type AuditContext } from '../domain/region';
 import { TerritorialScopeDeniedError } from '../domain/territorial-catalog';
 import { HealthNetworkRepository } from './ports/health-network.repository';
+import { networkMembershipDate } from '../domain/network-membership-date';
 
 @Injectable()
 export class HealthNetworksUseCase {
   constructor(private readonly repository: HealthNetworkRepository) {}
 
-  list(subject: AuthorizationSubject): Promise<HealthNetworkSummary[]> {
-    return this.repository.list(
-      subject.territory.national ? undefined : subject.territory.regionIds,
-    );
+  list(subject: AuthorizationSubject, asOf?: string): Promise<HealthNetworkSummary[]> {
+    // A contextual parent region is not authorization to read its other networks.
+    return this.repository.list({
+      national: subject.territory.national,
+      regionGrantIds: subject.territory.regionGrantIds ?? [],
+      municipalityIds: subject.territory.municipalityIds,
+      asOf: networkMembershipDate(
+        asOf ??
+          new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'America/Tegucigalpa',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+          }).format(new Date()),
+      ),
+    });
   }
 
   async create(
@@ -128,9 +141,7 @@ export class HealthNetworksUseCase {
     return text;
   }
   private date(value: string): Date {
-    const date = new Date(`${value}T00:00:00.000Z`);
-    if (Number.isNaN(date.getTime())) throw new InvalidHealthNetworkError('La fecha no es válida.');
-    return date;
+    return networkMembershipDate(value);
   }
   private timestamp(value: string): Date {
     const date = new Date(value);

@@ -31,6 +31,7 @@ export class PrismaIdentityRepository extends IdentityRepository {
       territory: {
         national: identity.national,
         regionIds: identity.regionIds,
+        regionGrantIds: identity.regionGrantIds,
         municipalityIds: identity.municipalityIds,
         facilityIds: identity.facilityIds,
       },

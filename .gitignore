@@ -18,3 +18,4 @@
 /backups/
 *.dump
 *.dump.sha256
+**/.vercel/

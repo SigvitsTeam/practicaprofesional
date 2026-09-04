@@ -20,6 +20,8 @@ export type TerritorialScopeType = 'NACIONAL' | 'REGION' | 'MUNICIPIO' | 'ESTABL
 export interface GrantedTerritory {
   national: boolean;
   regionIds: readonly string[];
+  /** Direct regional grants only; regionIds also includes contextual parents. Missing means none. */
+  regionGrantIds?: readonly string[];
   municipalityIds: readonly string[];
   facilityIds: readonly string[];
 }

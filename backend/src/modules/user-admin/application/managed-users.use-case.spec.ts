@@ -129,7 +129,7 @@ describe('ManagedUsersUseCase', () => {
     { role: RoleCode.RegionalSuperAdmin, scopes: ['REGION'] },
     { role: RoleCode.RegionalAdmin, scopes: ['REGION'] },
     { role: RoleCode.MunicipalCoordinator, scopes: ['MUNICIPIO'] },
-    { role: RoleCode.CoordinationDataEntry, scopes: ['ESTABLECIMIENTO'] },
+    { role: RoleCode.CoordinationDataEntry, scopes: ['MUNICIPIO', 'ESTABLECIMIENTO'] },
     { role: RoleCode.FacilityManager, scopes: ['ESTABLECIMIENTO'] },
     { role: RoleCode.ReadOnlySupervisor, scopes: ['REGION', 'MUNICIPIO', 'ESTABLECIMIENTO'] },
   ];

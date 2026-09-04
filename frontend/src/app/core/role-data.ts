@@ -305,6 +305,7 @@ export const ROLE_PROFILES: RoleProfile[] = [
       'Bandeja de revisión',
       'Consolidados',
       'Mapas',
+      'Redes',
       'Reportes y exportaciones',
     ],
     metrics: [

@@ -140,6 +140,16 @@ async function verify(): Promise<void> {
     );
     if (territorialPermissions.rows[0]?.total !== 7)
       throw new Error('No están disponibles todos los permisos de administración territorial.');
+    const municipalNetworkPermissions = await directClient.query<{ codigo: string }>(
+      `SELECT p.codigo FROM permisos p
+       JOIN rol_permiso rp ON rp.permiso_id = p.id JOIN roles r ON r.id = rp.rol_id
+       WHERE r.codigo = 'COORDINADOR_MUNICIPAL' AND p.codigo LIKE 'territorial:networks:%'`,
+    );
+    if (
+      municipalNetworkPermissions.rows.length !== 1 ||
+      municipalNetworkPermissions.rows[0]?.codigo !== 'territorial:networks:read'
+    )
+      throw new Error('La coordinación municipal debe tener únicamente lectura de Redes.');
     const userAdminPermissions = await directClient.query<{ total: number }>(
       `SELECT count(*)::int AS total FROM permisos WHERE codigo = ANY($1::text[])`,
       [['admin:users:read', 'admin:users:create', 'admin:users:update', 'admin:users:link']],

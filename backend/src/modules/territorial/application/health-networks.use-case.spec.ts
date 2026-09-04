@@ -10,7 +10,9 @@ import type { CreateHealthNetworkInput, HealthNetworkSummary } from '../domain/h
 
 class Repository extends HealthNetworkRepository {
   created?: CreateHealthNetworkInput;
-  list(): Promise<HealthNetworkSummary[]> {
+  listed?: Parameters<HealthNetworkRepository['list']>[0];
+  list(filter: Parameters<HealthNetworkRepository['list']>[0]): Promise<HealthNetworkSummary[]> {
+    this.listed = filter;
     return Promise.resolve([]);
   }
   resolveRegion(regionId: string): Promise<{ id: string; active: boolean } | null> {
@@ -129,6 +131,49 @@ describe('HealthNetworksUseCase', () => {
   beforeEach(() => {
     repository = new Repository();
     useCase = new HealthNetworksUseCase(repository);
+  });
+
+  it('does not treat the parent region of a municipality as a regional grant', async () => {
+    await useCase.list(
+      {
+        ...subject,
+        roles: [RoleCode.MunicipalCoordinator],
+        territory: {
+          national: false,
+          regionIds: ['region-cortes'],
+          municipalityIds: ['puerto-cortes'],
+          facilityIds: [],
+        },
+      },
+      '2026-08-31',
+    );
+    expect(repository.listed).toEqual({
+      national: false,
+      regionGrantIds: [],
+      municipalityIds: ['puerto-cortes'],
+      asOf: new Date('2026-08-31T00:00:00Z'),
+    });
+  });
+
+  it('preserves explicit regional grants for networks without memberships', async () => {
+    await useCase.list(
+      { ...subject, territory: { ...subject.territory, regionGrantIds: ['region-cortes'] } },
+      '2026-08-31',
+    );
+    expect(repository.listed?.regionGrantIds).toEqual(['region-cortes']);
+  });
+
+  it.each(['2026-02-30', '2026-02-29', '2026-08-31T00:00:00Z', 'invalid'])(
+    'rejects invalid civil date %s before querying',
+    (value) => {
+      expect(() => useCase.list(subject, value)).toThrow();
+      expect(repository.listed).toBeUndefined();
+    },
+  );
+
+  it('accepts leap day', async () => {
+    await useCase.list(subject, '2028-02-29');
+    expect(repository.listed?.asOf).toEqual(new Date('2028-02-29T00:00:00Z'));
   });
 
   it('normaliza y crea una red con municipios de la región', async () => {

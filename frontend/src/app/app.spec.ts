@@ -389,7 +389,7 @@ describe('App', () => {
     expect(compiled.textContent).not.toContain('＋ Nueva Red');
     expect(compiled.textContent).not.toContain('↓ Excel');
     expect(compiled.textContent).not.toContain('↓ PDF');
-    expect(compiled.textContent).toContain('Reportes recibidos');
+    expect(compiled.textContent).toContain('Consolidados disponibles');
     expect(
       Array.from(compiled.querySelectorAll('.filters label')).some(
         (label) => label.querySelector('span')?.textContent?.trim() === 'Red',
@@ -397,9 +397,7 @@ describe('App', () => {
     ).toBe(true);
 
     expect(compiled.querySelector('.network-catalog')).toBeTruthy();
-    expect(compiled.textContent).toContain(
-      'catálogo y la composición municipal provienen de PostgreSQL',
-    );
+    expect(compiled.textContent).toContain('Composición consultada al cierre de');
   });
 
   it('should show the aggregated network consolidation without individual ITS 1 data', async () => {

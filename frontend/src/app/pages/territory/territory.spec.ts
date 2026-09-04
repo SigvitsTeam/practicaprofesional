@@ -253,7 +253,6 @@ describe('Territory user role and scope form', () => {
     ['SUPERADMIN_REGIONAL', 'REGION'],
     ['ADMIN_REGIONAL', 'REGION'],
     ['COORDINADOR_MUNICIPAL', 'MUNICIPIO'],
-    ['DIGITADOR_COORDINACION', 'ESTABLECIMIENTO'],
     ['RESPONSABLE_ESTABLECIMIENTO', 'ESTABLECIMIENTO'],
   ])('limits %s to %s immediately through the rendered select', async (role, scope) => {
     await render();
@@ -272,6 +271,26 @@ describe('Territory user role and scope form', () => {
     expect(options('userScope')).toEqual(['REGION', 'MUNICIPIO', 'ESTABLECIMIENTO']);
     expect(select('userScope').value).toBe('REGION');
     expect(select('userScope').disabled).toBe(false);
+  });
+
+  it('allows a digitizer to cover a municipality or one facility, but never a region', async () => {
+    await render();
+    await clickButton('Nuevo usuario');
+    await completeDetails();
+    await choose('userRole', 'DIGITADOR_COORDINACION');
+    expect(options('userScope')).toEqual(['MUNICIPIO', 'ESTABLECIMIENTO']);
+    expect(select('userScope').value).toBe('MUNICIPIO');
+    expect(select('userScope').disabled).toBe(false);
+    await choose('userTarget', 'municipality-1');
+    await clickButton('Crear perfil pendiente');
+    expect(create).toHaveBeenCalledOnce();
+    expect(create.mock.calls[0][0]).toMatchObject({
+      roleCode: 'DIGITADOR_COORDINACION',
+      scopeType: 'MUNICIPIO',
+      municipalityId: 'municipality-1',
+    });
+    expect(create.mock.calls[0][0]).not.toHaveProperty('facilityId');
+    expect(create.mock.calls[0][0]).not.toHaveProperty('regionId');
   });
 
   it('clears the selected territory and updates its label when changing role', async () => {

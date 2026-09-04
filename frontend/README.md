@@ -1,5 +1,10 @@
 # Frontend
 
+## Despliegue en Vercel
+
+La configuración está en `vercel.json`. Consulte [la guía de despliegue](../docs/despliegue-vercel.md)
+para las variables públicas y la conexión con el backend.
+
 ## Autenticación
 
 La aplicación carga su configuración pública desde `public/config/runtime-config.json`. Este

@@ -21,7 +21,7 @@ export const USER_ROLE_OPTIONS: readonly UserRoleOption[] = [
   {
     code: 'DIGITADOR_COORDINACION',
     label: 'Digitador de Coordinación',
-    scopes: ['ESTABLECIMIENTO'],
+    scopes: ['MUNICIPIO', 'ESTABLECIMIENTO'],
   },
   {
     code: 'RESPONSABLE_ESTABLECIMIENTO',

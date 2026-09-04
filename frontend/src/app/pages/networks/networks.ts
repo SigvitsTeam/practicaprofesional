@@ -1,7 +1,7 @@
-import { Component, DestroyRef, effect, inject, output } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, effect, inject, output } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ItsCaptureApiService } from '../../core/its-capture-api.service';
 import {
@@ -21,6 +21,7 @@ import {
 type NetworkTab = 'summary' | 'municipalities' | 'consolidated' | 'history';
 type NetworkMetric = 'total' | 'newCases' | 'controls' | 'reports';
 type NetworkView = {
+  scopeLimited?: boolean;
   id: string;
   regionId: string;
   regionName: string;
@@ -63,12 +64,18 @@ export class Networks {
   private readonly analyticsApi = inject(ItsCaptureApiService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly operationalPeriod = inject(OperationalPeriodService);
+  private readonly changeDetector = inject(ChangeDetectorRef);
+  private currentNetworks: HealthNetworkRecord[] = [];
   protected activeTab: NetworkTab = 'summary';
   protected selectedNetworkId = '';
   protected municipalityFilter = 'Todos los municipios';
   protected selectedRegionId = '';
   protected selectedMetric: NetworkMetric = 'total';
-  protected loading = false;
+  private fetching = false;
+  private saving = false;
+  protected get loading() {
+    return this.fetching || this.saving;
+  }
   protected loadError = '';
   protected regions: RegionRecord[] = [];
   protected networks: NetworkView[] = [];
@@ -159,7 +166,9 @@ export class Networks {
     return this.filteredAssociatedMunicipalities.reduce((total, row) => total + row.controls, 0);
   }
   get selectedNetworkReports() {
-    return this.filteredAssociatedMunicipalities.filter((row) => row.reports === 'Recibido').length;
+    return this.filteredAssociatedMunicipalities.filter(
+      (row) => row.reports === 'Consolidado disponible',
+    ).length;
   }
   get selectedNetworkAlerts() {
     return this.filteredAssociatedMunicipalities.reduce((total, row) => total + row.alerts, 0);
@@ -170,7 +179,7 @@ export class Networks {
         total: 'Atenciones',
         newCases: 'Casos nuevos',
         controls: 'Controles',
-        reports: 'Reportes recibidos',
+        reports: 'Consolidados disponibles',
       } as Record<NetworkMetric, string>
     )[this.selectedMetric];
   }
@@ -199,6 +208,11 @@ export class Networks {
       ? formatHondurasMonth(this.periodYear, this.periodMonth)
       : '—';
   }
+  protected get compositionDate() {
+    return this.periodYear && this.periodMonth
+      ? new Date(Date.UTC(this.periodYear, this.periodMonth, 0)).toISOString().slice(0, 10)
+      : '';
+  }
   protected openCreate() {
     this.formSubmitted = false;
     this.networkForm = this.emptyNetworkForm();
@@ -208,11 +222,12 @@ export class Networks {
     this.showCreateForm = false;
   }
   protected saveNetwork() {
+    if (!this.canManage || this.loading) return;
     this.formSubmitted = true;
     const form = this.networkForm;
     if (!form.name.trim() || !form.code.trim() || !form.regionId || form.reason.trim().length < 10)
       return;
-    this.loading = true;
+    this.saving = true;
     this.api
       .createNetwork({
         regionId: form.regionId,
@@ -223,14 +238,18 @@ export class Networks {
         municipalityIds: form.municipalityIds,
         reason: form.reason,
       })
-      .pipe(finalize(() => (this.loading = false)))
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.saving = false;
+          this.changeDetector.markForCheck();
+        }),
+      )
       .subscribe({
         next: (record) => {
-          const view = this.toView(record);
-          this.networks = [...this.networks, view];
-          this.selectNetwork(view.id);
           this.showCreateForm = false;
-          this.notify.emit(`Red “${view.name}” creada correctamente.`);
+          this.notify.emit(`Red “${record.name}” creada correctamente.`);
+          this.load();
         },
         error: () =>
           this.notify.emit(
@@ -249,9 +268,10 @@ export class Networks {
       : this.draftMembershipIds.filter((item) => item !== id);
   }
   protected saveMemberships() {
-    const network = this.selectedNetwork;
-    if (!network.id || this.membershipReason.trim().length < 10) return;
-    this.loading = true;
+    const network = this.currentNetworks.find(({ id }) => id === this.selectedNetworkId);
+    if (!this.canManage || this.loading || !network || this.membershipReason.trim().length < 10)
+      return;
+    this.saving = true;
     this.api
       .replaceNetworkMunicipalities(
         network.id,
@@ -260,14 +280,18 @@ export class Networks {
         network.updatedAt,
         this.membershipReason,
       )
-      .pipe(finalize(() => (this.loading = false)))
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.saving = false;
+          this.changeDetector.markForCheck();
+        }),
+      )
       .subscribe({
-        next: (record) => {
-          const view = this.toView(record);
-          this.networks = this.networks.map((item) => (item.id === view.id ? view : item));
-          this.selectNetwork(view.id);
+        next: () => {
           this.membershipReason = '';
           this.notify.emit('Composición municipal actualizada con vigencia e historial.');
+          this.load();
         },
         error: () =>
           this.notify.emit(
@@ -293,19 +317,26 @@ export class Networks {
     this.showStatusForm = true;
   }
   protected saveStatus() {
+    if (!this.canManage || this.loading) return;
     const network = this.selectedNetwork;
     if (!network.id || this.statusReason.trim().length < 10) return;
-    this.loading = true;
+    this.saving = true;
     this.api
       .updateNetworkStatus(network.id, this.nextStatus, network.updatedAt, this.statusReason)
-      .pipe(finalize(() => (this.loading = false)))
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.saving = false;
+          this.changeDetector.markForCheck();
+        }),
+      )
       .subscribe({
         next: (record) => {
-          const view = this.toView(record);
-          this.networks = this.networks.map((item) => (item.id === view.id ? view : item));
-          this.selectNetwork(view.id);
           this.showStatusForm = false;
-          this.notify.emit(`Red “${view.name}” actualizada a ${view.status}.`);
+          this.notify.emit(
+            `Red “${record.name}” actualizada a ${this.statusLabel(record.operationalStatus)}.`,
+          );
+          this.load();
         },
         error: () =>
           this.notify.emit(
@@ -326,12 +357,16 @@ export class Networks {
   }
   private load() {
     const requestVersion = ++this.loadRequestVersion;
-    this.loading = true;
+    this.fetching = true;
     this.loadError = '';
+    this.networks = [];
+    this.municipalities = [];
+    this.currentNetworks = [];
     forkJoin({
       regions: this.api.listRegions(),
       catalog: this.api.listCatalog(),
-      networks: this.api.listNetworks(),
+      networks: this.api.listNetworks(this.compositionDate),
+      currentNetworks: this.canManage ? this.api.listNetworks() : of([] as HealthNetworkRecord[]),
       analytics: this.analyticsApi.getTerritorialAnalytics(
         'MUNICIPIO',
         this.periodYear,
@@ -341,13 +376,15 @@ export class Networks {
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
-          if (requestVersion === this.loadRequestVersion) this.loading = false;
+          if (requestVersion === this.loadRequestVersion) this.fetching = false;
+          this.changeDetector.markForCheck();
         }),
       )
       .subscribe({
-        next: ({ regions, catalog, networks, analytics }) => {
+        next: ({ regions, catalog, networks, currentNetworks, analytics }) => {
           if (requestVersion !== this.loadRequestVersion) return;
           this.regions = regions;
+          this.currentNetworks = currentNetworks;
           const metrics = new Map(analytics.rows.map((row) => [row.id, row]));
           this.municipalities = catalog.municipalities.map((row) => {
             const metric = metrics.get(row.id);
@@ -361,13 +398,16 @@ export class Networks {
               newCases: metric?.newCases ?? 0,
               controls: metric?.controls ?? 0,
               alerts: metric?.alerts ?? 0,
-              reports: metric?.reportId ? 'Recibido' : 'Pendiente',
+              reports: metric?.reportId ? 'Consolidado disponible' : 'Sin consolidado',
               associated: false,
             };
           });
           this.networks = networks.map((record) => this.toView(record));
           this.networkForm.regionId = regions[0]?.id ?? '';
-          if (this.networks[0]) this.selectNetwork(this.networks[0].id);
+          const selected =
+            this.visibleNetworks.find(({ id }) => id === this.selectedNetworkId) ??
+            this.visibleNetworks[0];
+          this.selectNetwork(selected?.id ?? '');
         },
         error: () => {
           if (requestVersion !== this.loadRequestVersion) return;
@@ -381,6 +421,7 @@ export class Networks {
   }
   private toView(record: HealthNetworkRecord): NetworkView {
     return {
+      scopeLimited: record.scopeLimited,
       id: record.id,
       regionId: record.regionId,
       regionName: record.regionName,
@@ -413,7 +454,7 @@ export class Networks {
   }
   protected metricValue(row: MunicipalityView) {
     return this.selectedMetric === 'reports'
-      ? row.reports === 'Recibido'
+      ? row.reports === 'Consolidado disponible'
         ? 1
         : 0
       : row[this.selectedMetric];
@@ -439,7 +480,11 @@ export class Networks {
     this.selectedNetworkId = id;
     this.activeTab = 'summary';
     this.municipalityFilter = 'Todos los municipios';
-    this.draftMembershipIds = [...this.selectedNetwork.memberIds];
+    this.draftMembershipIds = this.canManage
+      ? (this.currentNetworks
+          .find(({ id: networkId }) => networkId === id)
+          ?.municipalities.map(({ id: municipalityId }) => municipalityId) ?? [])
+      : [...this.selectedNetwork.memberIds];
     this.municipalities = this.municipalities.map((row) => ({
       ...row,
       associated: this.draftMembershipIds.includes(row.id),
@@ -504,6 +549,7 @@ export class Networks {
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
           if (requestVersion === this.historyRequestVersion) this.historyLoading = false;
+          this.changeDetector.markForCheck();
         }),
       )
       .subscribe({

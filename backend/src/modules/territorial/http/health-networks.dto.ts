@@ -13,6 +13,13 @@ import {
 } from 'class-validator';
 import { OperationalStatus } from '../domain/region';
 
+export class ListHealthNetworksDto {
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  @IsDateString({ strict: true })
+  asOf?: string;
+}
+
 export class CreateHealthNetworkDto {
   @IsUUID() regionId!: string;
   @IsString() @Matches(/^[A-Za-z0-9][A-Za-z0-9_-]{1,29}$/) code!: string;

@@ -16,8 +16,25 @@ function integer(name, fallback, minimum, maximum) {
   return value;
 }
 
+const apiUrl =
+  process.env.VERCEL === '1'
+    ? required('SIGVITS_API_URL')
+    : process.env.SIGVITS_API_URL?.trim() || 'http://localhost:3000/api';
+
+if (process.env.VERCEL === '1') {
+  const url = new URL(apiUrl);
+  if (
+    url.protocol !== 'https:' ||
+    ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname) ||
+    url.username ||
+    url.password
+  ) {
+    throw new Error('SIGVITS_API_URL debe ser una URL pública HTTPS sin credenciales.');
+  }
+}
+
 const config = {
-  apiUrl: process.env.SIGVITS_API_URL?.trim() || 'http://localhost:3000/api',
+  apiUrl,
   auth: {
     supabaseUrl: required('SUPABASE_URL').replace(/\/$/, ''),
     supabaseAnonKey: required('SUPABASE_PUBLISHABLE_KEY'),
