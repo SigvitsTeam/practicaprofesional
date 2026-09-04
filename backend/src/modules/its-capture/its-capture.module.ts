@@ -5,6 +5,8 @@ import { GetCaptureContextUseCase } from './application/get-capture-context.use-
 import { GetMonthlyReportUseCase } from './application/get-monthly-report.use-case';
 import { RenderIts2PdfUseCase } from './application/render-its2-pdf.use-case';
 import { RenderIts1PdfUseCase } from './application/render-its1-pdf.use-case';
+import { RenderIts1XlsxUseCase } from './application/render-its1-xlsx.use-case';
+import { RenderIts2XlsxUseCase } from './application/render-its2-xlsx.use-case';
 import { ItsAttentionRepository } from './application/ports/its-attention.repository';
 import { ItsAttentionsController } from './http/its-attentions.controller';
 import { PrismaItsAttentionRepository } from './infrastructure/prisma-its-attention.repository';
@@ -61,6 +63,8 @@ import { PrismaReportingPeriodRepository } from './infrastructure/prisma-reporti
     GetMonthlyReportUseCase,
     RenderIts2PdfUseCase,
     RenderIts1PdfUseCase,
+    RenderIts1XlsxUseCase,
+    RenderIts2XlsxUseCase,
     ItsReportWorkflowUseCase,
     { provide: ItsAttentionRepository, useClass: PrismaItsAttentionRepository },
     { provide: ItsReportWorkflowRepository, useClass: PrismaItsReportWorkflowRepository },
@@ -87,6 +91,8 @@ import { PrismaReportingPeriodRepository } from './infrastructure/prisma-reporti
     GetMonthlyReportUseCase,
     RenderIts2PdfUseCase,
     RenderIts1PdfUseCase,
+    RenderIts1XlsxUseCase,
+    RenderIts2XlsxUseCase,
     ItsAttentionRepository,
     MunicipalConsolidationRepository,
     RegionalConsolidationRepository,

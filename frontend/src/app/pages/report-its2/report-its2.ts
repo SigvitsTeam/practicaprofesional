@@ -216,6 +216,14 @@ export class ReportIts2 implements OnInit {
   }
 
   protected downloadFilledIts2() {
+    this.downloadIts2('pdf');
+  }
+
+  protected downloadFilledIts2Xlsx() {
+    this.downloadIts2('xlsx');
+  }
+
+  private downloadIts2(format: 'xlsx' | 'pdf') {
     if (this.loading()) return;
     const requestVersion = this.requestVersion;
     const facility = this.context.selected();
@@ -225,8 +233,11 @@ export class ReportIts2 implements OnInit {
       return;
     }
     this.loading.set(true);
-    this.api
-      .downloadMonthlyReportPdf(facility.id, year, month)
+    const download =
+      format === 'xlsx'
+        ? this.api.downloadMonthlyReportXlsx(facility.id, year, month)
+        : this.api.downloadMonthlyReportPdf(facility.id, year, month);
+    download
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
@@ -237,14 +248,22 @@ export class ReportIts2 implements OnInit {
         next: (blob) =>
           this.downloadBlob(
             blob,
-            `ITS-2-${facility.code}-${year}-${String(month).padStart(2, '0')}.pdf`,
-            'ITS-2 oficial generado y descargado.',
+            `ITS-2-${facility.code}-${year}-${String(month).padStart(2, '0')}.${format}`,
+            `ITS-2 oficial en ${format.toUpperCase()} generado y descargado.`,
           ),
-        error: () => this.notify.emit('No fue posible generar el PDF ITS-2.'),
+        error: () => this.notify.emit(`No fue posible generar el ${format.toUpperCase()} ITS-2.`),
       });
   }
 
   protected downloadFilledIts1() {
+    this.downloadIts1('pdf');
+  }
+
+  protected downloadFilledIts1Xlsx() {
+    this.downloadIts1('xlsx');
+  }
+
+  private downloadIts1(format: 'xlsx' | 'pdf') {
     if (this.loading()) return;
     const requestVersion = this.requestVersion;
     const facility = this.context.selected();
@@ -254,8 +273,11 @@ export class ReportIts2 implements OnInit {
       return;
     }
     this.loading.set(true);
-    this.api
-      .downloadIts1RegisterPdf(facility.id, year, month)
+    const download =
+      format === 'xlsx'
+        ? this.api.downloadIts1RegisterXlsx(facility.id, year, month)
+        : this.api.downloadIts1RegisterPdf(facility.id, year, month);
+    download
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
@@ -266,10 +288,10 @@ export class ReportIts2 implements OnInit {
         next: (blob) =>
           this.downloadBlob(
             blob,
-            `ITS-1-${facility.code}-${year}-${String(month).padStart(2, '0')}.pdf`,
-            'ITS-1 oficial generado y descargado.',
+            `ITS-1-${facility.code}-${year}-${String(month).padStart(2, '0')}.${format}`,
+            `ITS-1 oficial en ${format.toUpperCase()} generado y descargado.`,
           ),
-        error: () => this.notify.emit('No fue posible generar el PDF ITS-1.'),
+        error: () => this.notify.emit(`No fue posible generar el ${format.toUpperCase()} ITS-1.`),
       });
   }
 
@@ -304,7 +326,7 @@ export class ReportIts2 implements OnInit {
         next: ({ report, workflow }) => {
           if (requestVersion !== this.requestVersion) return;
           this.report.set(report);
-          this.setWorkflow(workflow);
+          this.setWorkflow(workflow, report);
         },
         error: () => {
           if (requestVersion !== this.requestVersion) return;
@@ -314,10 +336,12 @@ export class ReportIts2 implements OnInit {
       });
   }
 
-  private setWorkflow(workflow: Its2WorkflowReport | null) {
+  private setWorkflow(workflow: Its2WorkflowReport | null, report?: ItsMonthlyReportResponse) {
     this.workflowReport.set(workflow);
-    this.attentionsUnder15 = workflow?.attentionsUnder15 ?? null;
-    this.attentions15Plus = workflow?.attentions15Plus ?? null;
-    this.attentionTotalsSource = workflow?.attentionTotalsSource ?? '';
+    this.attentionsUnder15 = report?.attentionsUnder15 ?? workflow?.attentionsUnder15 ?? null;
+    this.attentions15Plus = report?.attentions15Plus ?? workflow?.attentions15Plus ?? null;
+    this.attentionTotalsSource = report
+      ? 'Calculado automáticamente desde las atenciones ITS-1 activas.'
+      : (workflow?.attentionTotalsSource ?? '');
   }
 }

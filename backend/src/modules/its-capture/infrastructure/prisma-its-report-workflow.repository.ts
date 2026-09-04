@@ -85,6 +85,7 @@ export class PrismaItsReportWorkflowRepository extends ItsReportWorkflowReposito
             status: 'ACTIVO',
           },
           select: {
+            age: true,
             ageGroupId: true,
             sex: true,
             populationTypeId: true,
@@ -112,20 +113,16 @@ export class PrismaItsReportWorkflowRepository extends ItsReportWorkflowReposito
       if (current && current.status !== 'BORRADOR' && current.status !== 'DEVUELTO_POR_MUNICIPIO')
         throw new ItsReportWorkflowError('El reporte enviado o aprobado ya no puede recalcularse.');
 
-      const totalsComplete =
-        input.attentionsUnder15 !== undefined &&
-        input.attentionsUnder15 >= 0 &&
-        input.attentions15Plus !== undefined &&
-        input.attentions15Plus >= 0 &&
-        Boolean(input.attentionTotalsSource?.trim());
+      const attentionsUnder15 = attentions.filter((attention) => attention.age < 15).length;
+      const attentions15Plus = attentions.filter((attention) => attention.age >= 15).length;
       const commonData = {
         generatedById: input.userId,
         generatedAt: new Date(),
         currentComment: input.comment?.trim() || null,
-        attentionsUnder15: input.attentionsUnder15,
-        attentions15Plus: input.attentions15Plus,
-        attentionTotalsSource: input.attentionTotalsSource?.trim() || null,
-        attentionTotalsComplete: totalsComplete,
+        attentionsUnder15,
+        attentions15Plus,
+        attentionTotalsSource: 'Calculado automáticamente desde las atenciones ITS-1 activas.',
+        attentionTotalsComplete: true,
         sourceAttentionCount: attentions.length,
       };
 
@@ -241,7 +238,7 @@ export class PrismaItsReportWorkflowRepository extends ItsReportWorkflowReposito
           newData: {
             version,
             sourceAttentionCount: attentions.length,
-            attentionTotalsComplete: totalsComplete,
+            attentionTotalsComplete: true,
           },
         },
       });

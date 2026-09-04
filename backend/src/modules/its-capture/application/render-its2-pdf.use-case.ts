@@ -79,35 +79,38 @@ export class RenderIts2PdfUseCase {
       });
     };
 
-    text(report.facility.regionName, 825, 550, 7, 350, true);
-    text(report.facility.municipalityName, 1430, 550, 7, 620, true);
-    text(report.facility.name, 2585, 550, 7, 650, true);
-    text(String(report.month).padStart(2, '0'), 840, 635, 8, 160, true);
-    text(String(report.year), 1235, 635, 8, 130, true);
-    text(report.facility.code, 2630, 635, 8, 500, true);
+    text(report.facility.regionName, 648, 341, 7, 480, true);
+    text(report.facility.municipalityName, 1394, 341, 7, 780, true);
+    text(report.facility.name, 2514, 341, 7, 920, true);
+    text(String(report.month).padStart(2, '0'), 542, 430, 8, 500, true);
+    text(String(report.year), 1234, 430, 8, 250, true);
+    text(report.facility.code, 2514, 430, 8, 920, true);
 
-    const rowStartY = 930;
-    const rowHeight = 77.5;
-    const caseX: [number, number] = [820, 900];
-    const sexX: [number, number] = [993, 1064];
-    const ageStartX = 1133;
-    const agePairWidth = 145;
-    const ageSexOffset = 72.5;
-    const populationStartX = 2433;
-    const populationColumnWidth = 74;
+    const rowStartY = 706;
+    const rowHeight = 46;
+    const caseX: [number, number] = [526, 632];
+    const sexX: [number, number] = [740, 820];
+    const ageStartX = 900;
+    const agePairWidth = 160;
+    const ageSexOffset = 80;
+    const populationStartX = 2340;
+    const populationColumnWidth = 80;
+    const ageGroups = [...report.ageGroups].sort(
+      (left, right) => left.formatOrder - right.formatOrder,
+    );
 
     report.rows.forEach((row, index) => {
       const y = rowStartY + index * rowHeight;
-      centered(row.diagnosis.newCases, caseX[0], y, 80);
-      centered(row.diagnosis.controls, caseX[1], y, 90);
-      centered(row.sex.male, sexX[0], y, 70);
-      centered(row.sex.female, sexX[1], y, 70);
-      report.ageGroups.forEach((group, ageIndex) => {
+      centered(row.diagnosis.newCases, caseX[0], y, 106);
+      centered(row.diagnosis.controls, caseX[1], y, 108);
+      centered(row.sex.male, sexX[0], y, 80);
+      centered(row.sex.female, sexX[1], y, 80);
+      ageGroups.forEach((group, ageIndex) => {
         const cell = row.ageGroups[group.code];
         if (!cell) return;
         const x = ageStartX + ageIndex * agePairWidth;
-        centered(cell.male, x, y, 67);
-        centered(cell.female, x + ageSexOffset, y, 67);
+        centered(cell.male, x, y, 80);
+        centered(cell.female, x + ageSexOffset, y, 80);
       });
       const populationValues = [
         row.population.generalMale,
@@ -118,10 +121,10 @@ export class RenderIts2PdfUseCase {
         row.population.sexWorkerPregnant,
       ].flatMap((cell: MonthlyReportCaseCell) => [cell.newCases, cell.controls]);
       populationValues.forEach((value, columnIndex) =>
-        centered(value, populationStartX + columnIndex * populationColumnWidth, y, 70),
+        centered(value, populationStartX + columnIndex * populationColumnWidth, y, 80),
       );
-      centered(row.population.contacts.male, 3322, y, 56);
-      centered(row.population.contacts.female, 3378, y, 56);
+      centered(row.population.contacts.male, 3300, y, 82);
+      centered(row.population.contacts.female, 3382, y, 82);
     });
 
     const sumCase = (
@@ -139,15 +142,15 @@ export class RenderIts2PdfUseCase {
     const totalY = rowStartY + 18 * rowHeight;
     const diagnosis = sumCase((row) => row.diagnosis);
     const sex = sumSex((row) => row.sex);
-    centered(diagnosis.newCases, caseX[0], totalY, 80);
-    centered(diagnosis.controls, caseX[1], totalY, 90);
-    centered(sex.male, sexX[0], totalY, 70);
-    centered(sex.female, sexX[1], totalY, 70);
-    report.ageGroups.forEach((group, ageIndex) => {
+    centered(diagnosis.newCases, caseX[0], totalY, 106);
+    centered(diagnosis.controls, caseX[1], totalY, 108);
+    centered(sex.male, sexX[0], totalY, 80);
+    centered(sex.female, sexX[1], totalY, 80);
+    ageGroups.forEach((group, ageIndex) => {
       const total = sumSex((row) => row.ageGroups[group.code] ?? { male: 0, female: 0 });
       const x = ageStartX + ageIndex * agePairWidth;
-      centered(total.male, x, totalY, 67);
-      centered(total.female, x + ageSexOffset, totalY, 67);
+      centered(total.male, x, totalY, 80);
+      centered(total.female, x + ageSexOffset, totalY, 80);
     });
     const populationSelectors = [
       (row: ItsMonthlyReport['rows'][number]): MonthlyReportCaseCell => row.population.generalMale,
@@ -166,11 +169,11 @@ export class RenderIts2PdfUseCase {
       .flatMap(sumCase)
       .flatMap((cell) => [cell.newCases, cell.controls])
       .forEach((value, index) =>
-        centered(value, populationStartX + index * populationColumnWidth, totalY, 70),
+        centered(value, populationStartX + index * populationColumnWidth, totalY, 80),
       );
     const contacts = sumSex((row) => row.population.contacts);
-    centered(contacts.male, 3322, totalY, 56);
-    centered(contacts.female, 3378, totalY, 56);
+    centered(contacts.male, 3300, totalY, 82);
+    centered(contacts.female, 3382, totalY, 82);
 
     document.setTitle(
       `ITS-2 ${report.facility.code} ${report.year}-${String(report.month).padStart(2, '0')}`,

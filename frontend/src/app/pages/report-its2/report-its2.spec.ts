@@ -41,6 +41,8 @@ function monthly(month: number): ItsMonthlyReportResponse {
     ageGroups: [],
     rows: [],
     totalAttentions: month * 10,
+    attentionsUnder15: month,
+    attentions15Plus: month * 2,
   };
 }
 
@@ -72,6 +74,8 @@ describe('ReportIts2 period and request isolation', () => {
   let prepareIts2Report: ReturnType<typeof vi.fn>;
   let getMonthlyReport: ReturnType<typeof vi.fn>;
   let getCurrentIts2Report: ReturnType<typeof vi.fn>;
+  let downloadMonthlyReportXlsx: ReturnType<typeof vi.fn>;
+  let downloadIts1RegisterXlsx: ReturnType<typeof vi.fn>;
   const selectedPeriod = signal(period(8));
 
   beforeEach(async () => {
@@ -91,6 +95,8 @@ describe('ReportIts2 period and request isolation', () => {
     });
     getCurrentIts2Report = vi.fn(() => latestRequest().workflow);
     prepareIts2Report = vi.fn(() => preparation);
+    downloadMonthlyReportXlsx = vi.fn(() => pdf);
+    downloadIts1RegisterXlsx = vi.fn(() => pdf);
     await TestBed.configureTestingModule({
       imports: [ReportIts2],
       providers: [
@@ -111,7 +117,9 @@ describe('ReportIts2 period and request isolation', () => {
             getCurrentIts2Report,
             prepareIts2Report,
             downloadMonthlyReportPdf: () => pdf,
+            downloadMonthlyReportXlsx,
             downloadIts1RegisterPdf: () => pdf,
+            downloadIts1RegisterXlsx,
           },
         },
       ],
@@ -172,7 +180,7 @@ describe('ReportIts2 period and request isolation', () => {
     expect(component['workflowReport']()?.month).toBe(8);
   });
 
-  it('clears previous totals and editable header fields as soon as another period starts loading', () => {
+  it('clears previous totals and automatic header fields as soon as another period starts loading', () => {
     resolve();
     expect(component['total']).toBe(80);
     expect(component['attentionsUnder15']).toBe(8);
@@ -187,7 +195,40 @@ describe('ReportIts2 period and request isolation', () => {
     expect(component['canSubmit']).toBe(false);
     resolve();
     expect(component['total']).toBe(90);
-    expect(component['attentionTotalsSource']).toBe('Estadística mes 9');
+    expect(component['attentionTotalsSource']).toBe(
+      'Calculado automáticamente desde las atenciones ITS-1 activas.',
+    );
+  });
+
+  it('uses the automatically calculated age totals instead of stale workflow values', () => {
+    const request = latestRequest();
+    request.report.next(monthly(8));
+    request.report.complete();
+    request.workflow.next({
+      ...workflow(8),
+      attentionsUnder15: 999,
+      attentions15Plus: 999,
+      attentionTotalsSource: 'Valor manual anterior',
+    });
+    request.workflow.complete();
+
+    expect(component['attentionsUnder15']).toBe(8);
+    expect(component['attentions15Plus']).toBe(16);
+    expect(component['attentionTotalsSource']).toBe(
+      'Calculado automáticamente desde las atenciones ITS-1 activas.',
+    );
+  });
+
+  it('requests the official ITS-1 workbook from the XLSX endpoint', () => {
+    resolve();
+    component['downloadFilledIts1Xlsx']();
+    expect(downloadIts1RegisterXlsx).toHaveBeenCalledWith(facility.id, 2026, 8);
+  });
+
+  it('requests the official ITS-2 workbook from the XLSX endpoint', () => {
+    resolve();
+    component['downloadFilledIts2Xlsx']();
+    expect(downloadMonthlyReportXlsx).toHaveBeenCalledWith(facility.id, 2026, 8);
   });
 
   it.each(['success', 'error'])(
@@ -253,7 +294,12 @@ describe('ReportIts2 period and request isolation', () => {
     },
   );
 
-  it.each(['downloadFilledIts1', 'downloadFilledIts2'] as const)(
+  it.each([
+    'downloadFilledIts1',
+    'downloadFilledIts1Xlsx',
+    'downloadFilledIts2',
+    'downloadFilledIts2Xlsx',
+  ] as const)(
     'does not let a previous %s completion release a newer period request',
     (download) => {
       resolve();

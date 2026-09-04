@@ -134,6 +134,57 @@ describe('PrismaItsReportWorkflowRepository concurrency and versions', () => {
     });
   });
 
+  it('calculates the two attention totals from the active ITS-1 ages', async () => {
+    const { repository, transaction } = setup();
+    transaction.itsAttention.findMany.mockResolvedValue([
+      {
+        age: 14,
+        ageGroupId: 'age-under-15',
+        sex: 'M',
+        populationTypeId: 'population-general',
+        isContact: false,
+        isPregnant: false,
+        diagnoses: [],
+      },
+      {
+        age: 15,
+        ageGroupId: 'age-15-plus',
+        sex: 'H',
+        populationTypeId: 'population-general',
+        isContact: false,
+        isPregnant: false,
+        diagnoses: [],
+      },
+      {
+        age: 28,
+        ageGroupId: 'age-15-plus',
+        sex: 'M',
+        populationTypeId: 'population-general',
+        isContact: false,
+        isPregnant: false,
+        diagnoses: [],
+      },
+    ]);
+
+    await repository.prepare({
+      ...input,
+      attentionsUnder15: 999,
+      attentions15Plus: 999,
+      attentionTotalsSource: 'Valor manual que no debe prevalecer',
+    });
+
+    expect(transaction.itsReport.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        attentionsUnder15: 1,
+        attentions15Plus: 2,
+        attentionTotalsSource: 'Calculado automáticamente desde las atenciones ITS-1 activas.',
+        attentionTotalsComplete: true,
+        sourceAttentionCount: 3,
+      }),
+      select: { id: true },
+    });
+  });
+
   it('creates the next version of a returned report and resolves its observations', async () => {
     const { repository, transaction } = setup();
     transaction.itsReport.findFirst

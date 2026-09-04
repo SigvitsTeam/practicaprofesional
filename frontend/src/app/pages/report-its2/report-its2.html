@@ -14,23 +14,36 @@
       </small>
     </div>
     <div class="template-actions">
-      <a class="btn secondary" href="/forms/formato-its1-oficial.pdf" target="_blank">ITS-1 vacío</a
-      ><a class="btn secondary" href="/forms/formato-its2-oficial.pdf" target="_blank"
-        >ITS-2 vacío</a
+      <a class="btn secondary" href="/forms/formato-its1-oficial.xlsx" download>ITS-1 vacío XLSX</a
+      ><a class="btn secondary" href="/forms/formato-its2-oficial.xlsx" download>ITS-2 vacío XLSX</a
       ><button
         class="btn primary"
+        type="button"
+        [disabled]="loading() || !report()"
+        (click)="downloadFilledIts1Xlsx()"
+      >
+        ITS-1 XLSX</button
+      ><button
+        class="btn secondary"
         type="button"
         [disabled]="loading() || !report()"
         (click)="downloadFilledIts1()"
       >
-        Descargar ITS-1 llenado</button
+        ITS-1 PDF</button
       ><button
         class="btn primary"
         type="button"
         [disabled]="loading() || !report()"
+        (click)="downloadFilledIts2Xlsx()"
+      >
+        ITS-2 XLSX</button
+      ><button
+        class="btn secondary"
+        type="button"
+        [disabled]="loading() || !report()"
         (click)="downloadFilledIts2()"
       >
-        Descargar ITS-2 llenado
+        ITS-2 PDF
       </button>
     </div>
   </article>
@@ -49,8 +62,8 @@
   <section class="report-message">
     <strong>Vista conectada a datos reales</strong
     ><span
-      >Inicie sesión con el backend configurado para calcular el ITS-2. Los formatos oficiales ya
-      están disponibles para impresión.</span
+      >Inicie sesión con el backend configurado para calcular el ITS-2. Los formatos oficiales están
+      disponibles en Excel y PDF.</span
     >
   </section>
 }
@@ -174,23 +187,23 @@
     }
     <div class="workflow-fields">
       <label
-        >Atenciones &lt; 15 años<input
+        >Atenciones &lt; 15 años (automático)<input
           type="number"
           min="0"
           [(ngModel)]="attentionsUnder15"
-          [disabled]="!canPrepare" /></label
+          readonly /></label
       ><label
-        >Atenciones ≥ 15 años<input
+        >Atenciones ≥ 15 años (automático)<input
           type="number"
           min="0"
           [(ngModel)]="attentions15Plus"
-          [disabled]="!canPrepare" /></label
+          readonly /></label
       ><label
         >Fuente de los totales<input
           type="text"
           maxlength="300"
           [(ngModel)]="attentionTotalsSource"
-          [disabled]="!canPrepare"
+          readonly
           placeholder="Ej. Estadística mensual"
       /></label>
     </div>
@@ -201,7 +214,10 @@
       >
     </div>
     <div class="validation ok">
-      <i>✓</i><span><strong>PDF oficial</strong><small>Formato listo para impresión</small></span>
+      <i>✓</i
+      ><span
+        ><strong>Excel y PDF oficiales</strong><small>Listos para descargar e imprimir</small></span
+      >
     </div>
     <div class="its2-actions">
       <button

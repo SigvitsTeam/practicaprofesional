@@ -53,6 +53,8 @@ const report: ItsMonthlyReport = {
   month: 8,
   ageGroups,
   totalAttentions: 18,
+  attentionsUnder15: 4,
+  attentions15Plus: 14,
   rows: diseases.map(([classificationCode, classificationName, diseaseName], index) => ({
     diseaseId: String(index + 1),
     code: String(index + 1).padStart(2, '0'),

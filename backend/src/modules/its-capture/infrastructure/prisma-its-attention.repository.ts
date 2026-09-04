@@ -574,6 +574,7 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
         },
         select: {
           sex: true,
+          age: true,
           isContact: true,
           isPregnant: true,
           ageGroup: { select: { code: true } },
@@ -603,6 +604,7 @@ export class PrismaItsAttentionRepository extends ItsAttentionRepository {
       })),
       attentions: attentions.map((attention) => ({
         sex: attention.sex,
+        age: attention.age,
         ageGroupCode: attention.ageGroup.code,
         populationTypeCode: attention.populationType.code,
         isContact: attention.isContact,

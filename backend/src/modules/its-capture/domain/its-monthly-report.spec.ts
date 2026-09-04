@@ -10,7 +10,10 @@ describe('buildItsMonthlyReport', () => {
         municipalityName: 'Puerto Cortés',
         regionName: 'Región Sanitaria Departamental de Cortés',
       },
-      ageGroups: [{ code: '20_24', name: '20 a 24 años', formatOrder: 6 }],
+      ageGroups: [
+        { code: '10_14', name: '10 a 14 años', formatOrder: 4 },
+        { code: '20_24', name: '20 a 24 años', formatOrder: 6 },
+      ],
       diseases: [
         {
           id: 'disease-1',
@@ -26,7 +29,8 @@ describe('buildItsMonthlyReport', () => {
       attentions: [
         {
           sex: 'M',
-          ageGroupCode: '20_24',
+          age: 14,
+          ageGroupCode: '10_14',
           populationTypeCode: 'GENERAL',
           isContact: true,
           isPregnant: true,
@@ -34,6 +38,7 @@ describe('buildItsMonthlyReport', () => {
         },
         {
           sex: 'H',
+          age: 21,
           ageGroupCode: '20_24',
           populationTypeCode: 'TRABAJADOR_SEXUAL',
           isContact: false,
@@ -48,9 +53,12 @@ describe('buildItsMonthlyReport', () => {
     if (!row) throw new Error('Expected the report to include the fixture disease.');
 
     expect(report.totalAttentions).toBe(2);
+    expect(report.attentionsUnder15).toBe(1);
+    expect(report.attentions15Plus).toBe(1);
     expect(row.diagnosis).toEqual({ newCases: 1, controls: 1 });
     expect(row.sex).toEqual({ male: 1, female: 1 });
-    expect(row.ageGroups['20_24']).toEqual({ male: 1, female: 1 });
+    expect(row.ageGroups['10_14']).toEqual({ male: 0, female: 1 });
+    expect(row.ageGroups['20_24']).toEqual({ male: 1, female: 0 });
     expect(row.population.generalFemale).toEqual({ newCases: 1, controls: 0 });
     expect(row.population.generalPregnant).toEqual({ newCases: 1, controls: 0 });
     expect(row.population.sexWorkerMale).toEqual({ newCases: 0, controls: 1 });
@@ -81,6 +89,7 @@ describe('buildItsMonthlyReport', () => {
         attentions: [
           {
             sex: 'H',
+            age: 31,
             ageGroupCode: '30_49',
             populationTypeCode: 'GENERAL',
             isContact: false,
@@ -97,6 +106,8 @@ describe('buildItsMonthlyReport', () => {
     );
 
     expect(report.totalAttentions).toBe(1);
+    expect(report.attentionsUnder15).toBe(0);
+    expect(report.attentions15Plus).toBe(1);
     expect(report.rows.map((row) => row.diagnosis.newCases)).toEqual([1, 1]);
   });
 });

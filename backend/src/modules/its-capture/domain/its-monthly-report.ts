@@ -2,6 +2,7 @@ import type { BiologicalSex, DiagnosisCaseType } from './its-attention';
 
 export interface MonthlyReportAttention {
   sex: BiologicalSex;
+  age: number;
   ageGroupCode: string;
   populationTypeCode: string;
   isContact: boolean;
@@ -65,6 +66,8 @@ export interface ItsMonthlyReport {
   ageGroups: { code: string; name: string; formatOrder: number }[];
   rows: MonthlyReportRow[];
   totalAttentions: number;
+  attentionsUnder15: number;
+  attentions15Plus: number;
 }
 
 export interface MonthlyReportSource {
@@ -136,5 +139,14 @@ export function buildItsMonthlyReport(
     }
   }
 
-  return { ...source, year, month, rows, totalAttentions: source.attentions.length };
+  return {
+    facility: source.facility,
+    ageGroups: source.ageGroups,
+    year,
+    month,
+    rows,
+    totalAttentions: source.attentions.length,
+    attentionsUnder15: source.attentions.filter((attention) => attention.age < 15).length,
+    attentions15Plus: source.attentions.filter((attention) => attention.age >= 15).length,
+  };
 }

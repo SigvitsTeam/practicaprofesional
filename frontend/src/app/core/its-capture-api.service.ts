@@ -97,6 +97,8 @@ export interface ItsMonthlyReportResponse {
     };
   }[];
   totalAttentions: number;
+  attentionsUnder15: number;
+  attentions15Plus: number;
 }
 
 export type Its2WorkflowStatus =
@@ -281,8 +283,20 @@ export class ItsCaptureApiService {
       responseType: 'blob',
     });
   }
+  downloadMonthlyReportXlsx(facilityId: string, year: number, month: number) {
+    return this.http.get(`${this.endpoint}/monthly-report.xlsx`, {
+      params: { facilityId, year, month },
+      responseType: 'blob',
+    });
+  }
   downloadIts1RegisterPdf(facilityId: string, year: number, month: number) {
     return this.http.get(`${this.endpoint}/register.pdf`, {
+      params: { facilityId, year, month },
+      responseType: 'blob',
+    });
+  }
+  downloadIts1RegisterXlsx(facilityId: string, year: number, month: number) {
+    return this.http.get(`${this.endpoint}/register.xlsx`, {
       params: { facilityId, year, month },
       responseType: 'blob',
     });

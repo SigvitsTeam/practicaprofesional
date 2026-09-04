@@ -7,7 +7,7 @@ import type { Its1PrintRegister } from '../domain/its1-print-register';
 
 const REFERENCE_WIDTH = 3508;
 const REFERENCE_HEIGHT = 2480;
-const ROWS_PER_PAGE = 28;
+const ROWS_PER_PAGE = 25;
 
 function templatePath(filename: string): string {
   const candidates = [
@@ -84,34 +84,38 @@ export class RenderIts1PdfUseCase {
       });
     };
 
-    header(register.facility.regionName, 1015, 490, 370);
-    header(register.facility.municipalityName, 1455, 490, 570);
-    header(register.facility.name, 2420, 490, 560);
-    header(String(register.month).padStart(2, '0'), 1015, 600, 100);
-    header(String(register.year), 1350, 600, 120);
-    header(register.responsibleName, 2845, 600, 460);
-    header(register.facility.code, 3210, 490, 160);
+    header(register.facility.regionName, 365, 360, 500);
+    header(register.facility.municipalityName, 1136, 360, 520);
+    header(register.facility.name, 1906, 360, 720);
+    header(register.facility.code, 2882, 360, 400);
+    header(String(register.month).padStart(2, '0'), 364, 432, 260);
+    header(String(register.year), 898, 432, 200);
+    header(register.responsibleName, 1634, 432, 1600);
 
-    const rowStartY = 1040;
-    const rowHeight = 51.2;
-    const diseaseStartX = 1358;
-    const diseasePairWidth = 103.4;
-    const caseOffset = 51.7;
+    const rowStartY = 895;
+    const rowHeight = 62;
+    const diseaseStartX = 1376;
+    const diseasePairWidth = 108.3;
+    const caseOffset = 54.2;
     const rows = register.attentions.slice(
       pageIndex * ROWS_PER_PAGE,
       (pageIndex + 1) * ROWS_PER_PAGE,
     );
-    const diseaseIndex = new Map(register.diseases.map((disease, index) => [disease.id, index]));
+    const diseaseIndex = new Map(
+      [...register.diseases]
+        .sort((left, right) => left.formatOrder - right.formatOrder)
+        .slice(0, 18)
+        .map((disease, index) => [disease.id, index]),
+    );
     rows.forEach((attention, rowIndex) => {
       const baselineY = rowStartY + rowIndex * rowHeight;
-      draw(String(pageIndex * ROWS_PER_PAGE + rowIndex + 1), 324, baselineY);
-      draw(attention.originText, 510, baselineY, 5, 235);
-      draw(attention.patientRecordNumber, 760, baselineY, 5, 220);
-      draw('X', attention.sex === 'H' ? 910 : 958, baselineY);
-      draw(String(attention.age), 1032, baselineY);
-      draw('X', attention.populationTypeCode === 'TRABAJADOR_SEXUAL' ? 1195 : 1125, baselineY);
-      if (attention.isContact) draw('X', 1265, baselineY);
-      if (attention.isPregnant) draw('X', 1315, baselineY);
+      draw(attention.originText, 228, baselineY, 5, 220);
+      draw(attention.patientRecordNumber, 452, baselineY, 5, 200);
+      draw('X', attention.sex === 'H' ? 618 : 738, baselineY);
+      draw(String(attention.age), 840, baselineY);
+      draw('X', attention.populationTypeCode === 'TRABAJADOR_SEXUAL' ? 1062 : 943, baselineY);
+      if (attention.isContact) draw('X', 1173, baselineY);
+      if (attention.isPregnant) draw('X', 1288, baselineY);
       attention.diagnoses.forEach((diagnosis) => {
         const index = diseaseIndex.get(diagnosis.diseaseId);
         if (index === undefined) return;

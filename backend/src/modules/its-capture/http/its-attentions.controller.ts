@@ -4,7 +4,6 @@ import {
   ConflictException,
   Controller,
   Get,
-  Header,
   NotFoundException,
   Param,
   Patch,
@@ -12,11 +11,10 @@ import {
   Post,
   Query,
   Req,
-  Res,
   ServiceUnavailableException,
+  StreamableFile,
 } from '@nestjs/common';
 import type { RequestWithContext } from '../../../common/http/request-context';
-import type { Response } from 'express';
 import { CurrentSubject } from '../../authorization/http/current-subject.decorator';
 import { RequireAccess } from '../../authorization/http/require-access.decorator';
 import {
@@ -32,6 +30,8 @@ import { GetMonthlyReportUseCase } from '../application/get-monthly-report.use-c
 import { ItsAttentionRepository } from '../application/ports/its-attention.repository';
 import { RenderIts1PdfUseCase } from '../application/render-its1-pdf.use-case';
 import { RenderIts2PdfUseCase } from '../application/render-its2-pdf.use-case';
+import { RenderIts1XlsxUseCase } from '../application/render-its1-xlsx.use-case';
+import { RenderIts2XlsxUseCase } from '../application/render-its2-xlsx.use-case';
 import {
   CaptureConfigurationError,
   AttentionNotEditableError,
@@ -63,6 +63,8 @@ export class ItsAttentionsController {
     private readonly repository: ItsAttentionRepository,
     private readonly renderIts1Pdf: RenderIts1PdfUseCase,
     private readonly renderIts2Pdf: RenderIts2PdfUseCase,
+    private readonly renderIts1Xlsx: RenderIts1XlsxUseCase,
+    private readonly renderIts2Xlsx: RenderIts2XlsxUseCase,
   ) {}
 
   @Get()
@@ -109,7 +111,6 @@ export class ItsAttentionsController {
   }
 
   @Get('monthly-report.pdf')
-  @Header('Content-Type', 'application/pdf')
   @RequireAccess({
     permission: 'its1:attentions:read',
     dataLevel: DataLevel.Aggregated,
@@ -119,21 +120,39 @@ export class ItsAttentionsController {
         typeof request.query.facilityId === 'string' ? request.query.facilityId : undefined,
     }),
   })
-  async monthlyReportPdf(
-    @Query() query: MonthlyReportQueryDto,
-    @Res({ passthrough: true }) response: Response,
-  ): Promise<Buffer> {
+  async monthlyReportPdf(@Query() query: MonthlyReportQueryDto): Promise<StreamableFile> {
     const report = await this.getMonthlyReport.execute(query.facilityId, query.year, query.month);
     const pdf = await this.renderIts2Pdf.execute(report);
-    response.setHeader(
-      'Content-Disposition',
-      `attachment; filename="ITS-2-${report.facility.code}-${report.year}-${String(report.month).padStart(2, '0')}.pdf"`,
-    );
-    return Buffer.from(pdf);
+    const contents = Buffer.from(pdf);
+    return new StreamableFile(contents, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="ITS-2-${report.facility.code}-${report.year}-${String(report.month).padStart(2, '0')}.pdf"`,
+      length: contents.length,
+    });
+  }
+
+  @Get('monthly-report.xlsx')
+  @RequireAccess({
+    permission: 'its1:attentions:read',
+    dataLevel: DataLevel.Aggregated,
+    scope: 'OWN',
+    target: (request) => ({
+      facilityId:
+        typeof request.query.facilityId === 'string' ? request.query.facilityId : undefined,
+    }),
+  })
+  async monthlyReportXlsx(@Query() query: MonthlyReportQueryDto): Promise<StreamableFile> {
+    const report = await this.getMonthlyReport.execute(query.facilityId, query.year, query.month);
+    const xlsx = await this.renderIts2Xlsx.execute(report);
+    const contents = Buffer.from(xlsx);
+    return new StreamableFile(contents, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="ITS-2-${report.facility.code}-${report.year}-${String(report.month).padStart(2, '0')}.xlsx"`,
+      length: contents.length,
+    });
   }
 
   @Get('register.pdf')
-  @Header('Content-Type', 'application/pdf')
   @RequireAccess({
     permission: 'its1:attentions:read',
     dataLevel: DataLevel.Individual,
@@ -146,8 +165,7 @@ export class ItsAttentionsController {
   async printRegister(
     @Query() query: MonthlyReportQueryDto,
     @CurrentSubject() subject: AuthorizationSubject,
-    @Res({ passthrough: true }) response: Response,
-  ): Promise<Buffer> {
+  ): Promise<StreamableFile> {
     const register = await this.repository.getIts1PrintRegister({
       facilityId: query.facilityId,
       userId: subject.userId,
@@ -155,11 +173,41 @@ export class ItsAttentionsController {
       month: query.month,
     });
     const pdf = await this.renderIts1Pdf.execute(register);
-    response.setHeader(
-      'Content-Disposition',
-      `attachment; filename="ITS-1-${register.facility.code}-${register.year}-${String(register.month).padStart(2, '0')}.pdf"`,
-    );
-    return Buffer.from(pdf);
+    const contents = Buffer.from(pdf);
+    return new StreamableFile(contents, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="ITS-1-${register.facility.code}-${register.year}-${String(register.month).padStart(2, '0')}.pdf"`,
+      length: contents.length,
+    });
+  }
+
+  @Get('register.xlsx')
+  @RequireAccess({
+    permission: 'its1:attentions:read',
+    dataLevel: DataLevel.Individual,
+    scope: 'OWN',
+    target: (request) => ({
+      facilityId:
+        typeof request.query.facilityId === 'string' ? request.query.facilityId : undefined,
+    }),
+  })
+  async printRegisterXlsx(
+    @Query() query: MonthlyReportQueryDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+  ): Promise<StreamableFile> {
+    const register = await this.repository.getIts1PrintRegister({
+      facilityId: query.facilityId,
+      userId: subject.userId,
+      year: query.year,
+      month: query.month,
+    });
+    const xlsx = await this.renderIts1Xlsx.execute(register);
+    const contents = Buffer.from(xlsx);
+    return new StreamableFile(contents, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="ITS-1-${register.facility.code}-${register.year}-${String(register.month).padStart(2, '0')}.xlsx"`,
+      length: contents.length,
+    });
   }
 
   @Post()

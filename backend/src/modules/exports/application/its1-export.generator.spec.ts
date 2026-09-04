@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { ItsAttentionRepository } from '../../its-capture/application/ports/its-attention.repository';
 import type { RenderIts1PdfUseCase } from '../../its-capture/application/render-its1-pdf.use-case';
+import { RenderIts1XlsxUseCase } from '../../its-capture/application/render-its1-xlsx.use-case';
 import type { Its1PrintRegister } from '../../its-capture/domain/its1-print-register';
 import type { ClaimedExportJob } from '../domain/export-job';
 import { Its1ExportGenerator } from './its1-export.generator';
@@ -42,6 +43,7 @@ const renderPdfExecute = jest.fn().mockResolvedValue(new Uint8Array(Buffer.from(
 const generator = new Its1ExportGenerator(
   { getIts1PrintRegister } as unknown as ItsAttentionRepository,
   { execute: renderPdfExecute } as unknown as RenderIts1PdfUseCase,
+  new RenderIts1XlsxUseCase(),
 );
 const job: ClaimedExportJob = {
   id: '11111111-1111-4111-8111-111111111111',

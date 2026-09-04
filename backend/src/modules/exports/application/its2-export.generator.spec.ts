@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import type { GetMonthlyReportUseCase } from '../../its-capture/application/get-monthly-report.use-case';
 import type { RenderIts2PdfUseCase } from '../../its-capture/application/render-its2-pdf.use-case';
+import { RenderIts2XlsxUseCase } from '../../its-capture/application/render-its2-xlsx.use-case';
 import { buildItsMonthlyReport } from '../../its-capture/domain/its-monthly-report';
 import type { ClaimedExportJob } from '../domain/export-job';
 import { Its2ExportGenerator } from './its2-export.generator';
@@ -30,6 +31,7 @@ const report = buildItsMonthlyReport(
     attentions: [
       {
         sex: 'M',
+        age: 18,
         ageGroupCode: '15_19',
         populationTypeCode: 'GENERAL',
         isContact: false,
@@ -70,7 +72,11 @@ describe('Its2ExportGenerator', () => {
   const renderPdf = {
     execute: renderPdfExecute,
   } as unknown as RenderIts2PdfUseCase;
-  const generator = new Its2ExportGenerator(getMonthlyReport, renderPdf);
+  const generator = new Its2ExportGenerator(
+    getMonthlyReport,
+    renderPdf,
+    new RenderIts2XlsxUseCase(),
+  );
 
   it('generates the monthly ITS-2 workbook and neutralizes formula-like codes', async () => {
     const contents = await generator.generate(job);
