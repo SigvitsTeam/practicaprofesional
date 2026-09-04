@@ -10,6 +10,7 @@ import { RoleProfile } from '../../core/models';
 export class Sidebar {
   readonly active = input.required<string>();
   readonly role = input.required<RoleProfile>();
+  readonly reviewCount = input(0);
   readonly navigate = output<string>();
 
   protected items(group: 'Operación' | 'Gestión') {
@@ -20,13 +21,6 @@ export class Sidebar {
 
   protected countFor(label: string) {
     if (label !== 'Bandeja de revisión') return undefined;
-    return (
-      {
-        'central-validator': 1,
-        'regional-superadmin': 2,
-        'regional-admin': 2,
-        'municipal-coordinator': 5,
-      } as Partial<Record<RoleProfile['id'], number>>
-    )[this.role().id];
+    return this.reviewCount() || undefined;
   }
 }

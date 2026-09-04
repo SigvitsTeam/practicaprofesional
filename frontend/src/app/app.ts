@@ -33,6 +33,7 @@ import { OperationalPeriodService } from './core/operational-period';
 import { EmailAccessService } from './core/email-access.service';
 import { PasswordSetup } from './pages/password-setup/password-setup';
 import { PeriodAdministration } from './pages/period-administration/period-administration';
+import { ReviewNotificationsService } from './core/review-notifications.service';
 
 @Component({
   selector: 'app-root',
@@ -67,6 +68,7 @@ export class App {
   protected readonly roleContext = inject(RoleContext);
   protected readonly auth = inject(AuthService);
   protected readonly emailAccess = inject(EmailAccessService);
+  protected readonly reviewNotifications = inject(ReviewNotificationsService);
   private readonly currentProfileApi = inject(CurrentProfileApiService);
   private readonly establishmentContext = inject(EstablishmentContext);
   private readonly operationalPeriod = inject(OperationalPeriodService);
@@ -536,6 +538,7 @@ export class App {
   handleDrawerAction(message: string) {
     this.selectedReport = null;
     this.reviewInbox?.reload();
+    this.reviewNotifications.refresh();
     this.maps?.reload();
     this.showNotice(message);
   }

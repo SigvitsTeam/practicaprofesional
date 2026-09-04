@@ -356,6 +356,24 @@ export class ItsCaptureApiService {
       { municipalityId, year, month, comment },
     );
   }
+  downloadMunicipalConsolidationXlsx(municipalityId: string, year: number, month: number) {
+    return this.http.get(
+      `${this.runtimeConfig.apiUrl}/v1/its2/municipal-consolidations/current.xlsx`,
+      {
+        params: { municipalityId, year, month },
+        responseType: 'blob',
+      },
+    );
+  }
+  downloadMunicipalConsolidationPdf(municipalityId: string, year: number, month: number) {
+    return this.http.get(
+      `${this.runtimeConfig.apiUrl}/v1/its2/municipal-consolidations/current.pdf`,
+      {
+        params: { municipalityId, year, month },
+        responseType: 'blob',
+      },
+    );
+  }
   submitMunicipalConsolidation(reportId: string, comment?: string) {
     return this.http.post<MunicipalConsolidationReport>(
       `${this.runtimeConfig.apiUrl}/v1/its2/municipal-consolidations/${reportId}/submit-region`,

@@ -77,6 +77,13 @@ export interface MonthlyReportSource {
   attentions: MonthlyReportAttention[];
 }
 
+export interface MunicipalMonthlyReportIdentity {
+  id: string;
+  code: string;
+  name: string;
+  regionName: string;
+}
+
 const emptyCaseCell = (): MonthlyReportCaseCell => ({ newCases: 0, controls: 0 });
 const emptySexCell = (): MonthlyReportCell => ({ male: 0, female: 0 });
 
@@ -148,5 +155,86 @@ export function buildItsMonthlyReport(
     totalAttentions: source.attentions.length,
     attentionsUnder15: source.attentions.filter((attention) => attention.age < 15).length,
     attentions15Plus: source.attentions.filter((attention) => attention.age >= 15).length,
+  };
+}
+
+export function mergeMunicipalMonthlyReports(
+  reports: readonly ItsMonthlyReport[],
+  municipality: MunicipalMonthlyReportIdentity,
+  year: number,
+  month: number,
+): ItsMonthlyReport {
+  const first = reports[0];
+  if (!first) throw new Error('MUNICIPAL_CONSOLIDATION_HAS_NO_SOURCES');
+
+  const rows = first.rows.map<MonthlyReportRow>((row) => ({
+    diseaseId: row.diseaseId,
+    code: row.code,
+    diseaseName: row.diseaseName,
+    classificationCode: row.classificationCode,
+    classificationName: row.classificationName,
+    appliesToMale: row.appliesToMale,
+    appliesToFemale: row.appliesToFemale,
+    diagnosis: emptyCaseCell(),
+    sex: emptySexCell(),
+    ageGroups: Object.fromEntries(first.ageGroups.map((group) => [group.code, emptySexCell()])),
+    population: {
+      generalMale: emptyCaseCell(),
+      generalFemale: emptyCaseCell(),
+      generalPregnant: emptyCaseCell(),
+      sexWorkerMale: emptyCaseCell(),
+      sexWorkerFemale: emptyCaseCell(),
+      sexWorkerPregnant: emptyCaseCell(),
+      contacts: emptySexCell(),
+    },
+  }));
+  const rowsByDisease = new Map(rows.map((row) => [row.diseaseId, row]));
+
+  for (const report of reports) {
+    for (const source of report.rows) {
+      const target = rowsByDisease.get(source.diseaseId);
+      if (!target) continue;
+      target.diagnosis.newCases += source.diagnosis.newCases;
+      target.diagnosis.controls += source.diagnosis.controls;
+      target.sex.male += source.sex.male;
+      target.sex.female += source.sex.female;
+      for (const group of first.ageGroups) {
+        const sourceAge = source.ageGroups[group.code];
+        const targetAge = target.ageGroups[group.code];
+        if (!sourceAge || !targetAge) continue;
+        targetAge.male += sourceAge.male;
+        targetAge.female += sourceAge.female;
+      }
+      for (const key of [
+        'generalMale',
+        'generalFemale',
+        'generalPregnant',
+        'sexWorkerMale',
+        'sexWorkerFemale',
+        'sexWorkerPregnant',
+      ] as const) {
+        target.population[key].newCases += source.population[key].newCases;
+        target.population[key].controls += source.population[key].controls;
+      }
+      target.population.contacts.male += source.population.contacts.male;
+      target.population.contacts.female += source.population.contacts.female;
+    }
+  }
+
+  return {
+    facility: {
+      id: municipality.id,
+      code: municipality.code,
+      name: 'CONSOLIDADO MUNICIPAL',
+      municipalityName: municipality.name,
+      regionName: municipality.regionName,
+    },
+    year,
+    month,
+    ageGroups: first.ageGroups,
+    rows,
+    totalAttentions: reports.reduce((total, report) => total + report.totalAttentions, 0),
+    attentionsUnder15: reports.reduce((total, report) => total + report.attentionsUnder15, 0),
+    attentions15Plus: reports.reduce((total, report) => total + report.attentions15Plus, 0),
   };
 }

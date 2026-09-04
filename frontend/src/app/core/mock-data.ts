@@ -4,7 +4,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Inicio', icon: '⌂', group: 'Operación' },
   { label: 'Captura ITS 1', icon: '✚', group: 'Operación' },
   { label: 'Reporte ITS 2', icon: '▤', group: 'Operación' },
-  { label: 'Bandeja de revisión', icon: '✓', group: 'Operación', count: 5 },
+  { label: 'Bandeja de revisión', icon: '✓', group: 'Operación' },
   { label: 'Consolidados', icon: '▦', group: 'Operación' },
   { label: 'Mapas', icon: '⌖', group: 'Operación' },
   { label: 'Reportes y exportaciones', icon: '⇩', group: 'Gestión' },

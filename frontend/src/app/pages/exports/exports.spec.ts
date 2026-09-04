@@ -15,16 +15,24 @@ describe('Exports request lifecycle', () => {
   let fixture: ComponentFixture<Exports>;
   let element: HTMLElement;
   let analytics: Subject<TerritorialAnalyticsResponse>;
-  let creation: Subject<ExportJobRecord>;
+  let download: Subject<Blob>;
   const selectedPeriod = signal({ year: 2026, month: 8 });
   let create: ReturnType<typeof vi.fn>;
+  let downloadMonthlyReportXlsx: ReturnType<typeof vi.fn>;
+  let prepareMunicipalConsolidation: ReturnType<typeof vi.fn>;
+  let downloadMunicipalConsolidationXlsx: ReturnType<typeof vi.fn>;
   let getTerritorialAnalytics: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     selectedPeriod.set({ year: 2026, month: 8 });
     analytics = new Subject<TerritorialAnalyticsResponse>();
-    creation = new Subject<ExportJobRecord>();
-    create = vi.fn(() => creation);
+    download = new Subject<Blob>();
+    create = vi.fn(() => new Subject<ExportJobRecord>());
+    downloadMonthlyReportXlsx = vi.fn(() => download);
+    prepareMunicipalConsolidation = vi.fn(() =>
+      of({ municipality: { id: 'municipality-1', code: '0506', name: 'Puerto Cortés' } }),
+    );
+    downloadMunicipalConsolidationXlsx = vi.fn(() => of(new Blob(['municipal'])));
     getTerritorialAnalytics = vi.fn(() => analytics);
     await TestBed.configureTestingModule({
       imports: [Exports],
@@ -33,7 +41,28 @@ describe('Exports request lifecycle', () => {
         { provide: RoleContext, useValue: { activeRoleId: () => 'municipal-coordinator' } },
         { provide: OperationalPeriodService, useValue: { selected: selectedPeriod } },
         { provide: ExportJobsApiService, useValue: { list: () => of([]), create } },
-        { provide: ItsCaptureApiService, useValue: { getTerritorialAnalytics } },
+        {
+          provide: ItsCaptureApiService,
+          useValue: {
+            getTerritorialAnalytics,
+            downloadMonthlyReportXlsx,
+            getMunicipalConsolidationContext: () =>
+              of({
+                municipalities: [
+                  {
+                    id: 'municipality-1',
+                    code: '0506',
+                    name: 'Puerto Cortés',
+                    regionId: 'region-1',
+                    activeFacilities: 2,
+                  },
+                ],
+              }),
+            getCurrentMunicipalConsolidation: () => of(null),
+            prepareMunicipalConsolidation,
+            downloadMunicipalConsolidationXlsx,
+          },
+        },
       ],
     }).compileComponents();
     fixture = TestBed.createComponent(Exports);
@@ -55,7 +84,9 @@ describe('Exports request lifecycle', () => {
     fixture.detectChanges();
   }
 
-  it('shows and submits the captured month even if the global period changes while loading targets', () => {
+  it('shows and downloads the captured month even if the global period changes while loading targets', () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:its2');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
     scopedButton().click();
     expect(getTerritorialAnalytics).toHaveBeenCalledWith('ESTABLECIMIENTO', 2026, 8);
     selectedPeriod.set({ year: 2026, month: 9 });
@@ -64,17 +95,15 @@ describe('Exports request lifecycle', () => {
     expect(dialog?.textContent).toContain('agosto');
     const generate = dialog?.querySelector<HTMLButtonElement>('footer .primary');
     generate?.click();
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        territoryId: 'facility-1',
-        year: 2026,
-        month: 8,
-      }),
-    );
+    expect(downloadMonthlyReportXlsx).toHaveBeenCalledWith('facility-1', 2026, 8);
     fixture.detectChanges();
     expect(generate?.disabled).toBe(true);
     generate?.click();
-    expect(create).toHaveBeenCalledTimes(1);
+    expect(downloadMonthlyReportXlsx).toHaveBeenCalledTimes(1);
+    download.next(new Blob(['xlsx']));
+    download.complete();
+    fixture.detectChanges();
+    expect(element.querySelector('.scoped-export-dialog')).toBeNull();
   });
 
   it('cancels the scoped catalog request when leaving the page', () => {
@@ -84,12 +113,28 @@ describe('Exports request lifecycle', () => {
     expect(analytics.observed).toBe(false);
   });
 
-  it('cancels the export response subscription when leaving the page', () => {
+  it('cancels the direct download response subscription when leaving the page', () => {
     scopedButton().click();
     resolveTargets();
     element.querySelector<HTMLButtonElement>('.scoped-export-dialog footer .primary')?.click();
-    expect(creation.observed).toBe(true);
+    expect(download.observed).toBe(true);
     fixture.destroy();
-    expect(creation.observed).toBe(false);
+    expect(download.observed).toBe(false);
+  });
+
+  it('prepares and immediately downloads the municipal consolidation without using the queue', () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:municipal');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const buttons = element.querySelectorAll<HTMLButtonElement>('.export-catalog button');
+    buttons[1]?.click();
+    fixture.detectChanges();
+    const dialog = element.querySelector<HTMLElement>('.scoped-export-dialog');
+    expect(dialog?.textContent).toContain('agosto');
+
+    dialog?.querySelector<HTMLButtonElement>('footer .primary')?.click();
+
+    expect(prepareMunicipalConsolidation).toHaveBeenCalledWith('municipality-1', 2026, 8);
+    expect(downloadMunicipalConsolidationXlsx).toHaveBeenCalledWith('municipality-1', 2026, 8);
+    expect(create).not.toHaveBeenCalled();
   });
 });

@@ -220,6 +220,12 @@ export class Consolidated {
 
   prepare() {
     if (!this.municipalityId || this.loading()) return;
+    if (this.view.completion !== 100) {
+      this.notify.emit(
+        `No se puede preparar todavía: faltan ${this.view.blockers} establecimiento(s) por aprobar en la bandeja de revisión.`,
+      );
+      return;
+    }
     this.loading.set(true);
     this.api
       .prepareMunicipalConsolidation(this.municipalityId, this.year, this.month)
@@ -232,6 +238,47 @@ export class Consolidated {
         error: (error) =>
           this.notify.emit(
             error.error?.detail ?? 'No fue posible preparar el consolidado municipal.',
+          ),
+      });
+  }
+
+  downloadMunicipal(format: 'XLSX' | 'PDF') {
+    const report = this.consolidation();
+    if (!report || this.loading()) return;
+    this.loading.set(true);
+    const request =
+      format === 'XLSX'
+        ? this.api.downloadMunicipalConsolidationXlsx(
+            report.municipality.id,
+            report.year,
+            report.month,
+          )
+        : this.api.downloadMunicipalConsolidationPdf(
+            report.municipality.id,
+            report.year,
+            report.month,
+          );
+    request
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loading.set(false)),
+      )
+      .subscribe({
+        next: (blob) => {
+          const extension = format.toLowerCase();
+          const url = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = `ITS-2-Consolidado-Municipal-${report.municipality.code}-${report.year}-${String(report.month).padStart(2, '0')}.${extension}`;
+          link.click();
+          URL.revokeObjectURL(url);
+          this.notify.emit(`Consolidado municipal ${format} descargado.`);
+        },
+        error: (error) =>
+          this.notify.emit(
+            error.error?.detail ??
+              error.error?.message ??
+              'No fue posible descargar el consolidado municipal.',
           ),
       });
   }

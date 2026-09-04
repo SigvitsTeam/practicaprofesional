@@ -98,7 +98,7 @@ export class ItsAttentionsController {
 
   @Get('monthly-report')
   @RequireAccess({
-    permission: 'its1:attentions:read',
+    permission: 'its2:reports:read',
     dataLevel: DataLevel.Aggregated,
     scope: 'OWN',
     target: (request) => ({
@@ -112,7 +112,7 @@ export class ItsAttentionsController {
 
   @Get('monthly-report.pdf')
   @RequireAccess({
-    permission: 'its1:attentions:read',
+    permission: 'its2:reports:read',
     dataLevel: DataLevel.Aggregated,
     scope: 'OWN',
     target: (request) => ({
@@ -133,7 +133,7 @@ export class ItsAttentionsController {
 
   @Get('monthly-report.xlsx')
   @RequireAccess({
-    permission: 'its1:attentions:read',
+    permission: 'its2:reports:read',
     dataLevel: DataLevel.Aggregated,
     scope: 'OWN',
     target: (request) => ({

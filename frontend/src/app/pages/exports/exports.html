@@ -74,7 +74,10 @@
   <div class="table-toolbar">
     <div>
       <h2>Trabajos de exportación recientes</h2>
-      <p>Solo se muestran solicitudes propias; la generación se procesa fuera del worker HTTP.</p>
+      <p>
+        Aquí solo aparecen evaluaciones y reportes analíticos que requieren procesamiento; los ITS 2
+        y el consolidado municipal se descargan de inmediato.
+      </p>
     </div>
     @if (!demoMode) {
       <button
@@ -174,8 +177,12 @@
           <span class="eyebrow">EXPORTACIÓN AUTORIZADA</span>
           <h2>{{ option.title }}</h2>
           <p>
-            Período: {{ scopedPeriod?.label }}. El documento se generará en segundo plano para el
-            territorio seleccionado.
+            Período: {{ scopedPeriod?.label }}.
+            {{
+              isDirectScopedDownload
+                ? 'Seleccione el establecimiento y el archivo se descargará inmediatamente.'
+                : 'El documento se generará en segundo plano para el territorio seleccionado.'
+            }}
           </p>
         </div>
         <button
@@ -219,7 +226,64 @@
           [disabled]="loading() || !selectedScopedTargetId"
           (click)="generateScopedExport()"
         >
-          Generar documento
+          {{ isDirectScopedDownload ? 'Descargar ahora' : 'Generar documento' }}
+        </button>
+      </footer>
+    </section>
+  </div>
+}
+
+@if (showMunicipalDownload) {
+  <div class="annual-backdrop">
+    <section
+      class="annual-dialog scoped-export-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Descargar consolidado municipal"
+    >
+      <header>
+        <div>
+          <span class="eyebrow">DESCARGA INMEDIATA</span>
+          <h2>Consolidado municipal ITS 2</h2>
+          <p>
+            Período: {{ municipalPeriod?.label }}. Se sumarán los ITS 2 aprobados de todos los
+            establecimientos activos del municipio.
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="Cerrar"
+          [disabled]="loading()"
+          (click)="closeMunicipalDownload()"
+        >
+          ×
+        </button>
+      </header>
+      <div class="scoped-export-form municipal-download-form">
+        <label>
+          <span>Formato</span>
+          <select [(ngModel)]="municipalFormat" [disabled]="loading()">
+            <option value="XLSX">Excel oficial</option>
+            <option value="PDF">PDF</option>
+          </select>
+        </label>
+      </div>
+      <footer>
+        <button
+          class="btn secondary"
+          type="button"
+          [disabled]="loading()"
+          (click)="closeMunicipalDownload()"
+        >
+          Cancelar
+        </button>
+        <button
+          class="btn primary"
+          type="button"
+          [disabled]="loading()"
+          (click)="downloadMunicipalConsolidation()"
+        >
+          {{ loading() ? 'Preparando…' : 'Descargar ahora' }}
         </button>
       </footer>
     </section>

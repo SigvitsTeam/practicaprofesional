@@ -378,6 +378,9 @@ td {
 .scoped-export-form select {
   width: 100%;
 }
+.municipal-download-form {
+  grid-template-columns: minmax(220px, 1fr);
+}
 @media (max-width: 560px) {
   .scoped-export-form {
     grid-template-columns: 1fr;

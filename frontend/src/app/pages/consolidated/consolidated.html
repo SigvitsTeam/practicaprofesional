@@ -100,7 +100,7 @@
         <button
           class="btn secondary"
           type="button"
-          [disabled]="loading() || view.completion !== 100"
+          [disabled]="loading() || !!loadError()"
           (click)="prepare()"
         >
           {{ loading() ? 'Procesando…' : 'Preparar consolidado' }}
@@ -109,6 +109,24 @@
       @if (consolidation()?.status === 'BORRADOR') {
         <button class="btn primary" type="button" [disabled]="loading()" (click)="submitRegion()">
           Enviar a región
+        </button>
+      }
+      @if (consolidation()) {
+        <button
+          class="btn secondary"
+          type="button"
+          [disabled]="loading()"
+          (click)="downloadMunicipal('XLSX')"
+        >
+          Descargar XLSX
+        </button>
+        <button
+          class="btn secondary"
+          type="button"
+          [disabled]="loading()"
+          (click)="downloadMunicipal('PDF')"
+        >
+          Descargar PDF
         </button>
       }
     </div>

@@ -28,13 +28,15 @@
     >
       <span>{{ darkMode() ? '☀' : '☾' }}</span>
     </button>
-    @if (demoMode()) {
+    @if (reviewCount() > 0) {
       <button
         class="notification"
-        [attr.aria-label]="notificationCount + ' notificaciones pendientes'"
-        [title]="notificationCount + ' notificaciones pendientes'"
+        type="button"
+        [attr.aria-label]="reviewCount() + ' reportes pendientes de revisión'"
+        [title]="reviewCount() + ' reportes pendientes de revisión'"
+        (click)="notificationsOpen.emit()"
       >
-        {{ notificationCount }}<i></i>
+        {{ reviewCount() }}<i></i>
       </button>
     }
     <button

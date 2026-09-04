@@ -1,4 +1,9 @@
-import { buildItsMonthlyReport, type MonthlyReportSource } from './its-monthly-report';
+import {
+  buildItsMonthlyReport,
+  mergeMunicipalMonthlyReports,
+  type ItsMonthlyReport,
+  type MonthlyReportSource,
+} from './its-monthly-report';
 
 describe('buildItsMonthlyReport', () => {
   it('totaliza diagnóstico, sexo, edad y población según el ITS-2 oficial', () => {
@@ -109,5 +114,75 @@ describe('buildItsMonthlyReport', () => {
     expect(report.attentionsUnder15).toBe(0);
     expect(report.attentions15Plus).toBe(1);
     expect(report.rows.map((row) => row.diagnosis.newCases)).toEqual([1, 1]);
+  });
+});
+
+function report(code: string, newCases: number, controls: number): ItsMonthlyReport {
+  return {
+    facility: {
+      id: code,
+      code,
+      name: `Establecimiento ${code}`,
+      municipalityName: 'Puerto Cortés',
+      regionName: 'Cortés',
+    },
+    year: 2026,
+    month: 9,
+    ageGroups: [{ code: '15_19', name: '15 a 19', formatOrder: 1 }],
+    rows: [
+      {
+        diseaseId: 'disease-1',
+        code: 'ITS-01',
+        diseaseName: 'Sífilis',
+        classificationCode: 'ITS',
+        classificationName: 'ITS',
+        appliesToMale: true,
+        appliesToFemale: true,
+        diagnosis: { newCases, controls },
+        sex: { male: newCases, female: controls },
+        ageGroups: { '15_19': { male: newCases, female: controls } },
+        population: {
+          generalMale: { newCases, controls: 0 },
+          generalFemale: { newCases: 0, controls },
+          generalPregnant: { newCases: 0, controls },
+          sexWorkerMale: { newCases: 0, controls: 0 },
+          sexWorkerFemale: { newCases: 0, controls: 0 },
+          sexWorkerPregnant: { newCases: 0, controls: 0 },
+          contacts: { male: newCases, female: controls },
+        },
+      },
+    ],
+    totalAttentions: newCases + controls,
+    attentionsUnder15: 0,
+    attentions15Plus: newCases + controls,
+  };
+}
+
+describe('mergeMunicipalMonthlyReports', () => {
+  it('sums every official ITS-2 cell and identifies the document as municipal', () => {
+    const consolidated = mergeMunicipalMonthlyReports(
+      [report('001', 2, 1), report('002', 3, 4)],
+      {
+        id: 'municipality-1',
+        code: '0506',
+        name: 'Puerto Cortés',
+        regionName: 'Cortés',
+      },
+      2026,
+      9,
+    );
+
+    expect(consolidated.facility).toEqual({
+      id: 'municipality-1',
+      code: '0506',
+      name: 'CONSOLIDADO MUNICIPAL',
+      municipalityName: 'Puerto Cortés',
+      regionName: 'Cortés',
+    });
+    expect(consolidated.totalAttentions).toBe(10);
+    expect(consolidated.attentions15Plus).toBe(10);
+    expect(consolidated.rows[0]?.diagnosis).toEqual({ newCases: 5, controls: 5 });
+    expect(consolidated.rows[0]?.ageGroups['15_19']).toEqual({ male: 5, female: 5 });
+    expect(consolidated.rows[0]?.population.contacts).toEqual({ male: 5, female: 5 });
   });
 });

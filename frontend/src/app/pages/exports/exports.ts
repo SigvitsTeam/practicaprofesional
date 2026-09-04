@@ -1,7 +1,7 @@
 import { Component, DestroyRef, OnInit, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { finalize, of, switchMap, throwError } from 'rxjs';
 import { RoleContext } from '../../core/role-context';
 import { AuthService } from '../../core/auth.service';
 import { ExportJobsApiService } from '../../core/export-jobs-api.service';
@@ -28,7 +28,7 @@ interface ExportOption {
   icon: string;
   title: string;
   detail: string;
-  action: 'annual' | 'generate' | 'scoped' | 'its1';
+  action: 'annual' | 'generate' | 'scoped' | 'its1' | 'municipal';
   reportType?: string;
   targetLevel?: 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO';
   scopeLevel?: 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO';
@@ -69,11 +69,14 @@ export class Exports implements OnInit {
   protected readonly loading = signal(false);
   protected showAnnualEvaluation = false;
   protected showScopedExport = false;
+  protected showMunicipalDownload = false;
   protected scopedOption: ExportOption | null = null;
   protected scopedTargets: ScopedExportTarget[] = [];
   protected selectedScopedTargetId = '';
   protected scopedFormat: 'XLSX' | 'PDF' = 'XLSX';
   protected scopedPeriod: { year: number; month: number; label: string } | null = null;
+  protected municipalFormat: 'XLSX' | 'PDF' = 'XLSX';
+  protected municipalPeriod: { year: number; month: number; label: string } | null = null;
   protected formSubmitted = false;
 
   protected readonly dimensions: { value: ComparisonDimension; label: string; detail: string }[] = [
@@ -201,8 +204,8 @@ export class Exports implements OnInit {
         {
           icon: '▣',
           title: 'Consolidado municipal',
-          detail: 'Excel · establecimientos incluidos',
-          action: 'generate',
+          detail: 'Descarga inmediata · Excel oficial o PDF',
+          action: 'municipal',
           reportType: 'MUNICIPAL_CONSOLIDATED',
         },
         {
@@ -317,7 +320,10 @@ export class Exports implements OnInit {
   protected selectExport(option: ExportOption) {
     if (this.loading()) return;
     if (option.action === 'annual') this.openAnnualEvaluation();
-    else if (option.action === 'its1') {
+    else if (option.action === 'municipal') {
+      if (this.auth.isDemo()) this.notify.emit(`${option.title}: descarga inmediata simulada.`);
+      else this.openMunicipalDownload();
+    } else if (option.action === 'its1') {
       if (this.auth.isDemo())
         this.notify.emit(`${option.title} agregado a la cola de demostración.`);
       else this.queueIts1(option);
@@ -435,6 +441,10 @@ export class Exports implements OnInit {
     )
       return;
     const { year, month } = this.scopedPeriod;
+    if (option.reportType === 'ITS2_MONTHLY' && option.scopeLevel === 'ESTABLECIMIENTO') {
+      this.downloadScopedIts2(year, month);
+      return;
+    }
     this.loading.set(true);
     this.jobsApi
       .create({
@@ -464,6 +474,138 @@ export class Exports implements OnInit {
           );
         },
       });
+  }
+
+  protected get isDirectScopedDownload() {
+    return (
+      this.scopedOption?.reportType === 'ITS2_MONTHLY' &&
+      this.scopedOption.scopeLevel === 'ESTABLECIMIENTO'
+    );
+  }
+
+  private downloadScopedIts2(year: number, month: number) {
+    const target = this.scopedTargets.find((item) => item.id === this.selectedScopedTargetId);
+    if (!target) return;
+    this.loading.set(true);
+    const request =
+      this.scopedFormat === 'XLSX'
+        ? this.itsCaptureApi.downloadMonthlyReportXlsx(target.id, year, month)
+        : this.itsCaptureApi.downloadMonthlyReportPdf(target.id, year, month);
+    request
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loading.set(false)),
+      )
+      .subscribe({
+        next: (blob) => {
+          this.saveBlob(
+            blob,
+            `ITS-2-${target.code}-${year}-${String(month).padStart(2, '0')}.${this.scopedFormat.toLowerCase()}`,
+          );
+          this.showScopedExport = false;
+          this.scopedOption = null;
+          this.scopedPeriod = null;
+          this.notify.emit(`ITS 2 de ${target.name} descargado en ${this.scopedFormat}.`);
+        },
+        error: (error) =>
+          this.notify.emit(
+            this.apiError(error, 'No fue posible descargar el ITS 2 del establecimiento.'),
+          ),
+      });
+  }
+
+  protected openMunicipalDownload() {
+    const { year, month } = this.activePeriod;
+    this.municipalPeriod = { year, month, label: formatHondurasMonth(year, month) };
+    this.municipalFormat = 'XLSX';
+    this.showMunicipalDownload = true;
+  }
+
+  protected closeMunicipalDownload() {
+    if (this.loading()) return;
+    this.showMunicipalDownload = false;
+    this.municipalPeriod = null;
+  }
+
+  protected downloadMunicipalConsolidation() {
+    const period = this.municipalPeriod;
+    if (!period || this.loading()) return;
+    const format = this.municipalFormat;
+    let municipalityCode = '';
+    this.loading.set(true);
+    this.itsCaptureApi
+      .getMunicipalConsolidationContext()
+      .pipe(
+        switchMap((context) => {
+          const municipality = context.municipalities[0];
+          if (!municipality)
+            return throwError(
+              () => new Error('No hay un municipio autorizado para preparar el consolidado.'),
+            );
+          municipalityCode = municipality.code;
+          return this.itsCaptureApi
+            .getCurrentMunicipalConsolidation(municipality.id, period.year, period.month)
+            .pipe(
+              switchMap((current) =>
+                current && !['BORRADOR', 'DEVUELTO_POR_REGION'].includes(current.status)
+                  ? of(current)
+                  : this.itsCaptureApi.prepareMunicipalConsolidation(
+                      municipality.id,
+                      period.year,
+                      period.month,
+                    ),
+              ),
+              switchMap(() =>
+                format === 'XLSX'
+                  ? this.itsCaptureApi.downloadMunicipalConsolidationXlsx(
+                      municipality.id,
+                      period.year,
+                      period.month,
+                    )
+                  : this.itsCaptureApi.downloadMunicipalConsolidationPdf(
+                      municipality.id,
+                      period.year,
+                      period.month,
+                    ),
+              ),
+            );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.loading.set(false)),
+      )
+      .subscribe({
+        next: (blob) => {
+          this.saveBlob(
+            blob,
+            `ITS-2-Consolidado-Municipal-${municipalityCode}-${period.year}-${String(period.month).padStart(2, '0')}.${format.toLowerCase()}`,
+          );
+          this.showMunicipalDownload = false;
+          this.municipalPeriod = null;
+          this.notify.emit(`Consolidado municipal ${format} descargado para ${period.label}.`);
+        },
+        error: (error) =>
+          this.notify.emit(
+            this.apiError(error, 'No fue posible preparar y descargar el consolidado municipal.'),
+          ),
+      });
+  }
+
+  private saveBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private apiError(error: unknown, fallback: string): string {
+    const response = error as { error?: { detail?: string; message?: string } };
+    return (
+      response.error?.detail ??
+      response.error?.message ??
+      (error instanceof Error ? error.message : fallback)
+    );
   }
 
   private openScopedExport(option: ExportOption) {

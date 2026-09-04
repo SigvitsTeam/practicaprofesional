@@ -4,11 +4,13 @@ import {
   Controller,
   ForbiddenException,
   Get,
+  Header,
   NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
   Query,
+  StreamableFile,
 } from '@nestjs/common';
 import {
   DataLevel,
@@ -17,6 +19,10 @@ import {
 import { CurrentSubject } from '../../authorization/http/current-subject.decorator';
 import { RequireAccess } from '../../authorization/http/require-access.decorator';
 import { MunicipalConsolidationUseCase } from '../application/municipal-consolidation.use-case';
+import { GetMonthlyReportUseCase } from '../application/get-monthly-report.use-case';
+import { RenderIts2PdfUseCase } from '../application/render-its2-pdf.use-case';
+import { RenderIts2XlsxUseCase } from '../application/render-its2-xlsx.use-case';
+import { mergeMunicipalMonthlyReports, type ItsMonthlyReport } from '../domain/its-monthly-report';
 import {
   MunicipalConsolidationAccessError,
   MunicipalConsolidationError,
@@ -33,7 +39,12 @@ import {
 
 @Controller('its2/municipal-consolidations')
 export class MunicipalConsolidationsController {
-  constructor(private readonly workflow: MunicipalConsolidationUseCase) {}
+  constructor(
+    private readonly workflow: MunicipalConsolidationUseCase,
+    private readonly getMonthlyReport: GetMonthlyReportUseCase,
+    private readonly renderIts2Pdf: RenderIts2PdfUseCase,
+    private readonly renderIts2Xlsx: RenderIts2XlsxUseCase,
+  ) {}
 
   @Get('context')
   @RequireAccess({
@@ -64,6 +75,54 @@ export class MunicipalConsolidationsController {
         this.workflow.getCurrent(query.municipalityId, query.year, query.month, subject),
       )) ?? null
     );
+  }
+
+  @Get('current.xlsx')
+  @Header('Cache-Control', 'private, no-store')
+  @RequireAccess({
+    permission: 'its2:reports:read',
+    dataLevel: DataLevel.Aggregated,
+    scope: 'OWN',
+    target: (request) => ({
+      municipalityId:
+        typeof request.query.municipalityId === 'string' ? request.query.municipalityId : undefined,
+    }),
+  })
+  async currentXlsx(
+    @Query() query: MunicipalConsolidationPeriodDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+  ): Promise<StreamableFile> {
+    const report = await this.downloadReport(query, subject);
+    const contents = Buffer.from(await this.renderIts2Xlsx.execute(report));
+    return new StreamableFile(contents, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="ITS-2-Consolidado-Municipal-${report.facility.code}-${report.year}-${String(report.month).padStart(2, '0')}.xlsx"`,
+      length: contents.length,
+    });
+  }
+
+  @Get('current.pdf')
+  @Header('Cache-Control', 'private, no-store')
+  @RequireAccess({
+    permission: 'its2:reports:read',
+    dataLevel: DataLevel.Aggregated,
+    scope: 'OWN',
+    target: (request) => ({
+      municipalityId:
+        typeof request.query.municipalityId === 'string' ? request.query.municipalityId : undefined,
+    }),
+  })
+  async currentPdf(
+    @Query() query: MunicipalConsolidationPeriodDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+  ): Promise<StreamableFile> {
+    const report = await this.downloadReport(query, subject);
+    const contents = Buffer.from(await this.renderIts2Pdf.execute(report));
+    return new StreamableFile(contents, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="ITS-2-Consolidado-Municipal-${report.facility.code}-${report.year}-${String(report.month).padStart(2, '0')}.pdf"`,
+      length: contents.length,
+    });
   }
 
   @Post('prepare')
@@ -152,5 +211,32 @@ export class MunicipalConsolidationsController {
         );
       throw error;
     }
+  }
+
+  private async downloadReport(
+    query: MunicipalConsolidationPeriodDto,
+    subject: AuthorizationSubject,
+  ): Promise<ItsMonthlyReport> {
+    const consolidation = await this.execute(() =>
+      this.workflow.getCurrent(query.municipalityId, query.year, query.month, subject),
+    );
+    if (!consolidation)
+      throw new NotFoundException('Prepare primero el consolidado municipal del período.');
+    const reports = await Promise.all(
+      consolidation.sourceReports.map((source) =>
+        this.getMonthlyReport.execute(source.facility.id, query.year, query.month),
+      ),
+    );
+    return mergeMunicipalMonthlyReports(
+      reports,
+      {
+        id: consolidation.municipality.id,
+        code: consolidation.municipality.code,
+        name: consolidation.municipality.name,
+        regionName: reports[0]?.facility.regionName ?? '',
+      },
+      query.year,
+      query.month,
+    );
   }
 }

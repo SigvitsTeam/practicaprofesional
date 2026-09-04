@@ -12,7 +12,12 @@
   <main class="profile-loading"><p>Cargando rol y alcance institucional…</p></main>
 } @else {
   <main class="app-shell">
-    <app-sidebar [active]="active" [role]="role" (navigate)="navigate($event)" />
+    <app-sidebar
+      [active]="active"
+      [role]="role"
+      [reviewCount]="reviewNotifications.count()"
+      (navigate)="navigate($event)"
+    />
     <section class="workspace">
       <app-topbar
         [role]="role"
@@ -20,10 +25,12 @@
         [demoMode]="auth.isDemo()"
         [userName]="authenticatedUserName"
         [userInitials]="authenticatedUserInitials"
+        [reviewCount]="reviewNotifications.count()"
         [darkMode]="darkMode"
         (roleChange)="changeRole($event)"
         (themeToggle)="toggleTheme()"
         (logout)="signOut()"
+        (notificationsOpen)="navigate('Bandeja de revisión')"
       />
       <div class="content">
         <div class="page-heading">
