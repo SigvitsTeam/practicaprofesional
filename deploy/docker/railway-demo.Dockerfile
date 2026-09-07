@@ -1,5 +1,5 @@
 # Demo: API y worker comparten un servicio y su directorio de exportaciones.
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY backend/package.json backend/package-lock.json ./
@@ -10,7 +10,7 @@ COPY backend/src ./src
 RUN npm run build && npm run build:worker && cp -R dist/assets dist-worker/assets
 RUN npm prune --omit=dev --ignore-scripts --no-audit --no-fund
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production EXPORT_STORAGE_DIRECTORY=/var/lib/sigvits/exports
 ENV NODE_EXTRA_CA_CERTS=/app/certs/prod-ca-2021.crt
