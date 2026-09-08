@@ -14,6 +14,18 @@ export abstract class ManagedUserRepository {
   ): Promise<{ regionId: string | null; label: string } | null>;
   abstract create(input: CreateManagedUserInput): Promise<ManagedUser>;
   abstract findContext(userId: string): Promise<ManagedUserContext | null>;
+  abstract findExternalIdentity(
+    userId: string,
+    issuer: string,
+  ): Promise<{ subject: string } | null>;
+  abstract reserveInvitationResend(input: {
+    userId: string;
+    actorUserId: string;
+    requestId: string;
+    reason: string;
+    expectedUpdatedAt: Date;
+    notBefore: Date;
+  }): Promise<Date>;
   abstract countActiveSuperAdmins(): Promise<number>;
   abstract updateStatus(input: {
     userId: string;

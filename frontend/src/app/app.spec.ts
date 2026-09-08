@@ -80,6 +80,25 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
+  it.each(['invite', 'recovery'])(
+    'keeps an existing login when the URL only contains a bare %s marker',
+    async (action) => {
+      window.history.replaceState(null, '', `/?auth=${action}`);
+      try {
+        const fixture = TestBed.createComponent(App);
+        await fixture.whenStable();
+        fixture.detectChanges();
+        const compiled = fixture.nativeElement as HTMLElement;
+
+        expect(compiled.querySelector('app-password-setup')).toBeNull();
+        expect(compiled.querySelector('.app-shell')).not.toBeNull();
+        expect(localStorage.getItem(TEST_SESSION)).not.toBeNull();
+      } finally {
+        window.history.replaceState(null, '', '/');
+      }
+    },
+  );
+
   it('isolates email recovery from an existing login and removes link parameters', async () => {
     const getProfile = vi.spyOn(TestBed.inject(CurrentProfileApiService), 'get');
     window.history.replaceState(
@@ -609,7 +628,9 @@ describe('App', () => {
     await settleDeferred(fixture);
     expect(compiled.querySelector('h1')?.textContent).toContain('Mapa nacional');
     expect(compiled.textContent).toContain('Regiones sanitarias visibles');
-    expect(compiled.textContent).toContain('Honduras · información agregada por región');
+    expect(compiled.textContent).toContain(
+      'Honduras · seleccione una región para ver sus municipios',
+    );
 
     fixture.componentInstance.changeRole('establishment-manager');
     fixture.componentInstance.navigate('Mapas');

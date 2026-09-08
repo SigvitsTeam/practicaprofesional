@@ -13,6 +13,8 @@ import {
   ManagedUserNotFoundError,
   ManagedUserRoleError,
   ManagedUserScopeError,
+  IdentityInvitationError,
+  type IdentityInvitationStatus,
   type ManagedUser,
   type ManagedUserContext,
 } from '../domain/managed-user';
@@ -32,6 +34,7 @@ const HIERARCHY: Record<RoleCode, number> = {
 
 @Injectable()
 export class ManagedUsersUseCase {
+  private static readonly invitationResendCooldownMs = 60_000;
   constructor(
     private readonly repository: ManagedUserRepository,
     @Inject(authConfig.KEY) private readonly authentication: ConfigType<typeof authConfig>,
@@ -269,6 +272,58 @@ export class ManagedUsersUseCase {
     });
   }
 
+  async getInvitationStatus(
+    userId: string,
+    subject: AuthorizationSubject,
+  ): Promise<IdentityInvitationStatus> {
+    const context = await this.requiredManageableUser(userId, subject);
+    const identity = await this.requiredInvitationIdentity(userId);
+    return {
+      ...(await this.invitations.getStatus(identity.subject)),
+      profileUpdatedAt: context.updatedAt,
+    };
+  }
+
+  async resendInvitation(
+    userId: string,
+    input: { expectedUpdatedAt: string; reason: string; requestId: string },
+    subject: AuthorizationSubject,
+  ): Promise<IdentityInvitationStatus> {
+    const context = await this.requiredManageableUser(userId, subject);
+    if (userId === subject.userId)
+      throw new ManagedUserInvariantError('No puede reenviar una invitación a su propia cuenta.');
+    const expectedUpdatedAt = this.timestamp(input.expectedUpdatedAt);
+    const reason = this.reason(input.reason);
+    if (context.updatedAt.getTime() !== expectedUpdatedAt.getTime())
+      throw new ManagedUserConcurrencyError(
+        'El usuario cambió. Recargue antes de reenviar la invitación.',
+      );
+
+    const identity = await this.requiredInvitationIdentity(userId);
+    const current = await this.invitations.getStatus(identity.subject);
+    if (current.status === 'EMAIL_CONFIRMED')
+      throw new ManagedUserInvariantError(
+        'El correo de invitación ya fue confirmado; no corresponde reenviarlo.',
+      );
+
+    const profileUpdatedAt = await this.repository.reserveInvitationResend({
+      userId,
+      actorUserId: subject.userId,
+      requestId: input.requestId,
+      reason,
+      expectedUpdatedAt,
+      notBefore: new Date(Date.now() - ManagedUsersUseCase.invitationResendCooldownMs),
+    });
+    const resent = await this.invitations.invite(context.email);
+    if (resent.subject !== identity.subject)
+      throw new IdentityInvitationError(
+        'Supabase devolvió una identidad distinta de la vinculada. No se modificó el perfil; revise ambas identidades antes de continuar.',
+      );
+    // The provider accepted the resend. Avoid a second network call whose failure could invite
+    // an unsafe blind retry and duplicate email; the administrator can refresh the status later.
+    return { ...current, profileUpdatedAt };
+  }
+
   private requireAssignableRole(role: RoleCode, subject: AuthorizationSubject): void {
     const actorLevel = Math.max(0, ...subject.roles.map((code) => HIERARCHY[code]));
     if (HIERARCHY[role] >= actorLevel)
@@ -312,6 +367,20 @@ export class ManagedUsersUseCase {
     )
       throw new ManagedUserScopeError('El usuario está fuera de su alcance administrativo.');
     return context;
+  }
+
+  private async requiredInvitationIdentity(userId: string): Promise<{ subject: string }> {
+    const issuer = this.authentication.issuer?.trim();
+    if (!issuer)
+      throw new ManagedUserInvariantError(
+        'El proveedor de identidad externo no está configurado en el servidor.',
+      );
+    const identity = await this.repository.findExternalIdentity(userId, issuer);
+    if (!identity)
+      throw new ManagedUserInvariantError(
+        'El perfil no tiene una identidad de Supabase vinculada para verificar.',
+      );
+    return identity;
   }
 
   private reason(value: string): string {

@@ -212,6 +212,64 @@ export class PrismaManagedUserRepository extends ManagedUserRepository {
     };
   }
 
+  async findExternalIdentity(userId: string, issuer: string): Promise<{ subject: string } | null> {
+    return this.prisma.client.externalIdentity.findFirst({
+      where: { userId, issuer },
+      select: { subject: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  async reserveInvitationResend(input: {
+    userId: string;
+    actorUserId: string;
+    requestId: string;
+    reason: string;
+    expectedUpdatedAt: Date;
+    notBefore: Date;
+  }): Promise<Date> {
+    return this.prisma.client.$transaction(
+      async (tx) => {
+        const profileUpdatedAt = new Date();
+        const reserved = await tx.appUser.updateMany({
+          where: { id: input.userId, updatedAt: input.expectedUpdatedAt },
+          data: { updatedAt: profileUpdatedAt },
+        });
+        if (reserved.count !== 1)
+          throw new ManagedUserConcurrencyError(
+            'El usuario cambió mientras reservaba el reenvío. Recargue antes de continuar.',
+          );
+        const recent = await tx.auditEvent.findFirst({
+          where: {
+            entity: 'USER',
+            entityId: input.userId,
+            action: 'USER_INVITATION_RESEND_REQUESTED',
+            createdAt: { gte: input.notBefore },
+          },
+          select: { id: true },
+        });
+        if (recent)
+          throw new ManagedUserInvariantError(
+            'Ya se solicitó un reenvío recientemente. Espere al menos un minuto y verifique el estado antes de repetirlo.',
+          );
+        await tx.auditEvent.create({
+          data: {
+            actorUserId: input.actorUserId,
+            action: 'USER_INVITATION_RESEND_REQUESTED',
+            entity: 'USER',
+            entityId: input.userId,
+            dataLevel: 'CONFIGURACION',
+            newData: { providerStatusBeforeRequest: 'PENDING' },
+            reason: input.reason,
+            requestId: input.requestId,
+          },
+        });
+        return profileUpdatedAt;
+      },
+      { isolationLevel: 'Serializable' },
+    );
+  }
+
   async linkExternalIdentity(input: LinkExternalIdentityInput): Promise<ManagedUser> {
     try {
       const idempotent = await this.prisma.client.$transaction(

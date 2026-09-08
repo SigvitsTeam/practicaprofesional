@@ -213,10 +213,21 @@ export interface NationalConsolidationContext {
   activeRegions: number;
 }
 export type TerritorialAnalyticsLevel = 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO';
+export type TerritorialAnalyticsMetric = 'attentions' | 'newCases' | 'controls' | 'alerts';
+export interface TerritorialAnalyticsParent {
+  regionId?: string;
+  municipalityId?: string;
+}
 export interface TerritorialAnalyticsResponse {
   level: TerritorialAnalyticsLevel;
   year: number;
   month: number;
+  regionId?: string;
+  municipalityId?: string;
+  privacy: {
+    smallCountThreshold: number;
+    suppressedValue: null;
+  };
   rows: {
     id: string;
     code: string;
@@ -224,10 +235,12 @@ export interface TerritorialAnalyticsResponse {
     reportId?: string;
     reportVersion?: number;
     status: string;
-    attentions: number;
-    newCases: number;
-    controls: number;
-    alerts: number;
+    attentions: number | null;
+    newCases: number | null;
+    controls: number | null;
+    alerts: number | null;
+    suppressedMetrics: readonly TerritorialAnalyticsMetric[];
+    complementarySuppressedMetrics: readonly TerritorialAnalyticsMetric[];
     sentAt?: string;
     latitude?: number;
     longitude?: number;
@@ -474,10 +487,23 @@ export class ItsCaptureApiService {
       { reason },
     );
   }
-  getTerritorialAnalytics(level: TerritorialAnalyticsLevel, year: number, month: number) {
+  getTerritorialAnalytics(
+    level: TerritorialAnalyticsLevel,
+    year: number,
+    month: number,
+    parent?: TerritorialAnalyticsParent,
+  ) {
     return this.http.get<TerritorialAnalyticsResponse>(
       `${this.runtimeConfig.apiUrl}/v1/analytics/territorial`,
-      { params: { level, year, month } },
+      {
+        params: {
+          level,
+          year,
+          month,
+          ...(parent?.regionId ? { regionId: parent.regionId } : {}),
+          ...(parent?.municipalityId ? { municipalityId: parent.municipalityId } : {}),
+        },
+      },
     );
   }
 }

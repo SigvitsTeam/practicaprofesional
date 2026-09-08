@@ -6,8 +6,7 @@
     <i class="blue-dot"></i><span>Métrica activa</span><strong>{{ metricLabel }}</strong>
   </div>
   <div>
-    <i class="amber-dot"></i><span>Valor del período</span
-    ><strong>{{ metricDisplay(totalMetric) }}</strong>
+    <i class="amber-dot"></i><span>Valor del período</span><strong>{{ totalMetricDisplay }}</strong>
   </div>
   <div>
     <i class="red-dot"></i><span>{{ entityLabel }} visibles</span
@@ -64,8 +63,9 @@
     [entityLabel]="entityLabel"
     [allowNational]="allowNational"
     [allowRegional]="allowRegional"
-    [allowMunicipal]="allowMunicipal"
+    [regionLabel]="selectedRegion?.name ?? 'Región autorizada'"
+    [municipalityLabel]="selectedMunicipality?.name ?? 'Municipio autorizado'"
     (levelChange)="setLevel($event)"
-    (reportSelected)="reportSelected.emit($event)"
+    (reportSelected)="selectMapEntity($event)"
   />
 </section>

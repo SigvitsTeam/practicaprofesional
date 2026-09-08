@@ -1,14 +1,13 @@
 import type {
-  TerritorialAnalyticsLevel,
+  TerritorialAnalyticsQuery,
   TerritorialAnalyticsRow,
   TerritorialAnalyticsScope,
 } from '../../domain/territorial-analytics';
 
 export abstract class TerritorialAnalyticsRepository {
-  abstract list(input: {
-    level: TerritorialAnalyticsLevel;
-    year: number;
-    month: number;
-    scope: TerritorialAnalyticsScope;
-  }): Promise<readonly TerritorialAnalyticsRow[]>;
+  abstract list(
+    input: TerritorialAnalyticsQuery & {
+      scope: TerritorialAnalyticsScope;
+    },
+  ): Promise<readonly TerritorialAnalyticsRow[]>;
 }

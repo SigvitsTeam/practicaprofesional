@@ -1,4 +1,4 @@
-import { formatSmallCount } from './small-count';
+import { formatSmallCount, formatSuppressedCount } from './small-count';
 
 describe('formatSmallCount', () => {
   it('suppresses positive counts below the configured threshold', () => {
@@ -10,5 +10,10 @@ describe('formatSmallCount', () => {
 
   it('shows exact values when suppression is disabled', () => {
     expect(formatSmallCount(3, 0)).toBe('3');
+  });
+
+  it('formats an API-suppressed value without requiring the original count', () => {
+    expect(formatSuppressedCount(0, 5, true)).toBe('<5');
+    expect(formatSuppressedCount(7, 5, false)).toBe('7');
   });
 });

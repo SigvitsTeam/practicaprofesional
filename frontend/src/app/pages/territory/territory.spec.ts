@@ -6,7 +6,11 @@ import {
   type RegionRecord,
   type TerritorialCatalog,
 } from '../../core/territorial-api.service';
-import { UserAdminApiService, type ManagedUserRecord } from '../../core/user-admin-api.service';
+import {
+  UserAdminApiService,
+  type InvitationVerificationRecord,
+  type ManagedUserRecord,
+} from '../../core/user-admin-api.service';
 import { Territory } from './territory';
 
 const regions: RegionRecord[] = [
@@ -79,10 +83,14 @@ describe('Territory user role and scope form', () => {
   let changeAccess: ReturnType<typeof vi.fn>;
   let users: ManagedUserRecord[];
   let invite: ReturnType<typeof vi.fn>;
+  let getInvitationStatus: ReturnType<typeof vi.fn>;
+  let resendInvitation: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     users = [];
     invite = vi.fn(() => new Subject<ManagedUserRecord>());
+    getInvitationStatus = vi.fn(() => new Subject<InvitationVerificationRecord>());
+    resendInvitation = vi.fn(() => new Subject<InvitationVerificationRecord>());
     create = vi.fn(() => new Subject<ManagedUserRecord>());
     changeAccess = vi.fn(() => new Subject<ManagedUserRecord>());
     await TestBed.configureTestingModule({
@@ -98,7 +106,14 @@ describe('Territory user role and scope form', () => {
         },
         {
           provide: UserAdminApiService,
-          useValue: { list: () => of(users), create, changeAccess, invite },
+          useValue: {
+            list: () => of(users),
+            create,
+            changeAccess,
+            invite,
+            getInvitationStatus,
+            resendInvitation,
+          },
         },
       ],
     }).compileComponents();
@@ -140,6 +155,18 @@ describe('Territory user role and scope form', () => {
       updatedAt: '2026-09-03T00:00:00Z',
     };
   }
+
+  function linkedUser(): ManagedUserRecord {
+    return { ...pendingUser(), active: true, hasExternalIdentity: true };
+  }
+
+  const pendingVerification: InvitationVerificationRecord = {
+    status: 'PENDING',
+    sentAt: '2026-09-03T12:00:00.000Z',
+    emailConfirmedAt: null,
+    lastAccessAt: null,
+    profileUpdatedAt: '2026-09-03T00:00:01Z',
+  };
 
   async function openInvitation() {
     users.push(pendingUser());
@@ -188,6 +215,8 @@ describe('Territory user role and scope form', () => {
     expect(host.querySelector('[aria-label="Invitar usuario"]')).toBeNull();
     expect(notice).toHaveBeenCalledWith(expect.stringContaining('Supabase aceptó'));
     expect(notice).toHaveBeenCalledWith(expect.stringContaining('establecer su contraseña'));
+    expect(host.textContent).toContain('Confirmación no verificada');
+    expect(host.textContent).not.toContain('Reenviar invitación');
   });
 
   it('cancels an in-flight invitation subscription when the page is destroyed', async () => {
@@ -200,6 +229,102 @@ describe('Territory user role and scope form', () => {
     expect(pending.observed).toBe(true);
     fixture.destroy();
     expect(pending.observed).toBe(false);
+  });
+
+  it('shows an unverified state, then exposes resend only for a provider-pending invitation', async () => {
+    users.push(linkedUser());
+    getInvitationStatus.mockReturnValue(of(pendingVerification));
+    await render();
+    expect(host.textContent).toContain('Confirmación no verificada');
+    expect(host.textContent).not.toContain('Reenviar invitación');
+
+    await clickButton('Consultar confirmación');
+
+    expect(getInvitationStatus).toHaveBeenCalledWith('user-qa');
+    expect(host.textContent).toContain('Invitación pendiente');
+    expect(host.textContent).toContain('Enviada:');
+    expect(host.textContent).toContain('Reenviar invitación');
+  });
+
+  it('shows confirmed-email and last-access timestamps without claiming onboarding completion', async () => {
+    users.push(linkedUser());
+    getInvitationStatus.mockReturnValue(
+      of({
+        status: 'EMAIL_CONFIRMED',
+        sentAt: '2026-09-03T12:00:00.000Z',
+        emailConfirmedAt: '2026-09-03T12:05:00.000Z',
+        lastAccessAt: '2026-09-04T08:30:00.000Z',
+        profileUpdatedAt: '2026-09-03T00:00:01Z',
+      }),
+    );
+    await render();
+
+    await clickButton('Consultar confirmación');
+
+    expect(host.textContent).toContain('Correo de invitación confirmado');
+    expect(host.textContent).toContain('Correo confirmado:');
+    expect(host.textContent).toContain('Último acceso:');
+    expect(host.textContent).not.toContain('Reenviar invitación');
+  });
+
+  it('reenvía desde una confirmación explícita y advierte verificar antes de otro correo', async () => {
+    users.push(linkedUser());
+    getInvitationStatus.mockReturnValue(of(pendingVerification));
+    const resend = new Subject<InvitationVerificationRecord>();
+    resendInvitation.mockReturnValue(resend);
+    await render();
+    await clickButton('Consultar confirmación');
+    await clickButton('Reenviar invitación');
+    const dialog = host.querySelector<HTMLElement>('[aria-label="Reenviar invitación"]')!;
+    expect(dialog).not.toBeNull();
+    expect(dialog.querySelector('[name="activateInvitation"]')).toBeNull();
+    const reason = dialog.querySelector<HTMLTextAreaElement>('[name="invitationReason"]')!;
+    reason.value = 'Reenvío autorizado porque el enlace venció';
+    reason.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    const notice = vi.fn();
+    fixture.componentInstance.notify.subscribe(notice);
+    dialog
+      .querySelector<HTMLFormElement>('form')!
+      .dispatchEvent(new Event('submit', { cancelable: true }));
+    dialog
+      .querySelector<HTMLFormElement>('form')!
+      .dispatchEvent(new Event('submit', { cancelable: true }));
+    expect(resendInvitation).toHaveBeenCalledTimes(1);
+    expect(resendInvitation).toHaveBeenCalledWith('user-qa', {
+      expectedUpdatedAt: '2026-09-03T00:00:01Z',
+      reason: 'Reenvío autorizado porque el enlace venció',
+    });
+    resend.next(pendingVerification);
+    resend.complete();
+    fixture.detectChanges();
+    expect(host.querySelector('[aria-label="Reenviar invitación"]')).toBeNull();
+    expect(notice).toHaveBeenCalledWith(expect.stringContaining('Verifica el estado'));
+    expect(notice).toHaveBeenCalledWith(expect.stringContaining('antes de solicitar otro correo'));
+    expect(host.textContent).toContain('Confirmación no verificada');
+    expect(host.textContent).not.toContain('Reenviar invitación');
+  });
+
+  it('invalida el estado pendiente si el resultado del reenvío es incierto', async () => {
+    users.push(linkedUser());
+    getInvitationStatus.mockReturnValue(of(pendingVerification));
+    resendInvitation.mockReturnValue(new Subject<InvitationVerificationRecord>());
+    await render();
+    await clickButton('Consultar confirmación');
+    await clickButton('Reenviar invitación');
+    const dialog = host.querySelector<HTMLElement>('[aria-label="Reenviar invitación"]')!;
+    const reason = dialog.querySelector<HTMLTextAreaElement>('[name="invitationReason"]')!;
+    reason.value = 'Reenvío con respuesta de red incierta';
+    reason.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+    dialog.querySelector<HTMLFormElement>('form')!.dispatchEvent(new Event('submit'));
+    const pending = resendInvitation.mock.results[0]
+      ?.value as Subject<InvitationVerificationRecord>;
+    pending.error({});
+    fixture.detectChanges();
+
+    expect(dialog.querySelector('[role="alert"]')?.textContent).toContain('consulte de nuevo');
+    expect(dialog.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(true);
   });
 
   async function clickButton(label: string) {

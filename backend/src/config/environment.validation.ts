@@ -99,4 +99,5 @@ export const environmentSchema = Joi.object({
   HTTP_KEEP_ALIVE_TIMEOUT_MS: Joi.number().integer().min(1_000).max(120_000).default(5_000),
   HTTP_MAX_REQUESTS_PER_SOCKET: Joi.number().integer().min(1).max(100_000).default(1_000),
   READINESS_TIMEOUT_MS: Joi.number().integer().min(100).max(30_000).default(3_000),
+  SIGVITS_MAP_SMALL_COUNT_THRESHOLD: Joi.number().integer().min(0).max(100).default(5),
 }).unknown(true);

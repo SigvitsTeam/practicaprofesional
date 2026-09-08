@@ -235,7 +235,11 @@
                           <i [style.width]="metricWidth(municipality)"></i>
                         </div>
                         <span
-                          ><strong>{{ metricValue(municipality) }}</strong
+                          ><strong>{{
+                            selectedMetric === 'reports'
+                              ? metricValue(municipality)
+                              : metricDisplay(municipality)
+                          }}</strong
                           ><small>{{ metricLabel }}</small></span
                         >
                       </article>
@@ -320,7 +324,7 @@
                               ><small>Código {{ municipality.code }}</small>
                             </td>
                             <td>{{ municipality.establishments }}</td>
-                            <td>{{ municipality.total }}</td>
+                            <td>{{ metricDisplay(municipality, 'total') }}</td>
                             <td>
                               <span
                                 class="member-status"
@@ -379,9 +383,9 @@
                               <strong>{{ municipality.name }}</strong
                               ><small>{{ municipality.code }}</small>
                             </td>
-                            <td>{{ municipality.total }}</td>
-                            <td>{{ municipality.newCases }}</td>
-                            <td>{{ municipality.controls }}</td>
+                            <td>{{ metricDisplay(municipality, 'total') }}</td>
+                            <td>{{ metricDisplay(municipality, 'newCases') }}</td>
+                            <td>{{ metricDisplay(municipality, 'controls') }}</td>
                             <td>{{ municipality.reports }}</td>
                           </tr>
                         }

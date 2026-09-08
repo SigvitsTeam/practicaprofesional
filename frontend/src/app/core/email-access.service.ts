@@ -9,6 +9,8 @@ import {
 
 const INVALID_LINK =
   'El enlace es inválido, ya se utilizó o ha vencido. Solicita un nuevo correo desde el acceso o contacta al administrador.';
+const REVOCATION_UNCONFIRMED =
+  'La contraseña se guardó, pero no pudimos confirmar el cierre de todas las sesiones. Vuelve al acceso e inicia sesión con la contraseña nueva; si observas actividad inesperada, contacta al administrador.';
 
 /** Email sessions are memory-only and never become an institutional login. */
 @Injectable({ providedIn: 'root' })
@@ -133,13 +135,18 @@ export class EmailAccessService {
         this.status.set('ready');
         return false;
       }
-      // Best-effort revocation; never silently log in after a reset.
-      await this.request('/logout?scope=local', { method: 'POST' }, this.token).catch(
-        () => undefined,
-      );
+      let revocationConfirmed = false;
+      try {
+        const logout = await this.request('/logout?scope=global', { method: 'POST' }, this.token);
+        revocationConfirmed = logout.ok;
+      } catch {
+        // The password update already succeeded. Continue to the terminal state
+        // instead of allowing the password to be submitted a second time.
+      }
       if (generation !== this.generation) return false;
       this.token = '';
       this.expiresAt = 0;
+      if (!revocationConfirmed) this.error.set(REVOCATION_UNCONFIRMED);
       this.status.set('complete');
       return true;
     } catch {

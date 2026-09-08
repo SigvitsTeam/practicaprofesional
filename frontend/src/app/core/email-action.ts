@@ -26,7 +26,12 @@ export function readEmailAction(url: URL): { input: EmailActionInput; cleanUrl: 
   const rawAction =
     fragment.get('type') ?? url.searchParams.get('type') ?? url.searchParams.get('auth');
   const action: EmailActionKind = rawAction === 'invite' ? 'invite' : 'recovery';
-  const hasAction = LINK_PARAMETERS.some((key) => fragment.has(key) || url.searchParams.has(key));
+  // `auth` and `type` only describe the intended flow. Neither proves that
+  // Supabase returned credentials or an error, so bare markers must not
+  // interrupt an existing login.
+  const hasAction = LINK_PARAMETERS.some(
+    (key) => !['auth', 'type'].includes(key) && (fragment.has(key) || url.searchParams.has(key)),
+  );
   let input: EmailActionInput = { kind: 'none' };
   if (hasAction) {
     input = { kind: 'invalid', action };

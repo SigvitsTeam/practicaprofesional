@@ -1,4 +1,4 @@
-import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { BadRequestException, Controller, ForbiddenException, Get, Query } from '@nestjs/common';
 import {
   DataLevel,
   type AuthorizationSubject,
@@ -8,6 +8,7 @@ import { RequireAccess } from '../../authorization/http/require-access.decorator
 import { TerritorialAnalyticsUseCase } from '../application/territorial-analytics.use-case';
 import {
   InvalidTerritorialAnalyticsQueryError,
+  TerritorialAnalyticsScopeDeniedError,
   type TerritorialAnalyticsResult,
 } from '../domain/territorial-analytics';
 import { TerritorialAnalyticsQueryDto } from './territorial-analytics.dto';
@@ -31,6 +32,8 @@ export class TerritorialAnalyticsController {
     } catch (error: unknown) {
       if (error instanceof InvalidTerritorialAnalyticsQueryError)
         throw new BadRequestException(error.message);
+      if (error instanceof TerritorialAnalyticsScopeDeniedError)
+        throw new ForbiddenException(error.message);
       throw error;
     }
   }

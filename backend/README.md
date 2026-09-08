@@ -20,8 +20,8 @@ npm run start:dev
 
 - Salud: `GET http://localhost:3000/api/health`
 - Disponibilidad de dependencias: `GET http://localhost:3000/api/health/ready`
-`CORS_ORIGINS` debe contener una lista explícita separada por comas; no se admite el comodín
-como configuración recomendada.
+  `CORS_ORIGINS` debe contener una lista explícita separada por comas; no se admite el comodín
+  como configuración recomendada.
 
 ## Verificación
 
@@ -159,6 +159,14 @@ aplicación. Los endpoints administrativos niegan por defecto cualquier ruta sin
 Para enviar invitaciones desde Administración configure `AUTH_ADMIN_SECRET` exclusivamente en el
 backend, junto con `AUTH_INVITATION_REDIRECT_URL` y `AUTH_ADMIN_TIMEOUT_MS`. El secreto debe ser la
 clave de servicio de Supabase y nunca debe publicarse en Angular, archivos versionados ni logs.
+
+La administración dispone además de `GET /api/v1/admin/users/:id/invitation-status` y
+`POST /api/v1/admin/users/:id/invitation/resend`. Ambos reutilizan el permiso de vinculación,
+validan jerarquía y alcance antes de consultar Supabase y operan sobre el `subject` ya vinculado.
+El estado `EMAIL_CONFIRMED` representa la confirmación de correo informada por Supabase; el inicio de
+sesión sigue siendo la comprobación de que la contraseña, el perfil activo, el rol y el alcance son
+válidos. El reenvío sólo se permite mientras el proveedor informa `PENDING`, reserva de forma
+atómica una nueva versión del perfil, aplica una pausa de un minuto y queda auditado.
 
 ```text
 JWT verificado -> identidad externa -> usuario activo -> roles vigentes

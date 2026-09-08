@@ -53,6 +53,41 @@
                     ? 'Suspendido'
                     : 'Pendiente de identidad'
               }}</span>
+              @if (user.hasExternalIdentity) {
+                <div class="invitation-verification" aria-live="polite">
+                  @if (invitationStatuses()[user.id]; as invitation) {
+                    <span
+                      class="invitation-state"
+                      [class.accepted]="invitation.status === 'EMAIL_CONFIRMED'"
+                      [class.pending]="invitation.status === 'PENDING'"
+                    >
+                      {{
+                        invitation.status === 'EMAIL_CONFIRMED'
+                          ? 'Correo de invitación confirmado'
+                          : 'Invitación pendiente'
+                      }}
+                    </span>
+                    @if (invitation.sentAt) {
+                      <small>Enviada: {{ formatDateTime(invitation.sentAt) }}</small>
+                    }
+                    @if (invitation.emailConfirmedAt) {
+                      <small
+                        >Correo confirmado: {{ formatDateTime(invitation.emailConfirmedAt) }}</small
+                      >
+                    }
+                    @if (invitation.lastAccessAt) {
+                      <small>Último acceso: {{ formatDateTime(invitation.lastAccessAt) }}</small>
+                    }
+                  } @else {
+                    <span class="invitation-state unverified">Confirmación no verificada</span>
+                  }
+                  @if (invitationStatusErrors()[user.id]) {
+                    <small class="invitation-status-error" role="alert">{{
+                      invitationStatusErrors()[user.id]
+                    }}</small>
+                  }
+                </div>
+              }
             </td>
             <td class="user-actions">
               <button type="button" (click)="openUserEdit(user)">Cambiar acceso</button>
@@ -61,6 +96,21 @@
                 ><button type="button" (click)="openIdentityLink(user)">
                   Vincular manualmente
                 </button>
+              } @else {
+                <button
+                  type="button"
+                  (click)="checkInvitationStatus(user)"
+                  [disabled]="loading || !!checkingInvitationId()"
+                >
+                  {{
+                    checkingInvitationId() === user.id ? 'Consultando…' : 'Consultar confirmación'
+                  }}
+                </button>
+                @if (invitationStatuses()[user.id]?.status === 'PENDING') {
+                  <button type="button" (click)="openInvitationResend(user)" [disabled]="loading">
+                    Reenviar invitación
+                  </button>
+                }
               }
               @if (user.active || user.hasExternalIdentity) {
                 <button type="button" (click)="openStatus(user)">
@@ -340,12 +390,12 @@
       class="form-modal status-dialog"
       role="dialog"
       aria-modal="true"
-      aria-label="Invitar usuario"
+      [attr.aria-label]="resendingInvitation ? 'Reenviar invitación' : 'Invitar usuario'"
     >
       <header>
         <div>
           <span class="eyebrow">ACCESO INSTITUCIONAL</span>
-          <h2>Enviar invitación</h2>
+          <h2>{{ resendingInvitation ? 'Reenviar invitación' : 'Enviar invitación' }}</h2>
           <p>{{ invitationUser.fullName }} · {{ invitationUser.email }}</p>
         </div>
         <button
@@ -367,17 +417,21 @@
               minlength="10"
               maxlength="500"
             ></textarea
-            ><small class="field-hint"
-              >Se solicitará el envío a Supabase. El destinatario deberá abrir el enlace y definir
-              su contraseña; aceptar la solicitud no confirma la entrega al buzón.</small
-            ></label
-          ><label class="wide check-line"
-            ><input
-              type="checkbox"
-              name="activateInvitation"
-              [(ngModel)]="invitationForm.activate"
-            /><span>Activar el perfil al vincular la identidad</span></label
+            ><small class="field-hint">{{
+              resendingInvitation
+                ? 'Supabase reporta esta identidad todavía sin confirmar. El reenvío sólo continuará si conserva exactamente la identidad ya vinculada.'
+                : 'Se solicitará el envío a Supabase. El destinatario deberá abrir el enlace y definir su contraseña; aceptar la solicitud no confirma la entrega al buzón.'
+            }}</small></label
           >
+          @if (!resendingInvitation) {
+            <label class="wide check-line"
+              ><input
+                type="checkbox"
+                name="activateInvitation"
+                [(ngModel)]="invitationForm.activate"
+              /><span>Activar el perfil al vincular la identidad</span></label
+            >
+          }
         </div>
         @if (invitationError()) {
           <p class="invitation-error" role="alert">{{ invitationError() }}</p>
@@ -393,9 +447,19 @@
           ><button
             class="btn primary"
             type="submit"
-            [disabled]="loading || invitationForm.reason.trim().length < 10"
+            [disabled]="
+              loading ||
+              invitationForm.reason.trim().length < 10 ||
+              (resendingInvitation && invitationStatuses()[invitationUser.id]?.status !== 'PENDING')
+            "
           >
-            {{ loading ? 'Enviando…' : 'Enviar invitación' }}
+            {{
+              loading
+                ? 'Enviando…'
+                : resendingInvitation
+                  ? 'Reenviar invitación'
+                  : 'Enviar invitación'
+            }}
           </button>
         </footer>
       </form>

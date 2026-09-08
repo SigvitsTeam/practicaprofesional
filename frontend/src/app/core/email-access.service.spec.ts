@@ -109,7 +109,7 @@ describe('EmailAccessService', () => {
     expect(service.status()).toBe('error');
   });
 
-  it('updates the password only with the validated email token, then revokes that session', async () => {
+  it('updates the password only with the validated email token, then revokes all sessions', async () => {
     link();
     request
       .mockReset()
@@ -125,11 +125,40 @@ describe('EmailAccessService', () => {
       body: JSON.stringify({ password }),
       headers: { Authorization: 'Bearer qa-only-token' },
     });
-    expect(request.mock.calls[2][0]).toBe('https://project.supabase.co/auth/v1/logout?scope=local');
+    expect(request.mock.calls[2][0]).toBe(
+      'https://project.supabase.co/auth/v1/logout?scope=global',
+    );
     expect(service.status()).toBe('complete');
+    expect(service.error()).toBe('');
     expect(await service.setPassword(password, password)).toBe(false);
     expect(request).toHaveBeenCalledTimes(3);
   });
+
+  it.each([
+    ['an HTTP rejection', () => Promise.resolve(reply({ code: 'logout_failed' }, 503))],
+    ['a network failure', () => Promise.reject(new Error('offline'))],
+  ])(
+    'keeps a successful password update terminal when global revocation has %s',
+    async (_reason, logoutResult) => {
+      link();
+      request
+        .mockReset()
+        .mockResolvedValueOnce(reply(user))
+        .mockResolvedValueOnce(reply(user))
+        .mockImplementationOnce(logoutResult);
+      const service = TestBed.inject(EmailAccessService);
+      await flush();
+
+      expect(await service.setPassword(password, password)).toBe(true);
+      expect(service.status()).toBe('complete');
+      expect(service.error()).toContain('contraseña se guardó');
+      expect(service.error()).not.toContain('logout_failed');
+      expect(
+        await service.setPassword('otra frase de contraseña', 'otra frase de contraseña'),
+      ).toBe(false);
+      expect(request).toHaveBeenCalledTimes(3);
+    },
+  );
 
   it('does not submit mismatched passwords', async () => {
     link();

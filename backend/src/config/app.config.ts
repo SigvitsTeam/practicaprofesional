@@ -24,6 +24,9 @@ export const appConfig = registerAs('app', () => ({
   keepAliveTimeoutMs: Number(process.env.HTTP_KEEP_ALIVE_TIMEOUT_MS ?? 5_000),
   maxRequestsPerSocket: Number(process.env.HTTP_MAX_REQUESTS_PER_SOCKET ?? 1_000),
   readinessTimeoutMs: Number(process.env.READINESS_TIMEOUT_MS ?? 3_000),
+  territorialAnalyticsSmallCountThreshold: Number(
+    process.env.SIGVITS_MAP_SMALL_COUNT_THRESHOLD ?? 5,
+  ),
 }));
 
 export type AppConfig = ReturnType<typeof appConfig>;

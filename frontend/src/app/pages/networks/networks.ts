@@ -47,6 +47,9 @@ type MunicipalityView = {
   newCases: number;
   controls: number;
   alerts: number;
+  suppressedMetrics: ('total' | 'newCases' | 'controls' | 'alerts')[];
+  complementarySuppressedMetrics: ('total' | 'newCases' | 'controls' | 'alerts')[];
+  smallCountThreshold: number;
   reports: string;
   associated: boolean;
 };
@@ -157,13 +160,13 @@ export class Networks {
     );
   }
   get selectedNetworkTotal() {
-    return this.filteredAssociatedMunicipalities.reduce((total, row) => total + row.total, 0);
+    return this.aggregateMetric('total');
   }
   get selectedNetworkNewCases() {
-    return this.filteredAssociatedMunicipalities.reduce((total, row) => total + row.newCases, 0);
+    return this.aggregateMetric('newCases');
   }
   get selectedNetworkControls() {
-    return this.filteredAssociatedMunicipalities.reduce((total, row) => total + row.controls, 0);
+    return this.aggregateMetric('controls');
   }
   get selectedNetworkReports() {
     return this.filteredAssociatedMunicipalities.filter(
@@ -171,7 +174,7 @@ export class Networks {
     ).length;
   }
   get selectedNetworkAlerts() {
-    return this.filteredAssociatedMunicipalities.reduce((total, row) => total + row.alerts, 0);
+    return this.aggregateMetric('alerts');
   }
   get metricLabel() {
     return (
@@ -398,6 +401,14 @@ export class Networks {
               newCases: metric?.newCases ?? 0,
               controls: metric?.controls ?? 0,
               alerts: metric?.alerts ?? 0,
+              suppressedMetrics: [
+                ...(metric?.suppressedMetrics ?? []),
+                ...(metric?.complementarySuppressedMetrics ?? []),
+              ].map((name) => (name === 'attentions' ? ('total' as const) : name)),
+              complementarySuppressedMetrics: (metric?.complementarySuppressedMetrics ?? []).map(
+                (name) => (name === 'attentions' ? ('total' as const) : name),
+              ),
+              smallCountThreshold: analytics.privacy?.smallCountThreshold ?? 5,
               reports: metric?.reportId ? 'Consolidado disponible' : 'Sin consolidado',
               associated: false,
             };
@@ -459,8 +470,25 @@ export class Networks {
         : 0
       : row[this.selectedMetric];
   }
+  protected metricDisplay(
+    row: MunicipalityView,
+    metric: 'total' | 'newCases' | 'controls' | 'alerts' = this.selectedMetric === 'reports'
+      ? 'total'
+      : this.selectedMetric,
+  ) {
+    if (row.complementarySuppressedMetrics.includes(metric)) return 'Protegido';
+    return row.suppressedMetrics.includes(metric)
+      ? `<${row.smallCountThreshold}`
+      : String(row[metric]);
+  }
   protected metricWidth(row: MunicipalityView) {
     return `${Math.round((this.metricValue(row) / this.maxMetricValue) * 100)}%`;
+  }
+
+  private aggregateMetric(metric: 'total' | 'newCases' | 'controls' | 'alerts') {
+    if (this.filteredAssociatedMunicipalities.some((row) => row.suppressedMetrics.includes(metric)))
+      return 'Protegido';
+    return this.filteredAssociatedMunicipalities.reduce((total, row) => total + row[metric], 0);
   }
   protected actionLabel(action: string) {
     return (

@@ -4,7 +4,9 @@ import {
   type TerritorialScopeType,
 } from '../../authorization/domain/authorization.types';
 import {
+  IdentityInvitationError,
   InvalidManagedUserError,
+  ManagedUserConcurrencyError,
   ManagedUserInvariantError,
   ManagedUserRoleError,
   ManagedUserScopeError,
@@ -18,6 +20,8 @@ import { IdentityInvitationGateway } from './ports/identity-invitation.gateway';
 
 class Repository extends ManagedUserRepository {
   created?: CreateManagedUserInput;
+  resent?: { userId: string; actorUserId: string; requestId: string; reason: string };
+  lastResendAt?: Date;
   context = {
     id: 'user-2',
     email: 'maria@example.org',
@@ -72,6 +76,34 @@ class Repository extends ManagedUserRepository {
   }
   findContext(userId: string): Promise<typeof this.context> {
     return Promise.resolve({ ...this.context, id: userId });
+  }
+  findExternalIdentity(): Promise<{ subject: string } | null> {
+    return Promise.resolve(
+      this.context.hasExternalIdentity ? { subject: 'provider-user-123' } : null,
+    );
+  }
+  reserveInvitationResend(input: {
+    userId: string;
+    actorUserId: string;
+    requestId: string;
+    reason: string;
+    expectedUpdatedAt: Date;
+    notBefore: Date;
+  }): Promise<Date> {
+    if (input.expectedUpdatedAt.getTime() !== this.context.updatedAt.getTime())
+      return Promise.reject(new ManagedUserConcurrencyError('versión obsoleta'));
+    if (this.lastResendAt && this.lastResendAt >= input.notBefore)
+      return Promise.reject(new ManagedUserInvariantError('reenvío reciente'));
+    const profileUpdatedAt = new Date(this.context.updatedAt.getTime() + 1);
+    this.context = { ...this.context, updatedAt: profileUpdatedAt };
+    this.lastResendAt = new Date();
+    this.resent = {
+      userId: input.userId,
+      actorUserId: input.actorUserId,
+      requestId: input.requestId,
+      reason: input.reason,
+    };
+    return Promise.resolve(profileUpdatedAt);
   }
   countActiveSuperAdmins(): Promise<number> {
     return Promise.resolve(1);
@@ -160,11 +192,19 @@ describe('ManagedUsersUseCase', () => {
   };
   let repository: Repository;
   let useCase: ManagedUsersUseCase;
+  const pendingInvitation = {
+    status: 'PENDING' as const,
+    sentAt: new Date('2026-09-03T12:00:00.000Z'),
+    emailConfirmedAt: null,
+    lastAccessAt: null,
+  };
   const invite = jest.fn().mockResolvedValue({ subject: 'provider-user-123' });
-  const invitations: IdentityInvitationGateway = { invite };
+  const getStatus = jest.fn().mockResolvedValue(pendingInvitation);
+  const invitations: IdentityInvitationGateway = { invite, getStatus };
 
   beforeEach(() => {
-    invite.mockClear();
+    invite.mockReset().mockResolvedValue({ subject: 'provider-user-123' });
+    getStatus.mockReset().mockResolvedValue(pendingInvitation);
     repository = new Repository();
     useCase = new ManagedUsersUseCase(
       repository,
@@ -237,6 +277,117 @@ describe('ManagedUsersUseCase', () => {
     );
     expect(invite).toHaveBeenCalledWith('maria@example.org');
     expect(result).toMatchObject({ active: true, hasExternalIdentity: true });
+  });
+
+  it('consulta en Supabase sólo el estado mínimo de la identidad administrable', async () => {
+    await expect(useCase.getInvitationStatus('user-2', regional)).resolves.toEqual({
+      ...pendingInvitation,
+      profileUpdatedAt: repository.context.updatedAt,
+    });
+    expect(getStatus).toHaveBeenCalledWith('provider-user-123');
+  });
+
+  it('deniega la consulta de invitación fuera del alcance antes de contactar al proveedor', async () => {
+    repository.context = { ...repository.context, regionId: 'region-other' };
+    await expect(useCase.getInvitationStatus('user-2', regional)).rejects.toBeInstanceOf(
+      ManagedUserScopeError,
+    );
+    expect(getStatus).not.toHaveBeenCalled();
+  });
+
+  it('reenvía una invitación pendiente sólo cuando Supabase conserva el mismo subject', async () => {
+    await expect(
+      useCase.resendInvitation(
+        'user-2',
+        {
+          expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+          reason: 'Reenvío solicitado por enlace vencido',
+          requestId: 'request-resend',
+        },
+        regional,
+      ),
+    ).resolves.toEqual({
+      ...pendingInvitation,
+      profileUpdatedAt: new Date('2026-08-17T12:00:00.001Z'),
+    });
+    expect(invite).toHaveBeenCalledWith('maria@example.org');
+    expect(getStatus).toHaveBeenCalledTimes(1);
+    expect(repository.resent).toEqual({
+      userId: 'user-2',
+      actorUserId: 'admin-1',
+      requestId: 'request-resend',
+      reason: 'Reenvío solicitado por enlace vencido',
+    });
+  });
+
+  it('no reenvía una invitación que Supabase ya reporta aceptada', async () => {
+    getStatus.mockResolvedValue({
+      ...pendingInvitation,
+      status: 'EMAIL_CONFIRMED',
+      emailConfirmedAt: new Date('2026-09-03T12:10:00.000Z'),
+    });
+    await expect(
+      useCase.resendInvitation(
+        'user-2',
+        {
+          expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+          reason: 'Reenvío solicitado por enlace vencido',
+          requestId: 'request-resend',
+        },
+        regional,
+      ),
+    ).rejects.toBeInstanceOf(ManagedUserInvariantError);
+    expect(invite).not.toHaveBeenCalled();
+  });
+
+  it('rechaza un subject distinto durante el reenvío sin sobrescribir la vinculación', async () => {
+    invite.mockResolvedValue({ subject: 'unexpected-provider-user' });
+    await expect(
+      useCase.resendInvitation(
+        'user-2',
+        {
+          expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+          reason: 'Reenvío solicitado por enlace vencido',
+          requestId: 'request-resend',
+        },
+        regional,
+      ),
+    ).rejects.toBeInstanceOf(IdentityInvitationError);
+    expect(repository.resent?.userId).toBe('user-2');
+  });
+
+  it('reserva una nueva versión y rechaza otro reenvío con la versión anterior', async () => {
+    const expectedUpdatedAt = repository.context.updatedAt.toISOString();
+    await useCase.resendInvitation(
+      'user-2',
+      { reason: 'Primer reenvío controlado para QA', requestId: 'first', expectedUpdatedAt },
+      regional,
+    );
+
+    await expect(
+      useCase.resendInvitation(
+        'user-2',
+        { reason: 'Segundo reenvío simultáneo para QA', requestId: 'second', expectedUpdatedAt },
+        regional,
+      ),
+    ).rejects.toBeInstanceOf(ManagedUserConcurrencyError);
+    expect(invite).toHaveBeenCalledTimes(1);
+  });
+
+  it('aplica una pausa auditada aunque el cliente ya conozca la versión reservada', async () => {
+    repository.lastResendAt = new Date();
+    await expect(
+      useCase.resendInvitation(
+        'user-2',
+        {
+          reason: 'Reenvío repetido dentro de la pausa',
+          requestId: 'cooldown',
+          expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+        },
+        regional,
+      ),
+    ).rejects.toBeInstanceOf(ManagedUserInvariantError);
+    expect(invite).not.toHaveBeenCalled();
   });
 
   it.each([

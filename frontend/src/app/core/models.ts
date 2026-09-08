@@ -1,6 +1,7 @@
 export type ReportStatus = 'Aprobado' | 'En revisión' | 'Devuelto' | 'Pendiente';
 
 export interface Report {
+  territoryId?: string;
   workflowId?: string;
   workflowLevel?: 'facility' | 'municipal' | 'regional';
   version?: number;
@@ -24,6 +25,9 @@ export interface Report {
   latitude?: number;
   longitude?: number;
   coordinatesValidated?: boolean;
+  suppressedMetrics?: ('total' | 'newCases' | 'controls' | 'alerts')[];
+  complementarySuppressedMetrics?: ('total' | 'newCases' | 'controls' | 'alerts')[];
+  smallCountThreshold?: number;
 }
 
 export interface Establishment {

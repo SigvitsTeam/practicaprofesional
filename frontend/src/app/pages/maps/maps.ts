@@ -7,6 +7,7 @@ import { formatHondurasDateTime } from '../../core/honduras-date';
 import {
   ItsCaptureApiService,
   TerritorialAnalyticsLevel,
+  TerritorialAnalyticsMetric,
 } from '../../core/its-capture-api.service';
 import { Report } from '../../core/models';
 import { RoleContext } from '../../core/role-context';
@@ -43,6 +44,8 @@ export class Maps {
       ? 'regional'
       : 'municipal';
   protected metric: MapMetric = 'total';
+  protected selectedRegion?: { id: string; name: string };
+  protected selectedMunicipality?: { id: string; name: string };
   private lastQuery = '';
   private requestVersion = 0;
 
@@ -59,6 +62,8 @@ export class Maps {
           ? 'regional'
           : 'municipal';
       this.metric = 'total';
+      this.selectedRegion = undefined;
+      this.selectedMunicipality = undefined;
       this.load();
     });
   }
@@ -66,7 +71,11 @@ export class Maps {
   get reports() {
     if (!this.auth.isDemo()) return this.liveReports();
     if (this.mapLevel === 'national') return REGIONAL_REPORTS;
-    if (this.mapLevel === 'regional') return MUNICIPAL_REPORTS;
+    if (this.mapLevel === 'regional')
+      return this.selectedRegion
+        ? MUNICIPAL_REPORTS.filter((report) => report.code.startsWith(this.selectedRegion!.id))
+        : MUNICIPAL_REPORTS;
+    if (this.selectedMunicipality && this.selectedMunicipality.id !== '0506') return [];
     return this.roleContext.activeRoleId() === 'establishment-manager'
       ? REPORTS.filter((report) => report.code === '85481')
       : REPORTS;
@@ -79,6 +88,9 @@ export class Maps {
         : 'Establecimientos';
   }
   get scopeLabel() {
+    if (this.mapLevel === 'regional' && this.selectedRegion) return this.selectedRegion.name;
+    if (this.mapLevel === 'municipal' && this.selectedMunicipality)
+      return this.selectedMunicipality.name;
     if (!this.auth.isDemo())
       return this.mapLevel === 'national'
         ? 'Honduras'
@@ -103,11 +115,19 @@ export class Maps {
       this.roleContext.activeRoleId(),
     );
   }
-  get allowMunicipal() {
-    return this.roleContext.activeRoleId() !== 'establishment-manager';
-  }
   get totalMetric() {
     return this.reports.reduce((sum, report) => sum + report[this.metric], 0);
+  }
+  get totalMetricDisplay() {
+    if (
+      this.reports.some(
+        (report) =>
+          report.suppressedMetrics?.includes(this.metric) ||
+          report.complementarySuppressedMetrics?.includes(this.metric),
+      )
+    )
+      return 'Protegido';
+    return formatSmallCount(this.totalMetric, this.runtimeConfig.maps.smallCountThreshold);
   }
   get metricLabel() {
     return (
@@ -123,18 +143,34 @@ export class Maps {
     this.metric = (event.target as HTMLSelectElement).value as MapMetric;
   }
   setLevel(level: MapLevel) {
+    if (level === 'national') {
+      this.selectedRegion = undefined;
+      this.selectedMunicipality = undefined;
+    } else if (level === 'regional') {
+      this.selectedMunicipality = undefined;
+    }
     this.mapLevel = level;
     this.metric = 'total';
     this.load();
+  }
+  selectMapEntity(report: Report) {
+    if (this.mapLevel === 'national') {
+      this.selectedRegion = { id: report.territoryId ?? report.code, name: report.name };
+      this.selectedMunicipality = undefined;
+      this.setLevel('regional');
+      return;
+    }
+    if (this.mapLevel === 'regional') {
+      this.selectedMunicipality = { id: report.territoryId ?? report.code, name: report.name };
+      this.setLevel('municipal');
+      return;
+    }
+    this.reportSelected.emit(report);
   }
   resetFilters() {
     this.metric = 'total';
     this.notify.emit('Filtros del mapa restablecidos.');
   }
-  metricDisplay(value: number) {
-    return formatSmallCount(value, this.runtimeConfig.maps.smallCountThreshold);
-  }
-
   retryLoad() {
     this.load();
   }
@@ -157,10 +193,19 @@ export class Maps {
     this.loadError.set('');
     this.liveReports.set([]);
     const period = this.operationalPeriod.selected();
-    if (!period) return;
+    if (!period) {
+      this.loading.set(false);
+      return;
+    }
     const { year, month } = period;
+    const parent =
+      level === 'MUNICIPIO' && this.selectedRegion
+        ? { regionId: this.selectedRegion.id }
+        : level === 'ESTABLECIMIENTO' && this.selectedMunicipality
+          ? { municipalityId: this.selectedMunicipality.id }
+          : undefined;
     this.api
-      .getTerritorialAnalytics(level, year, month)
+      .getTerritorialAnalytics(level, year, month, parent)
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
@@ -171,26 +216,44 @@ export class Maps {
         next: (result) => {
           if (requestVersion !== this.requestVersion) return;
           this.liveReports.set(
-            result.rows.map((row) => ({
-              workflowId: row.reportId,
-              periodYear: year,
-              periodMonth: month,
-              workflowLevel:
-                level === 'REGION' ? 'regional' : level === 'MUNICIPIO' ? 'municipal' : 'facility',
-              version: row.reportVersion,
-              name: row.name,
-              code: row.code,
-              status: this.reportStatus(row.status),
-              total: row.attentions,
-              newCases: row.newCases,
-              controls: row.controls,
-              caseBreakdownAvailable: true,
-              alerts: row.alerts,
-              sent: row.sentAt ? formatHondurasDateTime(row.sentAt) : 'Sin envío',
-              latitude: row.latitude,
-              longitude: row.longitude,
-              coordinatesValidated: row.coordinatesValidated,
-            })),
+            result.rows.map((row) => {
+              const primary = (row.suppressedMetrics ?? []).map((metric) =>
+                this.reportMetric(metric),
+              );
+              const complementary = (row.complementarySuppressedMetrics ?? []).map((metric) =>
+                this.reportMetric(metric),
+              );
+              return {
+                territoryId: row.id,
+                workflowId: row.reportId,
+                periodYear: year,
+                periodMonth: month,
+                workflowLevel:
+                  level === 'REGION'
+                    ? 'regional'
+                    : level === 'MUNICIPIO'
+                      ? 'municipal'
+                      : 'facility',
+                version: row.reportVersion,
+                name: row.name,
+                code: row.code,
+                status: this.reportStatus(row.status),
+                total: row.attentions ?? 0,
+                newCases: row.newCases ?? 0,
+                controls: row.controls ?? 0,
+                caseBreakdownAvailable: true,
+                alerts: row.alerts ?? 0,
+                sent: row.sentAt ? formatHondurasDateTime(row.sentAt) : 'Sin envío',
+                latitude: row.latitude,
+                longitude: row.longitude,
+                coordinatesValidated: row.coordinatesValidated,
+                suppressedMetrics: [...new Set([...primary, ...complementary])],
+                complementarySuppressedMetrics: complementary,
+                smallCountThreshold:
+                  result.privacy?.smallCountThreshold ??
+                  this.runtimeConfig.maps.smallCountThreshold,
+              };
+            }),
           );
         },
         error: () => {
@@ -210,5 +273,11 @@ export class Maps {
     if (status.startsWith('ENVIADO')) return 'En revisión';
     if (status.startsWith('DEVUELTO')) return 'Devuelto';
     return 'Pendiente';
+  }
+
+  private reportMetric(
+    metric: TerritorialAnalyticsMetric,
+  ): NonNullable<Report['suppressedMetrics']>[number] {
+    return metric === 'attentions' ? 'total' : metric;
   }
 }

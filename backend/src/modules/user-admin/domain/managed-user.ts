@@ -33,6 +33,15 @@ export interface ManagedUserContext {
   updatedAt: Date;
 }
 
+export interface IdentityInvitationStatus {
+  status: 'PENDING' | 'EMAIL_CONFIRMED';
+  sentAt: Date | null;
+  emailConfirmedAt: Date | null;
+  lastAccessAt: Date | null;
+  /** Profile version used to make a later resend concurrency-safe. */
+  profileUpdatedAt?: Date;
+}
+
 export interface LinkExternalIdentityInput {
   userId: string;
   issuer: string;

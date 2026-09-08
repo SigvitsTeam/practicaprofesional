@@ -30,6 +30,7 @@ import {
   ManagedUserNotFoundError,
   ManagedUserRoleError,
   ManagedUserScopeError,
+  type IdentityInvitationStatus,
   type ManagedUser,
 } from '../domain/managed-user';
 import {
@@ -37,6 +38,7 @@ import {
   CreateManagedUserDto,
   LinkExternalIdentityDto,
   InviteManagedUserDto,
+  ResendManagedUserInvitationDto,
   UpdateManagedUserStatusDto,
 } from './managed-users.dto';
 
@@ -145,7 +147,37 @@ export class ManagedUsersController {
     );
   }
 
-  private async handle(operation: () => Promise<ManagedUser>): Promise<ManagedUser> {
+  @Get(':id/invitation-status')
+  @RequireAccess({
+    permission: 'admin:users:link',
+    dataLevel: DataLevel.Configuration,
+    scope: 'OWN',
+  })
+  invitationStatus(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentSubject() subject: AuthorizationSubject,
+  ): Promise<IdentityInvitationStatus> {
+    return this.handle(() => this.users.getInvitationStatus(id, subject));
+  }
+
+  @Post(':id/invitation/resend')
+  @RequireAccess({
+    permission: 'admin:users:link',
+    dataLevel: DataLevel.Configuration,
+    scope: 'OWN',
+  })
+  resendInvitation(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ResendManagedUserInvitationDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+    @Req() request: RequestWithContext,
+  ): Promise<IdentityInvitationStatus> {
+    return this.handle(() =>
+      this.users.resendInvitation(id, { ...body, requestId: request.requestId }, subject),
+    );
+  }
+
+  private async handle<T>(operation: () => Promise<T>): Promise<T> {
     try {
       return await operation();
     } catch (error: unknown) {

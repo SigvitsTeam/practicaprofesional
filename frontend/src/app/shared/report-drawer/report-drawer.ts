@@ -16,6 +16,7 @@ import { formatHondurasDateTime, formatHondurasMonth } from '../../core/honduras
 import { Report, ReportStatus } from '../../core/models';
 import { RoleContext } from '../../core/role-context';
 import { ItsCaptureApiService } from '../../core/its-capture-api.service';
+import { formatSuppressedCount } from '../../core/small-count';
 
 interface ReportHistoryItem {
   label: string;
@@ -96,15 +97,16 @@ export class ReportDrawer implements AfterViewInit {
     }
     checks.push({
       label: 'Observaciones abiertas',
-      detail: report.alerts
-        ? `${report.alerts} requieren seguimiento`
-        : 'Sin observaciones abiertas',
-      warning: report.alerts > 0,
+      detail:
+        report.alerts || report.suppressedMetrics?.includes('alerts')
+          ? `${this.metricDisplay('alerts')} requieren seguimiento`
+          : 'Sin observaciones abiertas',
+      warning: report.alerts > 0 || Boolean(report.suppressedMetrics?.includes('alerts')),
     });
     if (report.caseBreakdownAvailable) {
       checks.push({
         label: 'Desglose de diagnósticos',
-        detail: `${report.newCases} nuevos · ${report.controls} controles`,
+        detail: `${this.metricDisplay('newCases')} nuevos · ${this.metricDisplay('controls')} controles`,
         warning: false,
       });
     }
@@ -146,6 +148,16 @@ export class ReportDrawer implements AfterViewInit {
         .replace(/[\u0300-\u036f]/g, '')
         .toLowerCase()
         .replace(/\s/g, '-')
+    );
+  }
+
+  metricDisplay(metric: 'total' | 'newCases' | 'controls' | 'alerts') {
+    const report = this.report();
+    if (report.complementarySuppressedMetrics?.includes(metric)) return 'Protegido';
+    return formatSuppressedCount(
+      report[metric],
+      report.smallCountThreshold ?? 5,
+      Boolean(report.suppressedMetrics?.includes(metric)),
     );
   }
 

@@ -857,6 +857,33 @@
   color: var(--red);
   overflow-wrap: anywhere;
 }
+.invitation-verification {
+  min-width: 165px;
+  margin-top: 7px;
+}
+.invitation-state {
+  display: inline-block;
+  padding: 3px 7px;
+  border-radius: 10px;
+  color: #526975;
+  background: #edf2f4;
+  font-size: 0.58rem;
+  font-weight: 800;
+}
+.invitation-state.pending {
+  color: #8a5a05;
+  background: #fff3d6;
+}
+.invitation-state.accepted {
+  color: #087253;
+  background: #e0f4ed;
+}
+.user-admin td .invitation-status-error {
+  max-width: 240px;
+  color: var(--red);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
 .user-actions button {
   border: 0;
   color: var(--primary);
@@ -864,6 +891,22 @@
   font-size: 0.68rem;
   font-weight: 750;
   cursor: pointer;
+}
+.user-actions button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+:host-context([data-theme='dark']) .invitation-state.unverified {
+  color: #b2c3c9;
+  background: #203943;
+}
+:host-context([data-theme='dark']) .invitation-state.pending {
+  color: #ffd88b;
+  background: #47391d;
+}
+:host-context([data-theme='dark']) .invitation-state.accepted {
+  color: #80dfc1;
+  background: #173b36;
 }
 @media (max-width: 650px) {
   .creation-form {

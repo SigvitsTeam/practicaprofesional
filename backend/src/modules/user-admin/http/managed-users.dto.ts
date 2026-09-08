@@ -61,3 +61,8 @@ export class InviteManagedUserDto {
   @IsISO8601() expectedUpdatedAt!: string;
   @IsString() @MinLength(10) @MaxLength(500) reason!: string;
 }
+
+export class ResendManagedUserInvitationDto {
+  @IsISO8601() expectedUpdatedAt!: string;
+  @IsString() @MinLength(10) @MaxLength(500) reason!: string;
+}

@@ -1,27 +1,19 @@
 <article class="panel map-canvas" aria-label="Mapa geográfico de indicadores ITS">
   <div class="map-navigation">
     @if (level() === 'national') {
-      <span>Honduras · información agregada por región</span>
-      @if (allowRegional()) {
-        <button type="button" (click)="levelChange.emit('regional')">Ver nivel regional →</button>
-      }
+      <span>Honduras · seleccione una región para ver sus municipios</span>
     }
     @if (level() === 'regional') {
       @if (allowNational()) {
         <button type="button" (click)="levelChange.emit('national')">← Honduras</button>
       }
-      <span>Región autorizada · datos por municipio</span>
-      @if (allowMunicipal()) {
-        <button type="button" (click)="levelChange.emit('municipal')">
-          Ver establecimientos →
-        </button>
-      }
+      <span>{{ regionLabel() }} · seleccione un municipio para ver sus establecimientos</span>
     }
     @if (level() === 'municipal') {
       @if (allowRegional()) {
         <button type="button" (click)="levelChange.emit('regional')">← Nivel regional</button>
       }
-      <span>Municipio autorizado · datos agregados por establecimiento</span>
+      <span>{{ municipalityLabel() }} · datos agregados por establecimiento</span>
     }
   </div>
 

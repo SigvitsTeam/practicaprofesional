@@ -3,6 +3,7 @@ import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { TerritorialAnalyticsRepository } from '../application/ports/territorial-analytics.repository';
 import type {
   TerritorialAnalyticsLevel,
+  TerritorialAnalyticsQuery,
   TerritorialAnalyticsRow,
   TerritorialAnalyticsScope,
 } from '../domain/territorial-analytics';
@@ -72,13 +73,12 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
     super();
   }
 
-  async list(input: {
-    level: TerritorialAnalyticsLevel;
-    year: number;
-    month: number;
-    scope: TerritorialAnalyticsScope;
-  }): Promise<readonly TerritorialAnalyticsRow[]> {
-    const entities = await this.entities(input.level, input.scope);
+  async list(
+    input: TerritorialAnalyticsQuery & {
+      scope: TerritorialAnalyticsScope;
+    },
+  ): Promise<readonly TerritorialAnalyticsRow[]> {
+    const entities = await this.entities(input);
     if (!entities.length) return [];
     const period = await this.prisma.client.reportingPeriod.findFirst({
       where: { type: 'MENSUAL', year: input.year, month: input.month },
@@ -149,11 +149,11 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
   }
 
   private async entities(
-    level: TerritorialAnalyticsLevel,
-    scope: TerritorialAnalyticsScope,
+    input: TerritorialAnalyticsQuery & { scope: TerritorialAnalyticsScope },
   ): Promise<
     {
       id: string;
+      parentId: string;
       code: string;
       name: string;
       latitude?: number;
@@ -161,36 +161,47 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
       coordinatesValidated?: boolean;
     }[]
   > {
+    const { level, scope } = input;
     if (level === 'REGION') {
       const regions = await this.prisma.client.region.findMany({
         where: { active: true, ...(scope.national ? {} : { id: { in: [...scope.regionIds] } }) },
         select: { id: true, code: true, name: true },
         orderBy: { name: 'asc' },
       });
-      return this.withDerivedCentroids(level, regions);
+      return this.withDerivedCentroids(
+        level,
+        regions.map((region) => ({ ...region, parentId: 'HONDURAS' })),
+      );
     }
     if (level === 'MUNICIPIO') {
       const municipalities = await this.prisma.client.municipality.findMany({
         where: {
           active: true,
+          ...(input.regionId ? { regionId: input.regionId } : {}),
           ...(scope.national ? {} : { id: { in: [...scope.municipalityIds] } }),
         },
-        select: { id: true, officialCode: true, name: true },
+        select: { id: true, regionId: true, officialCode: true, name: true },
         orderBy: { name: 'asc' },
       });
       return this.withDerivedCentroids(
         level,
-        municipalities.map(({ officialCode, ...row }) => ({ ...row, code: officialCode })),
+        municipalities.map(({ officialCode, regionId, ...row }) => ({
+          ...row,
+          parentId: regionId,
+          code: officialCode,
+        })),
       );
     }
     return this.prisma.client.healthFacility
       .findMany({
         where: {
           active: true,
+          ...(input.municipalityId ? { municipalityId: input.municipalityId } : {}),
           ...(scope.national ? {} : { id: { in: [...scope.facilityIds] } }),
         },
         select: {
           id: true,
+          municipalityId: true,
           code: true,
           name: true,
           latitude: true,
@@ -200,8 +211,9 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
         orderBy: { name: 'asc' },
       })
       .then((rows) =>
-        rows.map(({ latitude, longitude, ...row }) => ({
+        rows.map(({ latitude, longitude, municipalityId, ...row }) => ({
           ...row,
+          parentId: municipalityId,
           latitude: latitude === null ? undefined : Number(latitude),
           longitude: longitude === null ? undefined : Number(longitude),
         })),

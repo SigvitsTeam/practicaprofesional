@@ -15,7 +15,7 @@ import {
 import type { LayerGroup, Map as LeafletMap, TileLayer, LatLngTuple } from 'leaflet';
 import { Report } from '../../core/models';
 import { RuntimeConfigService } from '../../core/runtime-config.service';
-import { formatSmallCount } from '../../core/small-count';
+import { formatSmallCount, formatSuppressedCount } from '../../core/small-count';
 
 export type MapMetric = 'total' | 'newCases' | 'controls' | 'alerts';
 export type MapLevel = 'municipal' | 'regional' | 'national';
@@ -31,8 +31,9 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
   readonly metric = input.required<MapMetric>();
   readonly allowNational = input(false);
   readonly allowRegional = input(true);
-  readonly allowMunicipal = input(true);
   readonly entityLabel = input('Establecimientos');
+  readonly regionLabel = input('Región autorizada');
+  readonly municipalityLabel = input('Municipio autorizado');
   readonly levelChange = output<MapLevel>();
   readonly reportSelected = output<Report>();
   private readonly platformId = inject(PLATFORM_ID);
@@ -78,6 +79,14 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   metricDisplay(report: Report) {
+    const suppressed = Boolean(report.suppressedMetrics?.includes(this.metric()));
+    if (report.complementarySuppressedMetrics?.includes(this.metric())) return 'Protegido';
+    if (suppressed)
+      return formatSuppressedCount(
+        this.metricValue(report),
+        report.smallCountThreshold ?? this.runtimeConfig.maps.smallCountThreshold,
+        true,
+      );
     return formatSmallCount(this.metricValue(report), this.runtimeConfig.maps.smallCountThreshold);
   }
 

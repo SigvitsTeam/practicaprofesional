@@ -34,13 +34,24 @@ describe('Email action parsing', () => {
     });
     expect(result.cleanUrl).not.toContain('token_hash');
   });
+  it.each(['invite', 'recovery'])(
+    'ignores a bare %s landing marker without provider credentials or errors',
+    (action) => {
+      expect(readEmailAction(new URL(`https://sigvits.example/?auth=${action}`))).toEqual({
+        input: { kind: 'none' },
+        cleanUrl: `/?auth=${action}`,
+      });
+      expect(
+        readEmailAction(new URL(`https://sigvits.example/?auth=${action}&type=${action}`)).input,
+      ).toEqual({ kind: 'none' });
+    },
+  );
   it.each([
     '#access_token=qa&expires_in=3600&token_type=bearer&type=signup',
     '#access_token=qa&expires_in=0&token_type=bearer&type=recovery',
     '#access_token=qa&expires_in=NaN&token_type=bearer&type=recovery',
     '#access_token=qa&expires_in=3600&type=recovery',
     '?access_token=qa&expires_in=3600&token_type=bearer&type=recovery',
-    '?auth=invite',
     '?code=unsupported-pkce',
     '?token_hash=short&type=invite',
     '#error=access_denied&error_code=otp_expired&error_description=untrusted-message',

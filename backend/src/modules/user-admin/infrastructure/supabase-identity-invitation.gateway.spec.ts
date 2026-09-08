@@ -38,6 +38,86 @@ describe('SupabaseIdentityInvitationGateway', () => {
     );
   });
 
+  it('queries the linked subject and returns only minimal accepted-state timestamps', async () => {
+    const request = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'provider-user-123',
+          email: 'must-not-leave-the-gateway@example.org',
+          confirmation_sent_at: '2026-09-03T12:00:00.000Z',
+          invited_at: '2026-09-03T11:59:00.000Z',
+          email_confirmed_at: '2026-09-03T12:05:00.000Z',
+          last_sign_in_at: '2026-09-04T08:30:00.000Z',
+          user_metadata: { private: 'not-returned' },
+        }),
+        { status: 200 },
+      ),
+    );
+    const result = await new SupabaseIdentityInvitationGateway(config).getStatus(
+      'provider-user-123',
+    );
+    expect(result).toEqual({
+      status: 'EMAIL_CONFIRMED',
+      sentAt: new Date('2026-09-03T12:00:00.000Z'),
+      emailConfirmedAt: new Date('2026-09-03T12:05:00.000Z'),
+      lastAccessAt: new Date('2026-09-04T08:30:00.000Z'),
+    });
+    expect(result).not.toHaveProperty('email');
+    expect(result).not.toHaveProperty('subject');
+    expect(request).toHaveBeenCalledWith(
+      'https://project.supabase.co/auth/v1/admin/users/provider-user-123',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          apikey: 'server-only-secret',
+          authorization: 'Bearer server-only-secret',
+        }),
+      }),
+    );
+  });
+
+  it('reports an unconfirmed linked identity as pending', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          id: 'provider-user-123',
+          invited_at: '2026-09-03T11:59:00.000Z',
+          email_confirmed_at: null,
+          last_sign_in_at: null,
+        }),
+        { status: 200 },
+      ),
+    );
+    await expect(
+      new SupabaseIdentityInvitationGateway(config).getStatus('provider-user-123'),
+    ).resolves.toEqual({
+      status: 'PENDING',
+      sentAt: new Date('2026-09-03T11:59:00.000Z'),
+      emailConfirmedAt: null,
+      lastAccessAt: null,
+    });
+  });
+
+  it('rejects a provider response for a different subject', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'different-user' }), { status: 200 }));
+    await expect(
+      new SupabaseIdentityInvitationGateway(config).getStatus('provider-user-123'),
+    ).rejects.toThrow('identidad inválida');
+  });
+
+  it('does not expose provider details when status lookup fails', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({ message: 'private-provider-detail' }), { status: 404 }),
+      );
+    await expect(
+      new SupabaseIdentityInvitationGateway(config).getStatus('provider-user-123'),
+    ).rejects.toThrow('no encontró');
+  });
+
   it('fails closed when the server secret is absent', async () => {
     const request = jest.spyOn(global, 'fetch');
     await expect(

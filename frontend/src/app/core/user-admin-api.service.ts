@@ -21,6 +21,14 @@ export interface ManagedUserRecord {
   updatedAt: string;
 }
 
+export interface InvitationVerificationRecord {
+  status: 'PENDING' | 'EMAIL_CONFIRMED';
+  sentAt: string | null;
+  emailConfirmedAt: string | null;
+  lastAccessAt: string | null;
+  profileUpdatedAt?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class UserAdminApiService {
   private readonly http = inject(HttpClient);
@@ -80,5 +88,16 @@ export class UserAdminApiService {
   }
   invite(userId: string, input: { activate: boolean; expectedUpdatedAt: string; reason: string }) {
     return this.http.post<ManagedUserRecord>(`${this.endpoint}/${userId}/invitation`, input);
+  }
+  getInvitationStatus(userId: string) {
+    return this.http.get<InvitationVerificationRecord>(
+      `${this.endpoint}/${userId}/invitation-status`,
+    );
+  }
+  resendInvitation(userId: string, input: { expectedUpdatedAt: string; reason: string }) {
+    return this.http.post<InvitationVerificationRecord>(
+      `${this.endpoint}/${userId}/invitation/resend`,
+      input,
+    );
   }
 }

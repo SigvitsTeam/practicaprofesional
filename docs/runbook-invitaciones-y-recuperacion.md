@@ -79,16 +79,27 @@ contraseñas, enlaces completos de acceso ni datos personales a la evidencia.
 5. Verificar que aparece la dirección correcta del destinatario. Definir y confirmar una
    contraseña nueva. La aplicación vuelve al acceso mediante el botón correspondiente, sin
    iniciar una sesión institucional automáticamente.
-6. Iniciar sesión y verificar rol, alcance y denegaciones. Si el administrador dejó el perfil
+6. Volver a Administración → Usuarios y pulsar **Consultar confirmación**. `PENDING` significa
+   que Supabase aún no registra la confirmación del enlace; `EMAIL_CONFIRMED` significa que el proveedor
+   registró `email_confirmed_at`. Este estado no prueba por sí solo que se definió la contraseña
+   ni que el usuario superó la autorización institucional; eso se confirma con el inicio de sesión.
+   **Reenviar invitación** sólo aparece después de consultar un estado pendiente, exige motivo,
+   conserva el mismo identificador externo y aplica una pausa de un minuto. Tras reenviar,
+   consultar de nuevo antes de solicitar otro correo.
+7. Iniciar sesión y verificar rol, alcance y denegaciones. Si el administrador dejó el perfil
    inactivo, no debe poder entrar a la información institucional aunque el correo esté confirmado.
-7. Cerrar sesión. Escribir el correo en el login y utilizar **¿Olvidaste tu contraseña?**.
+8. Cerrar sesión. Escribir el correo en el login y utilizar **¿Olvidaste tu contraseña?**.
    El mensaje de solicitud es genérico para no revelar si una cuenta está registrada.
-8. Recibir y abrir ese segundo enlace, cambiar la contraseña y comprobar que la anterior ya no
+9. Recibir y abrir ese segundo enlace, cambiar la contraseña y comprobar que la anterior ya no
    permite iniciar una sesión nueva. Verificar rechazo de enlaces vencidos o reutilizados.
 
 Los enlaces se eliminan de la dirección del navegador y sus tokens se conservan únicamente en
-memoria durante el cambio; recargar la página pierde ese estado. Al terminar se intenta cerrar
-la sesión de Auth de ese enlace. La validación real de tokens sigue a cargo de Supabase.
+memoria durante el cambio; recargar la página pierde ese estado. Al terminar se solicita a
+Supabase la revocación global de las sesiones renovables. Si la contraseña se guardó pero Auth no
+confirma esa revocación, la aplicación finaliza el formulario sin reenviar la contraseña y muestra
+una advertencia segura. Los JWT ya emitidos pueden conservar validez hasta su vencimiento; probar
+la política de sesiones y mantener una expiración corta. La validación real de tokens sigue a cargo
+de Supabase.
 
 Si Supabase ya creó una identidad pero falló la vinculación local, no borrar usuarios ni crear
 duplicados: revisar los registros y usar la vinculación administrativa con el identificador

@@ -50,6 +50,16 @@ describe('Password setup view', () => {
       'Enlace vencido',
     );
   });
+  it('shows a revocation warning after completion without reopening the password form', () => {
+    access.status.set('complete');
+    access.error.set('La contraseña se guardó, pero no se confirmó el cierre de sesiones.');
+    const fixture = TestBed.createComponent(PasswordSetup);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('form')).toBeNull();
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain('contraseña se guardó');
+  });
   it('keeps the user on the form while saving', () => {
     access.status.set('saving');
     const fixture = TestBed.createComponent(PasswordSetup);

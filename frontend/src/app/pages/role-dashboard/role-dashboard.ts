@@ -56,13 +56,13 @@ export class RoleDashboard {
       },
       {
         label: 'Atenciones reportadas',
-        value: String(rows.reduce((sum, row) => sum + row.attentions, 0)),
+        value: this.aggregateDisplay(rows, 'attentions'),
         detail: 'Versiones ITS 2 vigentes',
         tone: 'blue',
       },
       {
         label: 'Alertas abiertas',
-        value: String(rows.reduce((sum, row) => sum + row.alerts, 0)),
+        value: this.aggregateDisplay(rows, 'alerts'),
         detail: 'Observaciones que requieren seguimiento',
         tone: 'amber',
       },
@@ -74,7 +74,8 @@ export class RoleDashboard {
     const rows = this.rows();
     const missing = rows.filter((row) => row.status === 'SIN_REPORTE');
     const returned = rows.filter((row) => row.status.startsWith('DEVUELTO'));
-    const alerts = rows.reduce((sum, row) => sum + row.alerts, 0);
+    const alerts = rows.reduce((sum, row) => sum + (row.alerts ?? 0), 0);
+    const alertsSuppressed = rows.some((row) => row.suppressedMetrics?.includes('alerts'));
     const tasks: RoleTask[] = [];
     const facilityLevel = this.levelFor(this.role()) === 'ESTABLECIMIENTO';
     if (missing.length)
@@ -91,9 +92,11 @@ export class RoleDashboard {
         status: 'Corrección',
         target: facilityLevel ? 'Reporte ITS 2' : 'Bandeja de revisión',
       });
-    if (alerts)
+    if (alerts || alertsSuppressed)
       tasks.push({
-        title: `${alerts} ${alerts === 1 ? 'observación abierta' : 'observaciones abiertas'}`,
+        title: alertsSuppressed
+          ? 'Hay observaciones abiertas con conteo protegido'
+          : `${alerts} ${alerts === 1 ? 'observación abierta' : 'observaciones abiertas'}`,
         detail: 'Revise los reportes observados dentro de su alcance.',
         status: 'Revisión',
         target: facilityLevel ? 'Reporte ITS 2' : 'Bandeja de revisión',
@@ -167,5 +170,13 @@ export class RoleDashboard {
       .map((row) => row.name)
       .join(', ');
     return rows.length > 3 ? `${names} y ${rows.length - 3} más.` : names;
+  }
+
+  private aggregateDisplay(
+    rows: TerritorialAnalyticsResponse['rows'],
+    metric: 'attentions' | 'alerts',
+  ): string {
+    if (rows.some((row) => row.suppressedMetrics?.includes(metric))) return 'Protegido';
+    return String(rows.reduce((sum, row) => sum + (row[metric] ?? 0), 0));
   }
 }

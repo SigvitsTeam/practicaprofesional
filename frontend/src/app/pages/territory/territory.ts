@@ -12,12 +12,20 @@ import { forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RoleContext } from '../../core/role-context';
-import { formatHondurasDate, hondurasTodayIso } from '../../core/honduras-date';
+import {
+  formatHondurasDate,
+  formatHondurasDateTime,
+  hondurasTodayIso,
+} from '../../core/honduras-date';
 import {
   TerritorialApiService,
   type TerritorialAuditEventRecord,
 } from '../../core/territorial-api.service';
-import { ManagedUserRecord, UserAdminApiService } from '../../core/user-admin-api.service';
+import {
+  ManagedUserRecord,
+  UserAdminApiService,
+  type InvitationVerificationRecord,
+} from '../../core/user-admin-api.service';
 import {
   USER_SCOPE_LABELS,
   USER_TARGET_LABELS,
@@ -109,6 +117,10 @@ export class Territory implements OnInit {
   protected identityUser: ManagedUserRecord | null = null;
   protected invitationUser: ManagedUserRecord | null = null;
   protected readonly invitationError = signal('');
+  protected readonly invitationStatuses = signal<Record<string, InvitationVerificationRecord>>({});
+  protected readonly invitationStatusErrors = signal<Record<string, string>>({});
+  protected readonly checkingInvitationId = signal('');
+  protected resendingInvitation = false;
   protected invitationForm = { activate: true, reason: '' };
   protected identityForm = { externalSubject: '', activate: true, reason: '' };
   protected userFormSubmitted = false;
@@ -417,14 +429,84 @@ export class Territory implements OnInit {
   }
   protected openInvitation(user: ManagedUserRecord) {
     this.invitationError.set('');
+    this.resendingInvitation = false;
     this.invitationUser = user;
     this.invitationForm = { activate: true, reason: '' };
   }
+  protected openInvitationResend(user: ManagedUserRecord) {
+    if (this.invitationStatuses()[user.id]?.status !== 'PENDING') return;
+    this.invitationError.set('');
+    this.resendingInvitation = true;
+    this.invitationUser = user;
+    this.invitationForm = { activate: user.active, reason: '' };
+  }
+  protected checkInvitationStatus(user: ManagedUserRecord) {
+    if (!user.hasExternalIdentity || this.checkingInvitationId()) return;
+    this.checkingInvitationId.set(user.id);
+    this.clearInvitationStatus(user.id);
+    this.invitationStatusErrors.update((errors) => ({ ...errors, [user.id]: '' }));
+    this.userApi
+      .getInvitationStatus(user.id)
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.checkingInvitationId.set('')),
+      )
+      .subscribe({
+        next: (status) => {
+          this.updateInvitationProfileVersion(user.id, status.profileUpdatedAt);
+          this.invitationStatuses.update((statuses) => ({
+            ...statuses,
+            [user.id]: status,
+          }));
+        },
+        error: (error) =>
+          this.invitationStatusErrors.update((errors) => ({
+            ...errors,
+            [user.id]:
+              error.error?.message ?? 'No fue posible consultar la confirmación en Supabase.',
+          })),
+      });
+  }
   protected sendInvitation() {
     const user = this.invitationUser;
-    if (!user || this.loading || this.invitationForm.reason.trim().length < 10) return;
+    if (
+      !user ||
+      this.loading ||
+      this.invitationForm.reason.trim().length < 10 ||
+      (this.resendingInvitation && this.invitationStatuses()[user.id]?.status !== 'PENDING')
+    )
+      return;
     this.invitationError.set('');
     this.loading = true;
+    if (this.resendingInvitation) {
+      this.userApi
+        .resendInvitation(user.id, {
+          expectedUpdatedAt: user.updatedAt,
+          reason: this.invitationForm.reason,
+        })
+        .pipe(
+          takeUntilDestroyed(this.destroyRef),
+          finalize(() => (this.loading = false)),
+        )
+        .subscribe({
+          next: (status) => {
+            this.updateInvitationProfileVersion(user.id, status.profileUpdatedAt);
+            this.clearInvitationStatus(user.id);
+            this.invitationUser = null;
+            this.resendingInvitation = false;
+            this.notify.emit(
+              `Supabase aceptó el reenvío para “${user.email}”. Verifica el estado antes de solicitar otro correo.`,
+            );
+          },
+          error: (error) => {
+            this.clearInvitationStatus(user.id);
+            this.invitationError.set(
+              `${error.error?.message ?? 'No fue posible confirmar el resultado del reenvío.'} Cierre este diálogo y consulte de nuevo el estado antes de intentar otro correo.`,
+            );
+          },
+        });
+      return;
+    }
     this.userApi
       .invite(user.id, {
         activate: this.invitationForm.activate,
@@ -438,6 +520,7 @@ export class Territory implements OnInit {
       .subscribe({
         next: (updated) => {
           this.users = this.users.map((item) => (item.id === updated.id ? updated : item));
+          this.clearInvitationStatus(updated.id);
           this.invitationUser = null;
           this.notify.emit(
             `Supabase aceptó la invitación para “${updated.email}”. El destinatario debe abrir el correo y establecer su contraseña.`,
@@ -732,6 +815,27 @@ export class Territory implements OnInit {
 
   protected formatDate(value: string) {
     return formatHondurasDate(value);
+  }
+
+  protected formatDateTime(value: string) {
+    return formatHondurasDateTime(value);
+  }
+
+  private clearInvitationStatus(userId: string) {
+    this.invitationStatuses.update((statuses) => {
+      const next = { ...statuses };
+      delete next[userId];
+      return next;
+    });
+  }
+
+  private updateInvitationProfileVersion(userId: string, profileUpdatedAt?: string) {
+    if (!profileUpdatedAt) return;
+    this.users = this.users.map((user) =>
+      user.id === userId ? { ...user, updatedAt: profileUpdatedAt } : user,
+    );
+    if (this.invitationUser?.id === userId)
+      this.invitationUser = { ...this.invitationUser, updatedAt: profileUpdatedAt };
   }
 
   selectTab(tab: TerritoryTab) {
