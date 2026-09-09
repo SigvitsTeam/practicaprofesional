@@ -341,7 +341,7 @@ describe('App', () => {
     expect(fixture.componentInstance.profileReady()).toBe(false);
   });
 
-  it('should let only the global superadmin manage regions, municipalities and establishments', async () => {
+  it('should scope territory administration to global and regional superadmins', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('superadmin');
     fixture.componentInstance.navigate('Administración');
@@ -363,7 +363,11 @@ describe('App', () => {
     fixture.componentInstance.changeRole('regional-superadmin');
     fixture.componentInstance.navigate('Administración');
     fixture.detectChanges();
-    expect(compiled.querySelector('.global-territory-management')).toBeNull();
+    expect(compiled.querySelector('.global-territory-management')).toBeTruthy();
+    expect(compiled.textContent).toContain('Municipios de la región');
+    expect(compiled.querySelector('[name="regionSearch"]')).toBeTruthy();
+    expect(compiled.querySelector('[name="municipalitySearch"]')).toBeTruthy();
+    expect(compiled.textContent).not.toContain('＋ Nueva región');
     expect(compiled.querySelector('.facility-admin')).toBeTruthy();
   });
 

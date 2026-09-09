@@ -14,16 +14,224 @@
   </div>
 </section>
 
-<section class="panel user-admin" aria-label="Administración de usuarios">
+<section class="admin-hub" aria-labelledby="admin-hub-title">
+  <div class="admin-hub-heading">
+    <div>
+      <span class="eyebrow">CENTRO DE ADMINISTRACIÓN</span>
+      <h1 id="admin-hub-title">Organice su gestión institucional</h1>
+      <p>
+        Acceda a un solo catálogo a la vez y encuentre rápidamente regiones, municipios,
+        establecimientos o usuarios dentro de su alcance autorizado.
+      </p>
+    </div>
+    <div class="admin-hub-meta">
+      <span class="admin-hub-meta-label">Alcance activo</span>
+      <strong>{{
+        globalScope ? 'Nacional' : regionalScope ? 'Región asignada' : 'Consulta autorizada'
+      }}</strong>
+      <small>{{ regions.length }} regiones · {{ municipalities.length }} municipios</small>
+    </div>
+  </div>
+  <nav class="admin-hub-nav" aria-label="Módulos de administración">
+    @for (section of adminSectionOptions; track section.id) {
+      @if (section.id !== 'facilities' || globalScope || regionalScope) {
+        <button
+          type="button"
+          [class.selected]="activeAdminSection === section.id"
+          [attr.aria-pressed]="activeAdminSection === section.id"
+          (click)="setAdminSection(section.id)"
+        >
+          <span>{{ section.label }}</span>
+          <small>{{ section.description }}</small>
+          @if (adminSectionCount(section.id) !== null) {
+            <b>{{ adminSectionCount(section.id) }}</b>
+          }
+        </button>
+      }
+    }
+  </nav>
+</section>
+
+<section
+  class="admin-overview"
+  [hidden]="activeAdminSection !== 'overview'"
+  aria-label="Resumen de administración"
+>
+  <div class="admin-overview-kpis">
+    <button type="button" (click)="setAdminSection('territories')">
+      <span class="admin-kpi-icon">⌖</span>
+      <span
+        ><small>Territorios</small
+        ><strong>{{ regions.length + municipalities.length }}</strong></span
+      >
+      <em>{{ activeRegionCount }} regiones activas</em>
+    </button>
+    <button
+      type="button"
+      (click)="setAdminSection('facilities')"
+      [disabled]="!globalScope && !regionalScope"
+    >
+      <span class="admin-kpi-icon">＋</span>
+      <span
+        ><small>Establecimientos</small><strong>{{ facilities.length }}</strong></span
+      >
+      <em>{{ activeFacilityCount }} activos</em>
+    </button>
+    <button type="button" (click)="setAdminSection('users')">
+      <span class="admin-kpi-icon">◎</span>
+      <span
+        ><small>Usuarios</small><strong>{{ users.length }}</strong></span
+      >
+      <em>{{ pendingIdentityCount }} pendientes de identidad</em>
+    </button>
+  </div>
+  <div class="admin-overview-grid">
+    <article class="admin-overview-card admin-overview-actions">
+      <div>
+        <span class="eyebrow">ACCIONES RÁPIDAS</span>
+        <h2>¿Qué necesitas administrar?</h2>
+        <p>Abra directamente el formulario correspondiente sin recorrer todo el catálogo.</p>
+      </div>
+      <div class="quick-action-list">
+        @if (globalScope) {
+          <button type="button" (click)="openCreate('region')">
+            <b>＋</b
+            ><span><strong>Nueva región</strong><small>Agregar una región sanitaria</small></span>
+          </button>
+        }
+        @if (globalScope || regionalScope) {
+          <button type="button" (click)="openCreate('municipality')">
+            <b>＋</b
+            ><span><strong>Nuevo municipio</strong><small>Vincularlo a una región</small></span>
+          </button>
+        }
+        @if (globalScope || regionalScope) {
+          <button type="button" (click)="openCreate('establishment')">
+            <b>＋</b
+            ><span
+              ><strong>Nuevo establecimiento</strong
+              ><small>Registrarlo en un municipio</small></span
+            >
+          </button>
+        }
+        @if (globalScope || regionalScope) {
+          <button type="button" (click)="openUserCreate()">
+            <b>＋</b><span><strong>Nuevo usuario</strong><small>Asignar rol y alcance</small></span>
+          </button>
+        }
+      </div>
+    </article>
+    <article class="admin-overview-card admin-overview-status">
+      <div>
+        <span class="eyebrow">CONTROL OPERATIVO</span>
+        <h2>Estado del catálogo</h2>
+      </div>
+      <dl>
+        <div>
+          <dt>Municipios activos</dt>
+          <dd>{{ activeMunicipalityCount }} / {{ municipalities.length }}</dd>
+        </div>
+        <div>
+          <dt>Establecimientos activos</dt>
+          <dd>{{ activeFacilityCount }} / {{ facilities.length }}</dd>
+        </div>
+        <div>
+          <dt>Usuarios con identidad</dt>
+          <dd>{{ users.length - pendingIdentityCount }} / {{ users.length }}</dd>
+        </div>
+      </dl>
+      <p class="admin-overview-note">
+        Los filtros trabajan únicamente sobre los datos devueltos por el alcance autorizado.
+      </p>
+    </article>
+  </div>
+</section>
+
+<section
+  class="panel user-admin"
+  [hidden]="activeAdminSection !== 'users'"
+  aria-label="Administración de usuarios"
+>
   <div class="user-admin-heading">
     <div>
       <span class="eyebrow">ACCESO INSTITUCIONAL</span>
       <h2>Usuarios y alcance</h2>
-      <p>Los perfiles nuevos permanecen inactivos hasta vincular su identidad externa.</p>
+      <p>Busque y filtre perfiles por identidad, rol, alcance o estado de acceso.</p>
     </div>
     <button class="btn primary" type="button" (click)="openUserCreate()" [disabled]="loading">
       ＋ Nuevo usuario
     </button>
+  </div>
+  <div class="user-admin-toolbar" aria-label="Filtros de usuarios">
+    <label class="user-search-field">
+      <span aria-hidden="true">⌕</span>
+      <input
+        type="search"
+        name="userSearch"
+        [(ngModel)]="userSearch"
+        (ngModelChange)="filterUsers()"
+        placeholder="Buscar por nombre, correo, rol o alcance…"
+        autocomplete="off"
+        aria-label="Buscar usuarios"
+      />
+    </label>
+    <label>
+      <span>Estado</span>
+      <select
+        name="userStatusFilter"
+        [(ngModel)]="userStatusFilter"
+        (ngModelChange)="filterUsers()"
+        aria-label="Filtrar por estado de acceso"
+      >
+        <option value="ALL">Todos los estados</option>
+        <option value="ACTIVE">Activos</option>
+        <option value="PENDING">Pendientes de identidad</option>
+        <option value="SUSPENDED">Suspendidos</option>
+      </select>
+    </label>
+    <label>
+      <span>Rol</span>
+      <select
+        name="userRoleFilter"
+        [(ngModel)]="userRoleFilter"
+        (ngModelChange)="filterUsers()"
+        aria-label="Filtrar por rol"
+      >
+        <option value="ALL">Todos los roles</option>
+        @for (role of userRoleFilterOptions; track role[0]) {
+          <option [value]="role[0]">{{ role[1] }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Alcance</span>
+      <select
+        name="userScopeFilter"
+        [(ngModel)]="userScopeFilter"
+        (ngModelChange)="filterUsers()"
+        aria-label="Filtrar por alcance"
+      >
+        <option value="ALL">Todos los alcances</option>
+        @for (scope of userScopeFilterOptions; track scope[0]) {
+          <option [value]="scope[0]">{{ scope[1] }}</option>
+        }
+      </select>
+    </label>
+    @if (userHasFilters) {
+      <button class="clear-user-filters" type="button" (click)="clearUserFilters()">Limpiar</button>
+    }
+  </div>
+  <div class="user-admin-summary" aria-live="polite">
+    <span>
+      <strong>{{ filteredUsers.length }}</strong>
+      {{ filteredUsers.length === 1 ? 'usuario visible' : 'usuarios visibles' }}
+      @if (userHasFilters) {
+        <small>de {{ users.length }} en el alcance actual</small>
+      }
+    </span>
+    @if (filteredUsers.length) {
+      <small>Mostrando {{ userPageStart }}–{{ userPageEnd }}</small>
+    }
   </div>
   <div class="table-wrap">
     <table>
@@ -37,7 +245,7 @@
         </tr>
       </thead>
       <tbody>
-        @for (user of users; track user.id) {
+        @for (user of visibleUsers; track user.id) {
           <tr>
             <td>
               <strong>{{ user.fullName }}</strong
@@ -121,12 +329,67 @@
           </tr>
         } @empty {
           <tr>
-            <td colspan="5">No hay usuarios visibles dentro del alcance actual.</td>
+            <td colspan="5">
+              {{
+                userHasFilters
+                  ? 'No hay usuarios que coincidan con los filtros seleccionados.'
+                  : 'No hay usuarios visibles dentro del alcance actual.'
+              }}
+            </td>
           </tr>
         }
       </tbody>
     </table>
   </div>
+  @if (userTotalPages > 1) {
+    <nav class="user-pagination" aria-label="Paginación de usuarios">
+      <span>Página {{ userPage }} de {{ userTotalPages }}</span>
+      <div>
+        <button
+          type="button"
+          (click)="goToUserPage(1)"
+          [disabled]="userPage === 1"
+          aria-label="Primera página"
+        >
+          «
+        </button>
+        <button
+          type="button"
+          (click)="goToUserPage(userPage - 1)"
+          [disabled]="userPage === 1"
+          aria-label="Página anterior"
+        >
+          ‹ Anterior
+        </button>
+        @for (page of userPageNumbers; track page) {
+          <button
+            type="button"
+            [class.selected]="userPage === page"
+            [attr.aria-current]="userPage === page ? 'page' : null"
+            (click)="goToUserPage(page)"
+          >
+            {{ page }}
+          </button>
+        }
+        <button
+          type="button"
+          (click)="goToUserPage(userPage + 1)"
+          [disabled]="userPage === userTotalPages"
+          aria-label="Página siguiente"
+        >
+          Siguiente ›
+        </button>
+        <button
+          type="button"
+          (click)="goToUserPage(userTotalPages)"
+          [disabled]="userPage === userTotalPages"
+          aria-label="Última página"
+        >
+          »
+        </button>
+      </div>
+    </nav>
+  }
 </section>
 
 @if (showUserForm) {
@@ -595,23 +858,45 @@
   </div>
 }
 
-@if (globalScope) {
+@if (globalScope || regionalScope) {
   <section
     class="global-territory-management"
-    aria-label="Gestión nacional de regiones y municipios"
+    [hidden]="activeAdminSection !== 'territories'"
+    [attr.aria-label]="
+      globalScope ? 'Gestión nacional de regiones y municipios' : 'Gestión regional de municipios'
+    "
   >
     <div class="global-management-heading">
       <div>
-        <span class="eyebrow">ESTRUCTURA NACIONAL</span>
-        <h2>Regiones y municipios</h2>
-        <p>El SuperAdmin puede crear, configurar, activar o desactivar territorios de Honduras.</p>
+        <span class="eyebrow">{{
+          globalScope ? 'ESTRUCTURA NACIONAL' : 'ESTRUCTURA REGIONAL'
+        }}</span>
+        <h2>{{ globalScope ? 'Regiones y municipios' : 'Municipios de la región' }}</h2>
+        <p>
+          {{
+            globalScope
+              ? 'El SuperAdmin puede crear, configurar, activar o desactivar territorios de Honduras.'
+              : 'Consulte y administre los municipios dentro de la región asignada.'
+          }}
+        </p>
       </div>
       <div>
-        <button class="btn secondary" type="button" (click)="openCreate('municipality')">
-          ＋ Nuevo municipio</button
-        ><button class="btn primary" type="button" (click)="openCreate('region')">
-          ＋ Nueva región
+        <button
+          class="btn tertiary"
+          type="button"
+          (click)="clearTerritoryFilters()"
+          [disabled]="!territoryHasFilters"
+        >
+          Limpiar filtros
         </button>
+        <button class="btn secondary" type="button" (click)="openCreate('municipality')">
+          ＋ Nuevo municipio
+        </button>
+        @if (globalScope) {
+          <button class="btn primary" type="button" (click)="openCreate('region')">
+            ＋ Nueva región
+          </button>
+        }
       </div>
     </div>
     <div class="global-territory-kpis">
@@ -638,7 +923,37 @@
           <h3>Catálogo regional</h3>
           <p>Regiones sanitarias y estado de sus municipios dependientes</p>
         </div>
-        <label>⌕<input placeholder="Buscar región o código" /></label>
+        <div class="catalog-tools">
+          <label aria-label="Buscar región o código"
+            >⌕<input
+              type="search"
+              name="regionSearch"
+              placeholder="Buscar región o código"
+              autocomplete="off"
+              [(ngModel)]="regionSearch"
+              (ngModelChange)="resetRegionPage()"
+          /></label>
+          <select
+            name="regionStatusFilter"
+            [(ngModel)]="regionStatusFilter"
+            (ngModelChange)="resetRegionPage()"
+            aria-label="Filtrar regiones por estado"
+          >
+            @for (status of statusFilterOptions; track status.value) {
+              <option [value]="status.value">{{ status.label }}</option>
+            }
+          </select>
+          <select
+            name="regionSort"
+            [(ngModel)]="regionSort"
+            (ngModelChange)="resetRegionPage()"
+            aria-label="Ordenar regiones"
+          >
+            @for (sort of catalogSortOptions; track sort.value) {
+              <option [value]="sort.value">{{ sort.label }}</option>
+            }
+          </select>
+        </div>
       </div>
       <div class="table-wrap">
         <table>
@@ -653,7 +968,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (region of regions; track region.code) {
+            @for (region of visibleRegions; track region.code) {
               <tr>
                 <td>
                   <strong>{{ region.name }}</strong
@@ -668,19 +983,69 @@
                   }}</span>
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    [attr.aria-label]="'Cambiar estado de ' + region.name"
-                    (click)="openTerritoryStatus(region, 'REGION')"
-                  >
-                    Cambiar estado
-                  </button>
+                  @if (globalScope) {
+                    <button
+                      type="button"
+                      [attr.aria-label]="'Cambiar estado de ' + region.name"
+                      (click)="openTerritoryStatus(region, 'REGION')"
+                    >
+                      Cambiar estado
+                    </button>
+                  } @else {
+                    <small class="catalog-readonly">Solo lectura</small>
+                  }
                 </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6">No se encontraron regiones para la búsqueda actual.</td>
               </tr>
             }
           </tbody>
         </table>
       </div>
+      <div class="catalog-result-summary" aria-live="polite">
+        <span
+          ><strong>{{ filteredRegions.length }}</strong>
+          {{ filteredRegions.length === 1 ? 'región encontrada' : 'regiones encontradas' }}</span
+        >
+        @if (filteredRegions.length) {
+          <small>Mostrando {{ regionPageStart }}–{{ regionPageEnd }}</small>
+        }
+      </div>
+      @if (regionTotalPages > 1) {
+        <nav class="catalog-pagination" aria-label="Paginación de regiones">
+          <span>Página {{ regionPage }} de {{ regionTotalPages }}</span>
+          <div>
+            <button
+              type="button"
+              (click)="goToRegionPage(regionPage - 1)"
+              [disabled]="regionPage === 1"
+              aria-label="Página anterior de regiones"
+            >
+              ‹
+            </button>
+            @for (page of regionPageNumbers; track page) {
+              <button
+                type="button"
+                [class.selected]="regionPage === page"
+                [attr.aria-current]="regionPage === page ? 'page' : null"
+                (click)="goToRegionPage(page)"
+              >
+                {{ page }}
+              </button>
+            }
+            <button
+              type="button"
+              (click)="goToRegionPage(regionPage + 1)"
+              [disabled]="regionPage === regionTotalPages"
+              aria-label="Página siguiente de regiones"
+            >
+              ›
+            </button>
+          </div>
+        </nav>
+      }
     </div>
     <div class="global-territory-table municipality-catalog">
       <div class="global-table-toolbar">
@@ -688,7 +1053,37 @@
           <h3>Catálogo municipal</h3>
           <p>Municipios dentro del alcance autorizado</p>
         </div>
-        <label>⌕<input placeholder="Buscar municipio o código" /></label>
+        <div class="catalog-tools">
+          <label aria-label="Buscar municipio o código"
+            >⌕<input
+              type="search"
+              name="municipalitySearch"
+              placeholder="Buscar municipio o código"
+              autocomplete="off"
+              [(ngModel)]="municipalitySearch"
+              (ngModelChange)="resetMunicipalityPage()"
+          /></label>
+          <select
+            name="municipalityStatusFilter"
+            [(ngModel)]="municipalityStatusFilter"
+            (ngModelChange)="resetMunicipalityPage()"
+            aria-label="Filtrar municipios por estado"
+          >
+            @for (status of statusFilterOptions; track status.value) {
+              <option [value]="status.value">{{ status.label }}</option>
+            }
+          </select>
+          <select
+            name="municipalitySort"
+            [(ngModel)]="municipalitySort"
+            (ngModelChange)="resetMunicipalityPage()"
+            aria-label="Ordenar municipios"
+          >
+            @for (sort of catalogSortOptions; track sort.value) {
+              <option [value]="sort.value">{{ sort.label }}</option>
+            }
+          </select>
+        </div>
       </div>
       <div class="table-wrap">
         <table>
@@ -703,7 +1098,7 @@
             </tr>
           </thead>
           <tbody>
-            @for (municipality of municipalities; track municipality.code) {
+            @for (municipality of visibleMunicipalities; track municipality.code) {
               <tr>
                 <td>
                   <strong>{{ municipality.name }}</strong
@@ -727,20 +1122,122 @@
                   </button>
                 </td>
               </tr>
+            } @empty {
+              <tr>
+                <td colspan="6">No se encontraron municipios para la búsqueda actual.</td>
+              </tr>
             }
           </tbody>
         </table>
       </div>
+      <div class="catalog-result-summary" aria-live="polite">
+        <span
+          ><strong>{{ filteredMunicipalities.length }}</strong>
+          {{
+            filteredMunicipalities.length === 1 ? 'municipio encontrado' : 'municipios encontrados'
+          }}</span
+        >
+        @if (filteredMunicipalities.length) {
+          <small>Mostrando {{ municipalityPageStart }}–{{ municipalityPageEnd }}</small>
+        }
+      </div>
+      @if (municipalityTotalPages > 1) {
+        <nav class="catalog-pagination" aria-label="Paginación de municipios">
+          <span>Página {{ municipalityPage }} de {{ municipalityTotalPages }}</span>
+          <div>
+            <button
+              type="button"
+              (click)="goToMunicipalityPage(municipalityPage - 1)"
+              [disabled]="municipalityPage === 1"
+              aria-label="Página anterior de municipios"
+            >
+              ‹
+            </button>
+            @for (page of municipalityPageNumbers; track page) {
+              <button
+                type="button"
+                [class.selected]="municipalityPage === page"
+                [attr.aria-current]="municipalityPage === page ? 'page' : null"
+                (click)="goToMunicipalityPage(page)"
+              >
+                {{ page }}
+              </button>
+            }
+            <button
+              type="button"
+              (click)="goToMunicipalityPage(municipalityPage + 1)"
+              [disabled]="municipalityPage === municipalityTotalPages"
+              aria-label="Página siguiente de municipios"
+            >
+              ›
+            </button>
+          </div>
+        </nav>
+      }
     </div>
   </section>
 }
 
 @if (globalScope || regionalScope) {
-  <section class="panel facility-admin" aria-label="Administración de establecimientos">
+  <section
+    class="panel facility-admin"
+    [hidden]="activeAdminSection !== 'facilities'"
+    aria-label="Administración de establecimientos"
+  >
     <div class="global-table-toolbar">
       <div>
         <h3>Catálogo de establecimientos</h3>
         <p>Estados operativos controlados dentro del alcance territorial autorizado</p>
+      </div>
+      <div class="catalog-tools">
+        <label aria-label="Buscar establecimiento, código o municipio"
+          >⌕<input
+            type="search"
+            name="facilitySearch"
+            placeholder="Buscar establecimiento, código o municipio"
+            autocomplete="off"
+            [(ngModel)]="facilitySearch"
+            (ngModelChange)="resetFacilityPage()"
+        /></label>
+        <select
+          name="facilityStatusFilter"
+          [(ngModel)]="facilityStatusFilter"
+          (ngModelChange)="resetFacilityPage()"
+          aria-label="Filtrar establecimientos por estado"
+        >
+          @for (status of statusFilterOptions; track status.value) {
+            <option [value]="status.value">{{ status.label }}</option>
+          }
+        </select>
+        <select
+          name="facilitySort"
+          [(ngModel)]="facilitySort"
+          (ngModelChange)="resetFacilityPage()"
+          aria-label="Ordenar establecimientos"
+        >
+          @for (sort of catalogSortOptions; track sort.value) {
+            <option [value]="sort.value">{{ sort.label }}</option>
+          }
+        </select>
+        <select
+          name="facilityTypeFilter"
+          [(ngModel)]="facilityTypeFilter"
+          (ngModelChange)="resetFacilityPage()"
+          aria-label="Filtrar establecimientos por tipo"
+        >
+          <option value="ALL">Todos los tipos</option>
+          @for (type of facilityTypeOptions; track type) {
+            <option [value]="type">{{ type }}</option>
+          }
+        </select>
+        <button
+          class="btn tertiary"
+          type="button"
+          (click)="clearFacilityFilters()"
+          [disabled]="!facilityHasFilters"
+        >
+          Limpiar
+        </button>
       </div>
     </div>
     <div class="table-wrap">
@@ -755,7 +1252,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (facility of facilities; track facility.id) {
+          @for (facility of visibleFacilities; track facility.id) {
             <tr>
               <td>
                 <strong>{{ facility.name }}</strong
@@ -780,16 +1277,68 @@
             </tr>
           } @empty {
             <tr>
-              <td colspan="5">No hay establecimientos visibles dentro del alcance actual.</td>
+              <td colspan="5">
+                {{
+                  facilityHasFilters
+                    ? 'No se encontraron establecimientos para la búsqueda actual.'
+                    : 'No hay establecimientos visibles dentro del alcance actual.'
+                }}
+              </td>
             </tr>
           }
         </tbody>
       </table>
     </div>
+    <div class="catalog-result-summary" aria-live="polite">
+      <span
+        ><strong>{{ filteredFacilities.length }}</strong>
+        {{
+          filteredFacilities.length === 1
+            ? 'establecimiento encontrado'
+            : 'establecimientos encontrados'
+        }}</span
+      >
+      @if (filteredFacilities.length) {
+        <small>Mostrando {{ facilityPageStart }}–{{ facilityPageEnd }}</small>
+      }
+    </div>
+    @if (facilityTotalPages > 1) {
+      <nav class="catalog-pagination" aria-label="Paginación de establecimientos">
+        <span>Página {{ facilityPage }} de {{ facilityTotalPages }}</span>
+        <div>
+          <button
+            type="button"
+            (click)="goToFacilityPage(facilityPage - 1)"
+            [disabled]="facilityPage === 1"
+            aria-label="Página anterior de establecimientos"
+          >
+            ‹
+          </button>
+          @for (page of facilityPageNumbers; track page) {
+            <button
+              type="button"
+              [class.selected]="facilityPage === page"
+              [attr.aria-current]="facilityPage === page ? 'page' : null"
+              (click)="goToFacilityPage(page)"
+            >
+              {{ page }}
+            </button>
+          }
+          <button
+            type="button"
+            (click)="goToFacilityPage(facilityPage + 1)"
+            [disabled]="facilityPage === facilityTotalPages"
+            aria-label="Página siguiente de establecimientos"
+          >
+            ›
+          </button>
+        </div>
+      </nav>
+    }
   </section>
 }
 
-<section class="territory-layout">
+<section class="territory-layout" [hidden]="activeAdminSection !== 'territories'">
   <aside class="panel tree">
     <div class="section-heading">
       <div><h2>Estructura territorial</h2></div>

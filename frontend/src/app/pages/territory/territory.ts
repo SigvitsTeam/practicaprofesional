@@ -35,6 +35,7 @@ import {
 
 type TerritoryTab = 'general' | 'geography' | 'responsibles' | 'history';
 type CreateTerritoryKind = 'region' | 'municipality' | 'establishment';
+type AdminSection = 'overview' | 'territories' | 'facilities' | 'users';
 
 @Component({
   selector: 'app-territory',
@@ -96,7 +97,47 @@ export class Territory implements OnInit {
     active: boolean;
     updatedAt: string;
   }[] = [];
+  protected activeAdminSection: AdminSection = 'overview';
+  protected readonly adminSectionOptions: {
+    id: AdminSection;
+    label: string;
+    description: string;
+  }[] = [
+    { id: 'overview', label: 'Resumen', description: 'Estado general y accesos rápidos' },
+    { id: 'territories', label: 'Territorios', description: 'Regiones y municipios' },
+    { id: 'facilities', label: 'Establecimientos', description: 'Catálogo de establecimientos' },
+    { id: 'users', label: 'Usuarios', description: 'Perfiles y accesos' },
+  ];
   protected selectedMunicipalityId = '';
+  protected regionSearch = '';
+  protected municipalitySearch = '';
+  protected facilitySearch = '';
+  protected regionStatusFilter = 'ALL';
+  protected municipalityStatusFilter = 'ALL';
+  protected facilityStatusFilter = 'ALL';
+  protected facilityTypeFilter = 'ALL';
+  protected regionSort = 'name';
+  protected municipalitySort = 'name';
+  protected facilitySort = 'name';
+  protected regionPage = 1;
+  protected municipalityPage = 1;
+  protected facilityPage = 1;
+  protected readonly catalogPageSize = 8;
+  protected readonly catalogSortOptions = [
+    { value: 'name', label: 'Nombre' },
+    { value: 'code', label: 'Código' },
+    { value: 'status', label: 'Estado' },
+    { value: 'updatedAt', label: 'Última actualización' },
+  ];
+  protected readonly statusFilterOptions = [
+    { value: 'ALL', label: 'Todos los estados' },
+    { value: 'ACTIVO', label: 'Activos' },
+    { value: 'PRECONFIGURADO', label: 'Preconfigurados' },
+    { value: 'CREADO', label: 'Creados' },
+    { value: 'EN_PILOTAJE', label: 'En pilotaje' },
+    { value: 'SUSPENDIDO', label: 'Suspendidos' },
+    { value: 'INACTIVO', label: 'Inactivos' },
+  ];
   protected history: TerritorialAuditEventRecord[] = [];
   protected historyNextCursor: string | undefined;
   protected historyLoading = false;
@@ -111,6 +152,12 @@ export class Territory implements OnInit {
   protected territoryStatusReason = '';
   protected territoryStatusSubmitted = false;
   protected users: ManagedUserRecord[] = [];
+  protected userSearch = '';
+  protected userStatusFilter = 'ALL';
+  protected userRoleFilter = 'ALL';
+  protected userScopeFilter = 'ALL';
+  protected userPage = 1;
+  protected readonly userPageSize = 8;
   protected showUserForm = false;
   protected editingUser: ManagedUserRecord | null = null;
   protected statusUser: ManagedUserRecord | null = null;
@@ -209,6 +256,325 @@ export class Territory implements OnInit {
   get activeFacilityCount() {
     return this.facilities.filter((row) => row.active).length;
   }
+  get pendingIdentityCount() {
+    return this.users.filter((user) => !user.hasExternalIdentity).length;
+  }
+
+  protected get filteredUsers() {
+    const query = this.normalizeSearch(this.userSearch);
+    return this.users.filter((user) => {
+      const matchesQuery =
+        !query ||
+        [user.fullName, user.email, user.role.name, user.assignment.label].some((value) =>
+          this.normalizeSearch(value).includes(query),
+        );
+      const matchesStatus =
+        this.userStatusFilter === 'ALL' ||
+        this.userAccessStatusCode(user) === this.userStatusFilter;
+      const matchesRole = this.userRoleFilter === 'ALL' || user.role.code === this.userRoleFilter;
+      const matchesScope =
+        this.userScopeFilter === 'ALL' || user.assignment.scopeType === this.userScopeFilter;
+      return matchesQuery && matchesStatus && matchesRole && matchesScope;
+    });
+  }
+
+  protected get userTotalPages() {
+    return Math.max(1, Math.ceil(this.filteredUsers.length / this.userPageSize));
+  }
+
+  protected get visibleUsers() {
+    const start = (this.userPage - 1) * this.userPageSize;
+    return this.filteredUsers.slice(start, start + this.userPageSize);
+  }
+
+  protected get userPageStart() {
+    return this.filteredUsers.length ? (this.userPage - 1) * this.userPageSize + 1 : 0;
+  }
+
+  protected get userPageEnd() {
+    return Math.min(this.userPage * this.userPageSize, this.filteredUsers.length);
+  }
+
+  protected get userRoleFilterOptions() {
+    const roles = new Map<string, string>();
+    this.users.forEach((user) => roles.set(user.role.code, user.role.name));
+    return [...roles.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }
+
+  protected get userScopeFilterOptions() {
+    return Object.entries(USER_SCOPE_LABELS);
+  }
+
+  protected get userPageNumbers() {
+    const total = this.userTotalPages;
+    const windowSize = Math.min(total, 5);
+    const first = Math.max(1, Math.min(this.userPage - 2, total - windowSize + 1));
+    return Array.from({ length: windowSize }, (_, index) => first + index);
+  }
+
+  protected get userHasFilters() {
+    return !!(
+      this.userSearch.trim() ||
+      this.userStatusFilter !== 'ALL' ||
+      this.userRoleFilter !== 'ALL' ||
+      this.userScopeFilter !== 'ALL'
+    );
+  }
+
+  protected filterUsers() {
+    this.userPage = 1;
+  }
+
+  protected clearUserFilters() {
+    this.userSearch = '';
+    this.userStatusFilter = 'ALL';
+    this.userRoleFilter = 'ALL';
+    this.userScopeFilter = 'ALL';
+    this.userPage = 1;
+  }
+
+  protected goToUserPage(page: number) {
+    this.userPage = Math.min(Math.max(page, 1), this.userTotalPages);
+  }
+
+  protected userAccessStatusCode(user: ManagedUserRecord) {
+    return user.active && user.hasExternalIdentity
+      ? 'ACTIVE'
+      : user.hasExternalIdentity
+        ? 'SUSPENDED'
+        : 'PENDING';
+  }
+  get filteredRegions() {
+    const query = this.normalizeSearch(this.regionSearch);
+    return this.sortCatalogRows(
+      this.regions.filter(
+        (row) =>
+          (!query || this.matchesSearch(query, row.name, row.code, row.status)) &&
+          (this.regionStatusFilter === 'ALL' || row.rawStatus === this.regionStatusFilter),
+      ),
+      this.regionSort,
+    );
+  }
+  get filteredMunicipalities() {
+    const query = this.normalizeSearch(this.municipalitySearch);
+    return this.sortCatalogRows(
+      this.municipalities.filter(
+        (row) =>
+          (!query ||
+            this.matchesSearch(
+              query,
+              row.name,
+              row.code,
+              row.region,
+              row.responsible,
+              row.status,
+            )) &&
+          (this.municipalityStatusFilter === 'ALL' ||
+            row.rawStatus === this.municipalityStatusFilter),
+      ),
+      this.municipalitySort,
+    );
+  }
+  get filteredFacilities() {
+    const query = this.normalizeSearch(this.facilitySearch);
+    return this.sortCatalogRows(
+      this.facilities.filter(
+        (row) =>
+          (!query ||
+            this.matchesSearch(
+              query,
+              row.name,
+              row.code,
+              row.municipality,
+              row.type,
+              row.status,
+            )) &&
+          (this.facilityStatusFilter === 'ALL' || row.rawStatus === this.facilityStatusFilter) &&
+          (this.facilityTypeFilter === 'ALL' || row.type === this.facilityTypeFilter),
+      ),
+      this.facilitySort,
+    );
+  }
+
+  protected get regionTotalPages() {
+    return this.catalogTotalPages(this.filteredRegions.length);
+  }
+
+  protected get municipalityTotalPages() {
+    return this.catalogTotalPages(this.filteredMunicipalities.length);
+  }
+
+  protected get facilityTotalPages() {
+    return this.catalogTotalPages(this.filteredFacilities.length);
+  }
+
+  protected get visibleRegions() {
+    return this.catalogPage(this.filteredRegions, this.regionPage);
+  }
+
+  protected get visibleMunicipalities() {
+    return this.catalogPage(this.filteredMunicipalities, this.municipalityPage);
+  }
+
+  protected get visibleFacilities() {
+    return this.catalogPage(this.filteredFacilities, this.facilityPage);
+  }
+
+  protected get regionPageStart() {
+    return this.catalogPageStart(this.regionPage, this.filteredRegions.length);
+  }
+
+  protected get municipalityPageStart() {
+    return this.catalogPageStart(this.municipalityPage, this.filteredMunicipalities.length);
+  }
+
+  protected get facilityPageStart() {
+    return this.catalogPageStart(this.facilityPage, this.filteredFacilities.length);
+  }
+
+  protected get regionPageEnd() {
+    return this.catalogPageEnd(this.regionPage, this.filteredRegions.length);
+  }
+
+  protected get municipalityPageEnd() {
+    return this.catalogPageEnd(this.municipalityPage, this.filteredMunicipalities.length);
+  }
+
+  protected get facilityPageEnd() {
+    return this.catalogPageEnd(this.facilityPage, this.filteredFacilities.length);
+  }
+
+  protected get regionPageNumbers() {
+    return this.catalogPageNumbers(this.regionPage, this.regionTotalPages);
+  }
+
+  protected get municipalityPageNumbers() {
+    return this.catalogPageNumbers(this.municipalityPage, this.municipalityTotalPages);
+  }
+
+  protected get facilityPageNumbers() {
+    return this.catalogPageNumbers(this.facilityPage, this.facilityTotalPages);
+  }
+
+  protected resetRegionPage() {
+    this.regionPage = 1;
+  }
+
+  protected resetMunicipalityPage() {
+    this.municipalityPage = 1;
+  }
+
+  protected resetFacilityPage() {
+    this.facilityPage = 1;
+  }
+
+  protected goToRegionPage(page: number) {
+    this.regionPage = this.clampCatalogPage(page, this.regionTotalPages);
+  }
+
+  protected goToMunicipalityPage(page: number) {
+    this.municipalityPage = this.clampCatalogPage(page, this.municipalityTotalPages);
+  }
+
+  protected goToFacilityPage(page: number) {
+    this.facilityPage = this.clampCatalogPage(page, this.facilityTotalPages);
+  }
+
+  protected get facilityTypeOptions() {
+    return [...new Set(this.facilities.map((facility) => facility.type))].sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }
+
+  protected get territoryHasFilters() {
+    return Boolean(
+      this.regionSearch.trim() ||
+      this.regionStatusFilter !== 'ALL' ||
+      this.municipalitySearch.trim() ||
+      this.municipalityStatusFilter !== 'ALL',
+    );
+  }
+
+  protected get facilityHasFilters() {
+    return Boolean(
+      this.facilitySearch.trim() ||
+      this.facilityStatusFilter !== 'ALL' ||
+      this.facilityTypeFilter !== 'ALL',
+    );
+  }
+
+  protected setAdminSection(section: AdminSection) {
+    this.activeAdminSection = section;
+  }
+
+  protected adminSectionCount(section: AdminSection) {
+    switch (section) {
+      case 'territories':
+        return this.regions.length + this.municipalities.length;
+      case 'facilities':
+        return this.facilities.length;
+      case 'users':
+        return this.users.length;
+      default:
+        return null;
+    }
+  }
+
+  protected clearTerritoryFilters() {
+    this.regionSearch = '';
+    this.regionStatusFilter = 'ALL';
+    this.municipalitySearch = '';
+    this.municipalityStatusFilter = 'ALL';
+    this.resetRegionPage();
+    this.resetMunicipalityPage();
+  }
+
+  protected clearFacilityFilters() {
+    this.facilitySearch = '';
+    this.facilityStatusFilter = 'ALL';
+    this.facilityTypeFilter = 'ALL';
+    this.resetFacilityPage();
+  }
+
+  private sortCatalogRows<
+    T extends { name: string; code: string; status: string; updatedAt: string },
+  >(rows: T[], sortBy: string) {
+    const key =
+      sortBy === 'code' || sortBy === 'status' || sortBy === 'updatedAt' ? sortBy : 'name';
+    return [...rows].sort((a, b) =>
+      String(a[key as keyof T]).localeCompare(String(b[key as keyof T]), 'es', {
+        numeric: true,
+        sensitivity: 'base',
+      }),
+    );
+  }
+
+  private catalogTotalPages(total: number) {
+    return Math.max(1, Math.ceil(total / this.catalogPageSize));
+  }
+
+  private catalogPage<T>(rows: T[], page: number) {
+    const start = (page - 1) * this.catalogPageSize;
+    return rows.slice(start, start + this.catalogPageSize);
+  }
+
+  private catalogPageStart(page: number, total: number) {
+    return total ? (page - 1) * this.catalogPageSize + 1 : 0;
+  }
+
+  private catalogPageEnd(page: number, total: number) {
+    return Math.min(page * this.catalogPageSize, total);
+  }
+
+  private catalogPageNumbers(page: number, total: number) {
+    const windowSize = Math.min(total, 5);
+    const first = Math.max(1, Math.min(page - 2, total - windowSize + 1));
+    return Array.from({ length: windowSize }, (_, index) => first + index);
+  }
+
+  private clampCatalogPage(page: number, total: number) {
+    return Math.min(Math.max(page, 1), total);
+  }
 
   protected createKind: CreateTerritoryKind | null = null;
   protected formSubmitted = false;
@@ -228,6 +594,7 @@ export class Territory implements OnInit {
 
   openCreate(kind: CreateTerritoryKind) {
     if (kind === 'region' && !this.globalScope) return;
+    this.activeAdminSection = kind === 'establishment' ? 'facilities' : 'territories';
     this.createKind = kind;
     this.formSubmitted = false;
     this.territoryForm = this.emptyForm();
@@ -368,12 +735,14 @@ export class Territory implements OnInit {
   }
 
   protected openUserCreate() {
+    this.activeAdminSection = 'users';
     this.editingUser = null;
     this.userFormSubmitted = false;
     this.userForm = this.emptyUserForm();
     this.showUserForm = true;
   }
   protected openUserEdit(user: ManagedUserRecord) {
+    this.activeAdminSection = 'users';
     this.editingUser = user;
     this.userFormSubmitted = false;
     this.userForm = {
@@ -457,16 +826,19 @@ export class Territory implements OnInit {
   }
 
   protected openStatus(user: ManagedUserRecord) {
+    this.activeAdminSection = 'users';
     this.statusUser = user;
     this.statusReason = '';
     this.statusSubmitted = false;
   }
   protected openIdentityLink(user: ManagedUserRecord) {
+    this.activeAdminSection = 'users';
     this.identityUser = user;
     this.identityForm = { externalSubject: '', activate: true, reason: '' };
     this.identitySubmitted = false;
   }
   protected openInvitation(user: ManagedUserRecord) {
+    this.activeAdminSection = 'users';
     this.invitationError.set('');
     this.resendingInvitation = false;
     this.invitationUser = user;
@@ -475,6 +847,7 @@ export class Territory implements OnInit {
   }
   protected openInvitationResend(user: ManagedUserRecord) {
     if (this.invitationStatuses()[user.id]?.status !== 'PENDING') return;
+    this.activeAdminSection = 'users';
     this.invitationError.set('');
     this.resendingInvitation = true;
     this.invitationUser = user;
@@ -632,6 +1005,7 @@ export class Territory implements OnInit {
     target: { id: string; name: string; rawStatus: string; updatedAt: string },
     entityType: 'REGION' | 'MUNICIPIO' | 'ESTABLECIMIENTO',
   ) {
+    this.activeAdminSection = entityType === 'ESTABLECIMIENTO' ? 'facilities' : 'territories';
     this.territoryStatusTarget = { ...target, entityType };
     this.territoryNextStatus =
       (
@@ -820,6 +1194,7 @@ export class Territory implements OnInit {
             updatedAt: row.updatedAt,
           }));
           this.users = users;
+          this.userPage = Math.min(this.userPage, this.userTotalPages);
           this.municipalities = this.municipalities.map((municipality) => ({
             ...municipality,
             responsible:
@@ -842,6 +1217,12 @@ export class Territory implements OnInit {
               updatedAt: region.updatedAt,
             };
           });
+          this.regionPage = this.clampCatalogPage(this.regionPage, this.regionTotalPages);
+          this.municipalityPage = this.clampCatalogPage(
+            this.municipalityPage,
+            this.municipalityTotalPages,
+          );
+          this.facilityPage = this.clampCatalogPage(this.facilityPage, this.facilityTotalPages);
           this.territoryForm.regionId ||= this.regions[0]?.id ?? '';
           this.territoryForm.municipalityId ||= this.municipalities[0]?.id ?? '';
           if (!this.municipalities.some((row) => row.id === this.selectedMunicipalityId))
@@ -865,6 +1246,18 @@ export class Territory implements OnInit {
         } as Record<string, string>
       )[status] ?? status
     );
+  }
+
+  private normalizeSearch(value: string) {
+    return value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase()
+      .trim();
+  }
+
+  private matchesSearch(query: string, ...values: string[]) {
+    return values.some((value) => this.normalizeSearch(value).includes(query));
   }
 
   protected formatDate(value: string) {
