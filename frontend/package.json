@@ -7,9 +7,10 @@
     "start:hmr": "ng serve",
     "build": "ng build",
     "config:runtime": "node tools/write-runtime-config.mjs",
+    "csp:check": "node tools/check-built-csp.mjs",
     "lint": "eslint . --max-warnings=0",
     "format:check": "prettier --check .",
-    "check": "npm run format:check && npm run lint && npm test -- --watch=false && npm run build -- --configuration production",
+    "check": "npm run format:check && npm run lint && npm test -- --watch=false && npm run build -- --configuration production && npm run csp:check",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },

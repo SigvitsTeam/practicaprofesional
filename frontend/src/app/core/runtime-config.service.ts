@@ -22,6 +22,19 @@ export interface RuntimeMapConfig {
   smallCountThreshold: number;
 }
 
+function isValidTileTemplate(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+  const template = value.trim();
+  if (!template.includes('{z}') || !template.includes('{x}') || !template.includes('{y}'))
+    return false;
+  try {
+    const url = new URL(template.replace(/\{[^{}]+\}/g, '0'));
+    return url.protocol === 'https:' && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class RuntimeConfigService {
   private current: RuntimeConfig = {
@@ -51,6 +64,9 @@ export class RuntimeConfigService {
       const candidate = (await response.json()) as Partial<RuntimeConfig>;
       const auth = { ...this.current.auth, ...(candidate.auth ?? {}) };
       const maps = { ...this.current.maps, ...(candidate.maps ?? {}) };
+      const tileUrl = candidate.maps?.tileUrl?.trim();
+      const attribution = candidate.maps?.attribution?.trim();
+      const hasValidMapProvider = isValidTileTemplate(tileUrl) && Boolean(attribution);
       const supabaseUrl = auth.supabaseUrl?.trim().replace(/\/$/, '') ?? '';
       const supabaseAnonKey = auth.supabaseAnonKey?.trim() ?? '';
       if (Boolean(supabaseUrl) !== Boolean(supabaseAnonKey))
@@ -66,10 +82,10 @@ export class RuntimeConfigService {
           demoEnabled: supabaseUrl ? false : Boolean(auth.demoEnabled),
         },
         maps: {
-          tileUrl: maps.tileUrl?.trim() || this.current.maps.tileUrl,
-          attribution: maps.attribution?.trim() || this.current.maps.attribution,
+          tileUrl: hasValidMapProvider ? tileUrl : this.current.maps.tileUrl,
+          attribution: hasValidMapProvider ? attribution! : this.current.maps.attribution,
           maxZoom:
-            Number.isInteger(maps.maxZoom) && maps.maxZoom >= 1 && maps.maxZoom <= 22
+            Number.isInteger(maps.maxZoom) && maps.maxZoom >= 5 && maps.maxZoom <= 22
               ? maps.maxZoom
               : this.current.maps.maxZoom,
           smallCountThreshold:

@@ -211,7 +211,7 @@ try {
   assert.equal(config.auth.demoPassword, "");
   assert.equal(
     config.maps.tileUrl,
-    "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   );
   assert.equal(config.maps.smallCountThreshold, 5);
   evidence.runtimeConfig = config;

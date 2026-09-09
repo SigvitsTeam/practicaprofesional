@@ -16,6 +16,23 @@ function integer(name, fallback, minimum, maximum) {
   return value;
 }
 
+function tileTemplate(name, fallback) {
+  const value = process.env[name]?.trim() || fallback;
+  if (!value.includes('{z}') || !value.includes('{x}') || !value.includes('{y}')) {
+    throw new Error(`La variable ${name} debe incluir {z}, {x} y {y}.`);
+  }
+  let parsed;
+  try {
+    parsed = new URL(value.replace(/\{[^{}]+\}/g, '0'));
+  } catch {
+    throw new Error(`La variable ${name} debe ser una plantilla HTTPS válida.`);
+  }
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
+    throw new Error(`La variable ${name} debe ser una plantilla HTTPS sin credenciales.`);
+  }
+  return value;
+}
+
 const apiUrl =
   process.env.VERCEL === '1'
     ? required('SIGVITS_API_URL')
@@ -33,6 +50,15 @@ if (process.env.VERCEL === '1') {
   }
 }
 
+const defaultMapTileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const mapTileUrl = tileTemplate('SIGVITS_MAP_TILE_URL', defaultMapTileUrl);
+const configuredMapAttribution = process.env.SIGVITS_MAP_ATTRIBUTION?.trim();
+if (mapTileUrl !== defaultMapTileUrl && !configuredMapAttribution) {
+  throw new Error(
+    'SIGVITS_MAP_ATTRIBUTION es obligatoria cuando SIGVITS_MAP_TILE_URL usa otro proveedor.',
+  );
+}
+
 const config = {
   apiUrl,
   auth: {
@@ -43,11 +69,9 @@ const config = {
     demoPassword: '',
   },
   maps: {
-    tileUrl:
-      process.env.SIGVITS_MAP_TILE_URL?.trim() ||
-      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: process.env.SIGVITS_MAP_ATTRIBUTION?.trim() || '© OpenStreetMap contributors',
-    maxZoom: integer('SIGVITS_MAP_MAX_ZOOM', 18, 1, 22),
+    tileUrl: mapTileUrl,
+    attribution: configuredMapAttribution || '© OpenStreetMap contributors',
+    maxZoom: integer('SIGVITS_MAP_MAX_ZOOM', 18, 5, 22),
     smallCountThreshold: integer('SIGVITS_MAP_SMALL_COUNT_THRESHOLD', 5, 0, 100),
   },
 };

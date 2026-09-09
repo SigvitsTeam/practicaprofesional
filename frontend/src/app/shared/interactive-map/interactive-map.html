@@ -17,7 +17,13 @@
     }
   </div>
 
-  <div #mapHost class="leaflet-host" [attr.aria-busy]="mapLoading()"></div>
+  <div
+    #mapHost
+    class="leaflet-host"
+    role="region"
+    aria-label="Mapa interactivo de indicadores ITS"
+    [attr.aria-busy]="mapLoading()"
+  ></div>
 
   @if (mapLoading()) {
     <div class="map-state" role="status">Cargando cartografía…</div>
@@ -50,7 +56,7 @@
         <strong>{{ report.name }}</strong>
         <small>
           {{ report.code }} · {{ metricLabel() }}
-          @if (report.latitude === undefined || report.longitude === undefined) {
+          @if (!hasCoordinates(report)) {
             · Sin ubicación
           }
         </small>

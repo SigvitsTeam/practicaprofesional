@@ -43,7 +43,12 @@ describe('RuntimeConfigService', () => {
         ok: true,
         json: () =>
           Promise.resolve({
-            maps: { maxZoom: 99, smallCountThreshold: -1 },
+            maps: {
+              tileUrl: 'https://maps.example.test/static.png',
+              attribution: 'Proveedor que no debe conservarse',
+              maxZoom: 4,
+              smallCountThreshold: -1,
+            },
           }),
       }),
     );
@@ -53,5 +58,28 @@ describe('RuntimeConfigService', () => {
 
     expect(service.maps.maxZoom).toBe(18);
     expect(service.maps.smallCountThreshold).toBe(0);
+    expect(service.maps.tileUrl).toBe('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+    expect(service.maps.attribution).toBe('© OpenStreetMap contributors');
+  });
+
+  it('does not combine a custom provider with the OpenStreetMap attribution', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            maps: {
+              tileUrl: 'https://maps.example.test/{z}/{x}/{y}.png',
+            },
+          }),
+      }),
+    );
+    const service = new RuntimeConfigService();
+
+    await service.load();
+
+    expect(service.maps.tileUrl).toBe('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
+    expect(service.maps.attribution).toBe('© OpenStreetMap contributors');
   });
 });

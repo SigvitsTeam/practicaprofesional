@@ -12,13 +12,31 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import type { LayerGroup, Map as LeafletMap, TileLayer, LatLngTuple } from 'leaflet';
+import type {
+  LayerGroup,
+  LeafletKeyboardEvent,
+  Map as LeafletMap,
+  TileLayer,
+  LatLngTuple,
+} from 'leaflet';
 import { Report } from '../../core/models';
 import { RuntimeConfigService } from '../../core/runtime-config.service';
 import { formatSmallCount, formatSuppressedCount } from '../../core/small-count';
 
 export type MapMetric = 'total' | 'newCases' | 'controls' | 'alerts';
 export type MapLevel = 'municipal' | 'regional' | 'national';
+type LeafletApi = typeof import('leaflet');
+const MIN_MAP_ZOOM = 5;
+const TILE_ERROR_LIMIT = 3;
+
+/** Angular's production build wraps Leaflet's CommonJS export under `default`. */
+export function resolveLeafletApi(module: LeafletApi | { default: LeafletApi }): LeafletApi {
+  return 'default' in module ? module.default : module;
+}
+
+export function tileLoadHasFailed(tileErrors: number, loadedTiles: number): boolean {
+  return tileErrors >= TILE_ERROR_LIMIT || (tileErrors > 0 && loadedTiles === 0);
+}
 
 @Component({
   selector: 'app-interactive-map',
@@ -39,19 +57,33 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
   private readonly platformId = inject(PLATFORM_ID);
   private readonly runtimeConfig = inject(RuntimeConfigService);
   private readonly mapHost = viewChild<ElementRef<HTMLDivElement>>('mapHost');
-  private leaflet?: typeof import('leaflet');
+  private leaflet?: LeafletApi;
   private map?: LeafletMap;
   private markerLayer?: LayerGroup;
   private tileLayer?: TileLayer;
+  private tileLoadTimeout?: ReturnType<typeof setTimeout>;
+  private destroyed = false;
   protected readonly mapError = signal('');
   protected readonly mapLoading = signal(true);
 
   async ngAfterViewInit() {
-    if (!isPlatformBrowser(this.platformId)) return;
+    await this.loadLeaflet();
+  }
+
+  private async loadLeaflet() {
+    if (!isPlatformBrowser(this.platformId) || this.destroyed) return;
     try {
-      this.leaflet = await import('leaflet');
+      this.leaflet = resolveLeafletApi(
+        (await import('leaflet')) as LeafletApi | { default: LeafletApi },
+      );
+      if (this.destroyed) return;
       this.initializeMap();
     } catch {
+      this.clearTileLoadTimeout();
+      this.map?.remove();
+      this.map = undefined;
+      this.markerLayer = undefined;
+      this.tileLayer = undefined;
       this.mapLoading.set(false);
       this.mapError.set('No fue posible inicializar el mapa geográfico.');
     }
@@ -62,6 +94,8 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.destroyed = true;
+    this.clearTileLoadTimeout();
     this.map?.remove();
     this.map = undefined;
   }
@@ -104,6 +138,10 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
   retryMap() {
     this.mapError.set('');
     this.mapLoading.set(true);
+    if (!this.map) {
+      void this.loadLeaflet();
+      return;
+    }
     this.configureBaseLayer();
   }
 
@@ -115,7 +153,7 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
       attributionControl: true,
       preferCanvas: true,
       zoomControl: true,
-      minZoom: 5,
+      minZoom: MIN_MAP_ZOOM,
       maxZoom: this.runtimeConfig.maps.maxZoom,
     });
     this.markerLayer = leaflet.layerGroup().addTo(this.map);
@@ -128,27 +166,65 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
     const map = this.map;
     const leaflet = this.leaflet;
     if (!map || !leaflet) return;
-    this.tileLayer?.remove();
+    const previousLayer = this.tileLayer;
+    this.tileLayer = undefined;
+    previousLayer?.remove();
     let tileErrors = 0;
+    let loadedTiles = 0;
     this.tileLayer = leaflet.tileLayer(this.runtimeConfig.maps.tileUrl, {
       attribution: this.runtimeConfig.maps.attribution,
       maxZoom: this.runtimeConfig.maps.maxZoom,
       crossOrigin: true,
     });
-    this.tileLayer.on('load', () => {
-      this.mapLoading.set(false);
+    const currentLayer = this.tileLayer;
+    const startLoadCycle = () => {
+      if (this.tileLayer !== currentLayer || this.destroyed) return;
+      tileErrors = 0;
+      loadedTiles = 0;
       this.mapError.set('');
+      this.mapLoading.set(true);
+      this.clearTileLoadTimeout();
+      this.tileLoadTimeout = setTimeout(() => {
+        if (this.tileLayer !== currentLayer || !this.mapLoading() || this.destroyed) return;
+        this.mapLoading.set(false);
+        this.mapError.set(
+          'El proveedor cartográfico tardó demasiado en responder. Los indicadores siguen disponibles en el ranking.',
+        );
+      }, 10_000);
+    };
+    this.tileLayer.on('loading', startLoadCycle);
+    this.tileLayer.on('tileload', () => {
+      if (this.tileLayer !== currentLayer || this.destroyed) return;
+      loadedTiles += 1;
+    });
+    this.tileLayer.on('load', () => {
+      if (this.tileLayer !== currentLayer || this.destroyed) return;
+      this.clearTileLoadTimeout();
+      this.mapLoading.set(false);
+      this.mapError.set(
+        tileLoadHasFailed(tileErrors, loadedTiles)
+          ? 'El proveedor cartográfico no respondió. Los indicadores siguen disponibles en el ranking.'
+          : '',
+      );
     });
     this.tileLayer.on('tileerror', () => {
+      if (this.tileLayer !== currentLayer || this.destroyed) return;
       tileErrors += 1;
-      if (tileErrors >= 3) {
+      if (tileErrors >= TILE_ERROR_LIMIT) {
+        this.clearTileLoadTimeout();
         this.mapLoading.set(false);
         this.mapError.set(
           'El proveedor cartográfico no respondió. Los indicadores siguen disponibles en el ranking.',
         );
       }
     });
+    startLoadCycle();
     this.tileLayer.addTo(map);
+  }
+
+  private clearTileLoadTimeout() {
+    if (this.tileLoadTimeout !== undefined) clearTimeout(this.tileLoadTimeout);
+    this.tileLoadTimeout = undefined;
   }
 
   private refreshMarkers() {
@@ -160,9 +236,10 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
     const located = this.locatedReports;
     for (const report of located) {
       const value = this.metricDisplay(report);
+      const markerLabel = `${report.name}: ${this.metricLabel()} ${value}`;
       const marker = leaflet.marker([report.latitude!, report.longitude!], {
-        alt: `${report.name}: ${this.metricLabel()} ${value}`,
-        title: report.name,
+        alt: markerLabel,
+        title: markerLabel,
         keyboard: true,
         icon: leaflet.divIcon({
           className: 'sigvits-marker-shell',
@@ -178,8 +255,16 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
       detail.textContent = `${this.metricLabel()}: ${value} · ${report.coordinatesValidated ? 'ubicación validada' : 'referencia pendiente de validación'}`;
       tooltip.append(title, detail);
       marker.bindTooltip(tooltip, { direction: 'top', offset: [0, -14] });
-      marker.on('click', () => this.reportSelected.emit(report));
+      const selectReport = () => this.reportSelected.emit(report);
+      marker.on('click', selectReport);
+      marker.on('keydown', (event: LeafletKeyboardEvent) => {
+        if (!['Enter', ' ', 'Spacebar'].includes(event.originalEvent.key)) return;
+        event.originalEvent.preventDefault();
+        selectReport();
+      });
+      marker.on('add', () => marker.getElement()?.setAttribute('aria-label', markerLabel));
       marker.addTo(markerLayer);
+      marker.getElement()?.setAttribute('aria-label', markerLabel);
     }
     this.fitMap(located);
   }
@@ -202,7 +287,7 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
     map.setView(view.center, view.zoom, { animate: false });
   }
 
-  private hasCoordinates(report: Report): boolean {
+  protected hasCoordinates(report: Report): boolean {
     return (
       Number.isFinite(report.latitude) &&
       Number.isFinite(report.longitude) &&

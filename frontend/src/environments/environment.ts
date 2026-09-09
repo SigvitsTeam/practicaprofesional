@@ -9,7 +9,7 @@ export const environment = {
     demoPassword: 'SIGVITS2026!',
   },
   maps: {
-    tileUrl: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '© OpenStreetMap contributors',
     maxZoom: 18,
     smallCountThreshold: 0,

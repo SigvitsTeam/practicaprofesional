@@ -78,14 +78,14 @@ estación local, no se configuran como Start Command ni Pre-deploy Command.
 
 Importar el mismo repositorio en Vercel. Seleccionar:
 
-| Campo | Valor |
-| --- | --- |
-| Root Directory | `frontend` |
-| Framework | Angular |
-| Node.js | 24.x |
-| Install Command | `npm ci` |
-| Build Command | `npm run config:runtime && npm run build -- --configuration production` |
-| Output Directory | `dist/frontend/browser` |
+| Campo            | Valor                                                                   |
+| ---------------- | ----------------------------------------------------------------------- |
+| Root Directory   | `frontend`                                                              |
+| Framework        | Angular                                                                 |
+| Node.js          | 24.x                                                                    |
+| Install Command  | `npm ci`                                                                |
+| Build Command    | `npm run config:runtime && npm run build -- --configuration production` |
+| Output Directory | `dist/frontend/browser`                                                 |
 
 Si todavía falta la URL de Railway, conservar la pantalla de configuración y
 completar primero el paso 5. No desplegar con una URL inventada.
@@ -94,17 +94,17 @@ completar primero el paso 5. No desplegar con una URL inventada.
 
 En el servicio conectado al repositorio:
 
-| Campo | Valor |
-| --- | --- |
-| Root Directory | raíz del repositorio; vacío o `/` |
+| Campo                              | Valor                                   |
+| ---------------------------------- | --------------------------------------- |
+| Root Directory                     | raíz del repositorio; vacío o `/`       |
 | Variable `RAILWAY_DOCKERFILE_PATH` | `deploy/docker/railway-demo.Dockerfile` |
-| Custom Build Command | vacío, lo realiza Docker |
-| Custom Start Command | vacío, lo realiza Docker |
-| Pre-deploy Command | vacío |
-| Healthcheck Path | `/api/health/ready` |
-| Healthcheck Timeout | 300 segundos |
-| Réplicas | 1 |
-| Restart Policy | On Failure |
+| Custom Build Command               | vacío, lo realiza Docker                |
+| Custom Start Command               | vacío, lo realiza Docker                |
+| Pre-deploy Command                 | vacío                                   |
+| Healthcheck Path                   | `/api/health/ready`                     |
+| Healthcheck Timeout                | 300 segundos                            |
+| Réplicas                           | 1                                       |
+| Restart Policy                     | On Failure                              |
 
 No seleccionar `backend` como Root Directory: los COPY del Dockerfile parten de la
 raíz. Tampoco usar el Dockerfile institucional: su última etapa es un migrador.
@@ -140,15 +140,20 @@ verificación de migraciones ni la prueba de exportaciones.
 
 Agregar en Production (y Preview si se utiliza):
 
-| Variable | Valor |
-| --- | --- |
-| `SIGVITS_API_URL` | `https://NOMBRE.up.railway.app/api` |
-| `SUPABASE_URL` | `https://PROJECT_REF.supabase.co` |
-| `SUPABASE_PUBLISHABLE_KEY` | clave pública publishable o anon |
+| Variable                   | Valor                                                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `SIGVITS_API_URL`          | `https://NOMBRE.up.railway.app/api`                                                                              |
+| `SUPABASE_URL`             | `https://PROJECT_REF.supabase.co`                                                                                |
+| `SUPABASE_PUBLISHABLE_KEY` | clave pública publishable o anon                                                                                 |
+| `SIGVITS_MAP_TILE_URL`     | opcional; plantilla HTTPS pública y sin credenciales con `{z}`, `{x}` y `{y}`                                      |
+| `SIGVITS_MAP_ATTRIBUTION`  | atribución visible; obligatoria cuando se configura otro proveedor                                               |
+| `SIGVITS_MAP_MAX_ZOOM`     | opcional; entero de 5 a 22                                                                                       |
 
 No subir `DATABASE_URL`, `AUTH_ADMIN_SECRET` ni `METRICS_BEARER_TOKEN` a Vercel.
 Desplegar y copiar el dominio de producción real que Vercel asigne. Si se cambian
 variables después, ejecutar Redeploy para regenerar la configuración pública.
+La configuración predeterminada respeta la [política de teselas de OpenStreetMap](https://operations.osmfoundation.org/policies/tiles/);
+si se cambia de proveedor, revisar sus condiciones, atribución y política de referencias.
 
 ## 7. Conectar el dominio definitivo
 

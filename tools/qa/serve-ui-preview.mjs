@@ -3,6 +3,19 @@
 import { createServer } from "node:http";
 
 const origin = "http://localhost:4300";
+const upstreamOrigin =
+  process.env.SIGVITS_QA_UPSTREAM_ORIGIN?.trim() || "http://localhost:4200";
+const parsedUpstream = new URL(upstreamOrigin);
+if (
+  parsedUpstream.protocol !== "http:" ||
+  !["localhost", "127.0.0.1"].includes(parsedUpstream.hostname) ||
+  parsedUpstream.username ||
+  parsedUpstream.password
+) {
+  throw new Error(
+    "SIGVITS_QA_UPSTREAM_ORIGIN debe ser un origen HTTP local sin credenciales.",
+  );
+}
 const stamp = "2026-09-03T00:00:00.000Z";
 const region = {
   id: "qa-region",
@@ -56,6 +69,8 @@ const user = {
   },
   updatedAt: stamp,
 };
+const qaEmail = "qa-invitaciones@example.invalid";
+const qaPassword = "SIGVITS-QA-LOCAL";
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", origin);
@@ -66,6 +81,38 @@ const server = createServer(async (req, res) => {
     });
     res.end(JSON.stringify(value));
   };
+  if (req.method === "POST" && url.pathname === "/auth/v1/token") {
+    let rawBody = "";
+    for await (const chunk of req) {
+      rawBody += chunk;
+      if (rawBody.length > 4096) {
+        json({ message: "Solicitud de QA demasiado grande." }, 413);
+        return;
+      }
+    }
+    let credentials;
+    try {
+      credentials = JSON.parse(rawBody || "{}");
+    } catch {
+      json({ message: "Solicitud de QA inválida." }, 400);
+      return;
+    }
+    if (credentials.email !== qaEmail || credentials.password !== qaPassword) {
+      json({ message: "Credenciales sintéticas inválidas." }, 400);
+      return;
+    }
+    json({
+      access_token: "qa-access-token",
+      refresh_token: "qa-refresh-token",
+      expires_in: 3600,
+      user: {
+        id: "qa-user",
+        email: qaEmail,
+        user_metadata: { full_name: "Usuario QA" },
+      },
+    });
+    return;
+  }
   if (!["GET", "HEAD"].includes(req.method ?? "")) {
     json(
       {
@@ -79,37 +126,108 @@ const server = createServer(async (req, res) => {
   if (url.pathname === "/config/runtime-config.json") {
     json({
       apiUrl: `${origin}/api`,
-      auth: { supabaseUrl: "", supabaseAnonKey: "", demoEnabled: true },
+      auth: {
+        supabaseUrl: origin,
+        supabaseAnonKey: "qa-public-key",
+        demoEnabled: false,
+      },
+      maps: {
+        tileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        attribution: "© OpenStreetMap contributors",
+        maxZoom: 18,
+        smallCountThreshold: 5,
+      },
     });
     return;
   }
   if (url.pathname.startsWith("/api/")) {
-    if (url.pathname === "/api/v1/regions") json([region]);
+    if (url.pathname === "/api/v1/auth/me")
+      json({
+        userId: "qa-user",
+        displayName: "Usuario QA",
+        roles: ["COORDINADOR_MUNICIPAL"],
+        permissions: [],
+        territory: {
+          national: false,
+          regionIds: [region.id],
+          municipalityIds: [municipality.id],
+          facilityIds: [],
+        },
+      });
+    else if (url.pathname === "/api/v1/reporting-periods/monthly")
+      json([
+        {
+          id: "qa-period",
+          year: 2026,
+          month: 9,
+          startDate: "2026-09-01",
+          endDate: "2026-09-30",
+          status: "ABIERTO",
+        },
+      ]);
+    else if (url.pathname === "/api/v1/regions") json([region]);
     else if (url.pathname === "/api/v1/territories/catalog")
       json({ municipalities: [municipality], facilities: [facility] });
     else if (url.pathname === "/api/v1/admin/users") json([user]);
     else if (url.pathname === "/api/v1/territories/networks")
-      json([{
-        id: "qa-network", regionId: region.id, regionName: region.name,
-        code: "QA-RED", name: "Red sintética para revisión de alcance municipal",
-        operationalStatus: "EN_PILOTAJE", active: true, startDate: "2026-01-01",
-        updatedAt: stamp, scopeLimited: true,
-        membershipAsOf: url.searchParams.get("asOf") ?? "2026-09-04",
-        municipalities: [{ id: municipality.id, code: municipality.officialCode, name: municipality.name, startDate: "2026-01-01" }],
-      }]);
-    else if (url.pathname === "/api/v1/analytics/territorial")
-      json({ level: "MUNICIPIO", year: 2026, month: 7, rows: [{
-        id: municipality.id, code: municipality.officialCode, name: municipality.name,
-        status: "BORRADOR", attentions: 14, newCases: 9, controls: 5, alerts: 0, reportId: "qa-report",
-      }] });
-    else if (url.pathname === "/api/v1/territories/audit-events")
+      json([
+        {
+          id: "qa-network",
+          regionId: region.id,
+          regionName: region.name,
+          code: "QA-RED",
+          name: "Red sintética para revisión de alcance municipal",
+          operationalStatus: "EN_PILOTAJE",
+          active: true,
+          startDate: "2026-01-01",
+          updatedAt: stamp,
+          scopeLimited: true,
+          membershipAsOf: url.searchParams.get("asOf") ?? "2026-09-04",
+          municipalities: [
+            {
+              id: municipality.id,
+              code: municipality.officialCode,
+              name: municipality.name,
+              startDate: "2026-01-01",
+            },
+          ],
+        },
+      ]);
+    else if (url.pathname === "/api/v1/analytics/territorial") {
+      const level = url.searchParams.get("level") ?? "ESTABLECIMIENTO";
+      json({
+        level,
+        year: 2026,
+        month: 9,
+        privacy: { smallCountThreshold: 5, suppressedValue: null },
+        rows: [
+          {
+            id: facility.id,
+            code: facility.code,
+            name: facility.name,
+            status: "APROBADO_MUNICIPAL",
+            attentions: 14,
+            newCases: 9,
+            controls: 5,
+            alerts: 0,
+            reportId: "qa-report",
+            reportVersion: 1,
+            latitude: 15.82,
+            longitude: -87.92,
+            coordinatesValidated: false,
+            suppressedMetrics: [],
+            complementarySuppressedMetrics: [],
+          },
+        ],
+      });
+    } else if (url.pathname === "/api/v1/territories/audit-events")
       json({ items: [] });
     else json([]);
     return;
   }
   try {
     // Only copy the path to a fixed local upstream; do not proxy arbitrary hosts or credentials.
-    const upstream = new URL("http://localhost:4200");
+    const upstream = new URL(upstreamOrigin);
     upstream.pathname = url.pathname;
     upstream.search = url.search;
     const response = await fetch(upstream, {
