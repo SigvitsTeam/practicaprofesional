@@ -2,41 +2,30 @@
   <section class="login-story" aria-label="Información del sistema">
     <div class="story-grid"></div>
     <div class="login-brand">
-      <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-      <div><strong>SESAL</strong><small>Secretaría de Salud</small></div>
+      <img
+        class="institution-logo"
+        src="/assets/gob-sesal-blanco.png"
+        alt="Gobierno de Honduras · Secretaría de Salud"
+      />
     </div>
     <div class="story-copy">
-      <span class="pilot-badge"><i></i> Plataforma institucional</span>
-      <h1>Vigilancia de ITS,<br /><em>más clara y oportuna.</em></h1>
-      <p>Sistema de Gestión y Vigilancia de Infecciones de Transmisión Sexual.</p>
-      <div class="story-features">
-        <div>
-          <span>01</span>
-          <p>
-            <strong>Información protegida</strong
-            ><small>Acceso por rol y alcance territorial.</small>
-          </p>
-        </div>
-        <div>
-          <span>02</span>
-          <p>
-            <strong>Seguimiento confiable</strong
-            ><small>Flujos trazables desde el establecimiento.</small>
-          </p>
-        </div>
-      </div>
+      <h1>Sistema de vigilancia<br /><em>de ITS.</em></h1>
+      <p>Registro y seguimiento institucional de infecciones de transmisión sexual.</p>
     </div>
-    <footer><span>SIGVITS · Honduras</span><span>Uso institucional autorizado</span></footer>
+    <footer><span>SIGVITS · Honduras</span></footer>
   </section>
   <section class="login-access">
     <div class="access-card">
       <div class="mobile-brand">
-        <span class="brand-mark"><i></i><i></i><i></i><i></i></span><strong>SIGVITS</strong>
+        <img
+          class="institution-logo"
+          src="/assets/gob-sesal-blanco.png"
+          alt="Gobierno de Honduras · Secretaría de Salud"
+        /><strong>SIGVITS</strong>
       </div>
       <header>
-        <p class="eyebrow">ACCESO SEGURO</p>
+        <p class="eyebrow">ACCESO INSTITUCIONAL</p>
         <h2>Bienvenido</h2>
-        <p>Ingresa con tus credenciales institucionales.</p>
       </header>
       <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
         <label class="field"
@@ -106,24 +95,15 @@
         </button>
         @if (demoEnabled) {
           <div class="demo-access">
-            <span>ENTORNO DE DEMOSTRACIÓN</span
+            <span>MODO DEMO</span
             ><button type="button" (click)="useDemo()" [disabled]="loading()">
-              Entrar con usuario de prueba
+              Usar cuenta de demostración
             </button>
           </div>
         }
       </form>
-      <div class="access-help">
-        <i>?</i>
-        <p>
-          <strong>¿Necesitas ayuda para ingresar?</strong
-          ><span>Contacta al administrador SIGVITS de tu región.</span>
-        </p>
-      </div>
-      <p class="legal">
-        Al ingresar aceptas las políticas institucionales de seguridad y confidencialidad de la
-        información.
-      </p>
+      <p class="access-help">¿Problemas para ingresar? Contacta al administrador SIGVITS.</p>
+      <p class="legal">Uso institucional autorizado · Información confidencial.</p>
     </div>
   </section>
 </main>

@@ -51,67 +51,21 @@
   align-items: center;
   gap: 13px;
 }
-.brand-mark {
-  width: 42px;
-  height: 42px;
-  display: grid;
-  grid-template-columns: repeat(2, 10px);
-  place-content: center;
-  gap: 3px;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 8px 25px #001d2230;
-}
-.brand-mark i {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-  background: #079b72;
-}
-.brand-mark i:first-child,
-.brand-mark i:last-child {
-  background: #0a4960;
-}
-.login-brand strong,
-.login-brand small {
+.login-brand .institution-logo {
+  width: min(100%, 290px);
+  height: auto;
+  margin: 0;
   display: block;
-}
-.login-brand strong {
-  letter-spacing: 0.12em;
-  font-size: 18px;
-}
-.login-brand small {
-  color: #d2e7e4;
-  font-size: 11px;
 }
 .story-copy {
   margin: auto 0;
-  max-width: 620px;
-  padding: 70px 0;
-}
-.pilot-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 12px;
-  border: 1px solid #9bd7c84d;
-  border-radius: 50px;
-  color: #c6ebe2;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-.pilot-badge i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #4ee0ac;
+  max-width: 590px;
+  padding: 40px 0;
 }
 .story-copy h1 {
-  margin: 26px 0 20px;
+  margin: 0 0 18px;
   color: #fff;
-  font-size: clamp(38px, 4.2vw, 64px);
+  font-size: clamp(38px, 4vw, 60px);
   line-height: 1.03;
   letter-spacing: -0.045em;
 }
@@ -120,43 +74,11 @@
   font-style: normal;
 }
 .story-copy > p {
-  max-width: 510px;
-  color: #c0dcd9;
-  font-size: 17px;
-  line-height: 1.7;
-}
-.story-features {
-  margin-top: 48px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 28px;
-}
-.story-features > div {
-  display: flex;
-  gap: 14px;
-}
-.story-features > div > span {
-  width: 35px;
-  height: 35px;
-  display: grid;
-  place-items: center;
-  border: 1px solid #83c9b746;
-  border-radius: 9px;
-  color: #73dcb9;
-  font-size: 10px;
-  font-weight: 900;
-}
-.story-features p {
+  max-width: 480px;
   margin: 0;
-}
-.story-features strong,
-.story-features small {
-  display: block;
-}
-.story-features small {
-  margin-top: 6px;
-  color: #a8cac6;
-  font-size: 10px;
+  color: #c0dcd9;
+  font-size: 16px;
+  line-height: 1.6;
 }
 .login-story footer {
   padding-top: 22px;
@@ -178,18 +100,37 @@
   padding: 45px clamp(38px, 6vw, 90px);
   display: grid;
   place-items: center;
+  background: #f7f9f9;
 }
 :host .login-access input[type='checkbox'] {
   color-scheme: light;
 }
 .access-card {
   width: min(100%, 430px);
+  padding: 36px 34px 25px;
+  border: 1px solid #e0e9eb;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 20px 50px #0a354314;
 }
 .mobile-brand {
   display: none;
 }
+.mobile-brand .institution-logo {
+  flex: 1 1 auto;
+  width: auto;
+  max-width: 205px;
+  height: auto;
+  margin: 0;
+}
+.mobile-brand strong {
+  flex-shrink: 0;
+  color: #fff;
+  letter-spacing: 0.1em;
+  font-size: 13px;
+}
 .access-card header {
-  margin-bottom: 34px;
+  margin-bottom: 28px;
 }
 .access-card .eyebrow {
   margin: 0 0 12px;
@@ -201,11 +142,7 @@
 .access-card h2 {
   margin: 0;
   color: #123643;
-  font-size: 38px;
-}
-.access-card header > p:last-child {
-  color: #72858d;
-  font-size: 14px;
+  font-size: 36px;
 }
 .field {
   display: block;
@@ -360,29 +297,17 @@
   font-weight: 800;
 }
 .access-help {
-  margin-top: 31px;
-  padding: 17px;
-  display: flex;
-  gap: 12px;
-  border: 1px solid #dfe7e9;
-  border-radius: 10px;
-  background: #fff;
-}
-.access-help p {
-  margin: 0;
-}
-.access-help strong,
-.access-help span {
-  display: block;
-}
-.access-help span {
-  margin-top: 4px;
-  color: #83949b;
-  font-size: 9px;
+  margin: 22px 0 0;
+  color: #6f838b;
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
 }
 .legal {
+  margin: 15px 0 0;
   color: #99a6aa;
   font-size: 8px;
+  line-height: 1.4;
   text-align: center;
 }
 @keyframes spin {
@@ -400,9 +325,17 @@
   .login-access {
     padding: 35px 24px;
   }
+  .access-card {
+    padding: 28px 22px 22px;
+    border-radius: 15px;
+    box-shadow: 0 12px 28px #0a35430d;
+  }
   .mobile-brand {
     margin-bottom: 44px;
+    padding: 10px 13px;
     display: flex;
+    border-radius: 12px;
+    background: #082733;
   }
   .access-card h2 {
     font-size: 34px;

@@ -1,6 +1,9 @@
 :host {
   display: block;
 }
+.institution-logo {
+  max-height: 56px;
+}
 .nav-item {
   min-height: 48px;
   font-size: 0.92rem;

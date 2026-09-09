@@ -43,6 +43,14 @@ app-root {
   color: #fff;
   background: var(--navy-deep);
 }
+.sidebar > .institution-logo {
+  width: calc(100% - 20px);
+  height: auto;
+  margin: 0 10px 18px;
+  display: block;
+  object-fit: contain;
+  object-position: left center;
+}
 .brand {
   display: flex;
   align-items: center;
@@ -2035,6 +2043,9 @@ td small {
     position: static;
     width: 72px;
     padding: 18px 8px;
+  }
+  .sidebar > .institution-logo {
+    display: none;
   }
   .brand {
     padding: 0 9px 20px;
