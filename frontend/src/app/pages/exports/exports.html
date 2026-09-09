@@ -362,11 +362,47 @@
             </div>
             <label
               ><span>Desde *</span
-              ><input type="month" name="rangeAStart" [(ngModel)]="annualForm.rangeAStart" /></label
+              ><input
+                type="month"
+                name="rangeAStart"
+                [(ngModel)]="annualForm.rangeAStart"
+                [class.invalid]="
+                  formSubmitted &&
+                  (!annualForm.rangeAStart || annualForm.rangeAStart > annualForm.rangeAEnd)
+                "
+                [attr.aria-invalid]="
+                  formSubmitted &&
+                  (!annualForm.rangeAStart || annualForm.rangeAStart > annualForm.rangeAEnd)
+                "
+                aria-describedby="range-a-start-error"
+              />
+              @if (formSubmitted && !annualForm.rangeAStart) {
+                <small id="range-a-start-error" class="field-error"
+                  >Seleccione el inicio del rango.</small
+                >
+              }</label
             ><label
               ><span>Hasta *</span
-              ><input type="month" name="rangeAEnd" [(ngModel)]="annualForm.rangeAEnd"
-            /></label>
+              ><input
+                type="month"
+                name="rangeAEnd"
+                [(ngModel)]="annualForm.rangeAEnd"
+                [class.invalid]="
+                  formSubmitted &&
+                  (!annualForm.rangeAEnd || annualForm.rangeAStart > annualForm.rangeAEnd)
+                "
+                [attr.aria-invalid]="
+                  formSubmitted &&
+                  (!annualForm.rangeAEnd || annualForm.rangeAStart > annualForm.rangeAEnd)
+                "
+                aria-describedby="range-a-end-error"
+              />
+              @if (formSubmitted && !annualForm.rangeAEnd) {
+                <small id="range-a-end-error" class="field-error"
+                  >Seleccione el fin del rango.</small
+                >
+              }
+            </label>
             @if (annualForm.dimension === 'territories') {
               <label class="wide"
                 ><span>Territorio A</span
@@ -396,11 +432,47 @@
             </div>
             <label
               ><span>Desde *</span
-              ><input type="month" name="rangeBStart" [(ngModel)]="annualForm.rangeBStart" /></label
+              ><input
+                type="month"
+                name="rangeBStart"
+                [(ngModel)]="annualForm.rangeBStart"
+                [class.invalid]="
+                  formSubmitted &&
+                  (!annualForm.rangeBStart || annualForm.rangeBStart > annualForm.rangeBEnd)
+                "
+                [attr.aria-invalid]="
+                  formSubmitted &&
+                  (!annualForm.rangeBStart || annualForm.rangeBStart > annualForm.rangeBEnd)
+                "
+                aria-describedby="range-b-start-error"
+              />
+              @if (formSubmitted && !annualForm.rangeBStart) {
+                <small id="range-b-start-error" class="field-error"
+                  >Seleccione el inicio del rango.</small
+                >
+              }</label
             ><label
               ><span>Hasta *</span
-              ><input type="month" name="rangeBEnd" [(ngModel)]="annualForm.rangeBEnd"
-            /></label>
+              ><input
+                type="month"
+                name="rangeBEnd"
+                [(ngModel)]="annualForm.rangeBEnd"
+                [class.invalid]="
+                  formSubmitted &&
+                  (!annualForm.rangeBEnd || annualForm.rangeBStart > annualForm.rangeBEnd)
+                "
+                [attr.aria-invalid]="
+                  formSubmitted &&
+                  (!annualForm.rangeBEnd || annualForm.rangeBStart > annualForm.rangeBEnd)
+                "
+                aria-describedby="range-b-end-error"
+              />
+              @if (formSubmitted && !annualForm.rangeBEnd) {
+                <small id="range-b-end-error" class="field-error"
+                  >Seleccione el fin del rango.</small
+                >
+              }
+            </label>
             @if (annualForm.dimension === 'territories') {
               <label class="wide"
                 ><span>Territorio B</span

@@ -196,7 +196,15 @@
         type="text"
         maxlength="500"
         placeholder="Motivo obligatorio para cierre o reapertura"
+        [class.invalid]="nationalReasonSubmitted && nationalReason.value.trim().length < 10"
+        [attr.aria-invalid]="nationalReasonSubmitted && nationalReason.value.trim().length < 10"
+        aria-describedby="national-reason-error"
       />
+      @if (nationalReasonSubmitted && nationalReason.value.trim().length < 10) {
+        <small id="national-reason-error" class="field-error"
+          >Escriba un motivo de al menos 10 caracteres.</small
+        >
+      }
     </div>
     <div>
       @if (!nationalConsolidation() || nationalConsolidation()?.status === 'REABIERTO_AUTORIZADO') {

@@ -142,9 +142,9 @@
           <span class="eyebrow">{{ editingUser ? 'CAMBIO VERSIONADO' : 'ALTA CONTROLADA' }}</span>
           <h2>{{ editingUser ? 'Cambiar rol o alcance' : 'Nuevo usuario institucional' }}</h2>
         </div>
-        <button type="button" (click)="showUserForm = false">×</button>
+        <button type="button" (click)="closeUserForm()">×</button>
       </header>
-      <form (ngSubmit)="saveUser()">
+      <form (ngSubmit)="saveUser()" novalidate>
         <div class="creation-form">
           <label class="wide"
             ><span>Nombre completo *</span
@@ -153,6 +153,7 @@
               [(ngModel)]="userForm.fullName"
               [disabled]="!!editingUser"
               [class.invalid]="userFormSubmitted && !userForm.fullName.trim()"
+              [attr.aria-invalid]="userFormSubmitted && !userForm.fullName.trim()"
           /></label>
           <label
             ><span>Correo *</span
@@ -161,7 +162,8 @@
               type="email"
               [(ngModel)]="userForm.email"
               [disabled]="!!editingUser"
-              [class.invalid]="userFormSubmitted && !userForm.email.trim()" /></label
+              [class.invalid]="userFormSubmitted && !userForm.email.trim()"
+              [attr.aria-invalid]="userFormSubmitted && !userForm.email.trim()" /></label
           ><label
             ><span>Teléfono</span
             ><input name="userPhone" [(ngModel)]="userForm.phone" [disabled]="!!editingUser"
@@ -173,12 +175,19 @@
               [ngModel]="userForm.roleCode"
               (ngModelChange)="roleChanged($event)"
               [disabled]="loading"
+              [class.invalid]="userFormSubmitted && !userRoleValid"
+              [attr.aria-invalid]="userFormSubmitted && !userRoleValid"
               required
             >
               @for (role of assignableUserRoles; track role.code) {
                 <option [value]="role.code">{{ role.label }}</option>
               }
-            </select></label
+            </select>
+            <small>
+              @if (userFormSubmitted && !userRoleValid) {
+                Seleccione un rol permitido.
+              }
+            </small></label
           >
           <label
             ><span>Tipo de alcance *</span
@@ -187,6 +196,8 @@
               [ngModel]="userForm.scopeType"
               (ngModelChange)="scopeChanged($event)"
               [disabled]="loading || allowedUserScopes.length <= 1"
+              [class.invalid]="userFormSubmitted && !userScopeValid"
+              [attr.aria-invalid]="userFormSubmitted && !userScopeValid"
               aria-describedby="user-scope-help"
               required
             >
@@ -194,11 +205,17 @@
                 <option [value]="scope">{{ userScopeLabels[scope] }}</option>
               }
             </select>
-            <small id="user-scope-help" aria-live="polite">{{
-              allowedUserScopes.length === 1
-                ? 'Este rol tiene un tipo de alcance fijo.'
-                : 'Seleccione uno de los alcances permitidos para este rol.'
-            }}</small></label
+            <small id="user-scope-help" aria-live="polite">
+              @if (userFormSubmitted && !userScopeValid) {
+                Seleccione un tipo de alcance permitido.
+              } @else {
+                {{
+                  allowedUserScopes.length === 1
+                    ? 'Este rol tiene un tipo de alcance fijo.'
+                    : 'Seleccione uno de los alcances permitidos para este rol.'
+                }}
+              }
+            </small></label
           >
           @if (userForm.scopeType === 'NACIONAL') {
             <p class="wide" role="status">
@@ -234,14 +251,26 @@
           }
           <label
             ><span>Inicio de vigencia *</span
-            ><input name="userStart" type="date" [(ngModel)]="userForm.startDate"
-          /></label>
+            ><input
+              name="userStart"
+              type="date"
+              [(ngModel)]="userForm.startDate"
+              [class.invalid]="userFormSubmitted && !userStartDateValid"
+              [attr.aria-invalid]="userFormSubmitted && !userStartDateValid"
+              required
+            /><small>
+              @if (userFormSubmitted && !userStartDateValid) {
+                Seleccione la fecha de inicio.
+              }
+            </small></label
+          >
           <label class="wide"
             ><span>Motivo *</span
             ><textarea
               name="userReason"
               [(ngModel)]="userForm.reason"
               [class.invalid]="userFormSubmitted && userForm.reason.trim().length < 10"
+              [attr.aria-invalid]="userFormSubmitted && userForm.reason.trim().length < 10"
               maxlength="500"
             ></textarea
             ><small>
@@ -255,7 +284,7 @@
           <button
             class="btn secondary"
             type="button"
-            (click)="showUserForm = false"
+            (click)="closeUserForm()"
             [disabled]="loading"
           >
             Cancelar</button
@@ -288,30 +317,32 @@
           <h2>{{ statusUser.active ? 'Suspender' : 'Reactivar' }} usuario</h2>
           <p>{{ statusUser.fullName }} · {{ statusUser.email }}</p>
         </div>
-        <button type="button" (click)="statusUser = null">×</button>
+        <button type="button" (click)="closeStatus()">×</button>
       </header>
-      <form (ngSubmit)="saveStatus()">
+      <form (ngSubmit)="saveStatus()" novalidate>
         <div class="creation-form">
           <label class="wide"
             ><span>Motivo obligatorio</span
             ><textarea
               name="statusReason"
               [(ngModel)]="statusReason"
+              [class.invalid]="statusSubmitted && statusReason.trim().length < 10"
+              [attr.aria-invalid]="statusSubmitted && statusReason.trim().length < 10"
               minlength="10"
               maxlength="500"
             ></textarea
-            ><small>Se registrará en la bitácora administrativa.</small></label
+            ><small>
+              @if (statusSubmitted && statusReason.trim().length < 10) {
+                Ingrese al menos 10 caracteres.
+              } @else {
+                Se registrará en la bitácora administrativa.
+              }
+            </small></label
           >
         </div>
         <footer>
-          <button class="btn secondary" type="button" (click)="statusUser = null">Cancelar</button
-          ><button
-            class="btn primary"
-            type="submit"
-            [disabled]="loading || statusReason.trim().length < 10"
-          >
-            Confirmar
-          </button>
+          <button class="btn secondary" type="button" (click)="closeStatus()">Cancelar</button
+          ><button class="btn primary" type="submit" [disabled]="loading">Confirmar</button>
         </footer>
       </form>
     </section>
@@ -332,30 +363,43 @@
           <h2>Vincular identidad externa</h2>
           <p>{{ identityUser.fullName }} · {{ identityUser.email }}</p>
         </div>
-        <button type="button" (click)="identityUser = null">×</button>
+        <button type="button" (click)="closeIdentity()">×</button>
       </header>
-      <form (ngSubmit)="saveIdentityLink()">
+      <form (ngSubmit)="saveIdentityLink()" novalidate>
         <div class="creation-form">
           <label class="wide"
             ><span>Subject inmutable del proveedor *</span
             ><input
               name="externalSubject"
               [(ngModel)]="identityForm.externalSubject"
+              [class.invalid]="identitySubmitted && !identityForm.externalSubject.trim()"
+              [attr.aria-invalid]="identitySubmitted && !identityForm.externalSubject.trim()"
               maxlength="255"
               autocomplete="off"
-            /><small
-              >Copie el identificador exacto desde el directorio institucional. No se vincula por
-              coincidencia de correo.</small
-            ></label
+            /><small>
+              @if (identitySubmitted && !identityForm.externalSubject.trim()) {
+                Ingrese el identificador externo.
+              } @else {
+                Copie el identificador exacto desde el directorio institucional. No se vincula por
+                coincidencia de correo.
+              }
+            </small></label
           >
           <label class="wide"
             ><span>Motivo administrativo *</span
             ><textarea
               name="identityReason"
               [(ngModel)]="identityForm.reason"
+              [class.invalid]="identitySubmitted && identityForm.reason.trim().length < 10"
+              [attr.aria-invalid]="identitySubmitted && identityForm.reason.trim().length < 10"
               minlength="10"
               maxlength="500"
-            ></textarea>
+            ></textarea
+            ><small>
+              @if (identitySubmitted && identityForm.reason.trim().length < 10) {
+                Ingrese al menos 10 caracteres.
+              }
+            </small>
           </label>
           <label class="wide check-line"
             ><input
@@ -366,16 +410,8 @@
           >
         </div>
         <footer>
-          <button class="btn secondary" type="button" (click)="identityUser = null">Cancelar</button
-          ><button
-            class="btn primary"
-            type="submit"
-            [disabled]="
-              loading ||
-              !identityForm.externalSubject.trim() ||
-              identityForm.reason.trim().length < 10
-            "
-          >
+          <button class="btn secondary" type="button" (click)="closeIdentity()">Cancelar</button
+          ><button class="btn primary" type="submit" [disabled]="loading">
             {{ loading ? 'Vinculando…' : 'Vincular identidad' }}
           </button>
         </footer>
@@ -401,27 +437,38 @@
         <button
           type="button"
           aria-label="Cerrar invitación"
-          (click)="invitationUser = null"
+          (click)="closeInvitation()"
           [disabled]="loading"
         >
           ×
         </button>
       </header>
-      <form (ngSubmit)="sendInvitation()">
+      <form (ngSubmit)="sendInvitation()" novalidate>
         <div class="creation-form">
           <label class="wide"
             ><span>Motivo obligatorio</span
             ><textarea
               name="invitationReason"
               [(ngModel)]="invitationForm.reason"
+              [class.invalid]="invitationSubmitted && invitationForm.reason.trim().length < 10"
+              [attr.aria-invalid]="invitationSubmitted && invitationForm.reason.trim().length < 10"
               minlength="10"
               maxlength="500"
             ></textarea
-            ><small class="field-hint">{{
-              resendingInvitation
-                ? 'Supabase reporta esta identidad todavía sin confirmar. El reenvío sólo continuará si conserva exactamente la identidad ya vinculada.'
-                : 'Se solicitará el envío a Supabase. El destinatario deberá abrir el enlace y definir su contraseña; aceptar la solicitud no confirma la entrega al buzón.'
-            }}</small></label
+            ><small
+              class="field-hint"
+              [class.field-error]="invitationSubmitted && invitationForm.reason.trim().length < 10"
+            >
+              @if (invitationSubmitted && invitationForm.reason.trim().length < 10) {
+                Ingrese al menos 10 caracteres.
+              } @else {
+                {{
+                  resendingInvitation
+                    ? 'Supabase reporta esta identidad todavía sin confirmar. El reenvío sólo continuará si conserva exactamente la identidad ya vinculada.'
+                    : 'Se solicitará el envío a Supabase. El destinatario deberá abrir el enlace y definir su contraseña; aceptar la solicitud no confirma la entrega al buzón.'
+                }}
+              }
+            </small></label
           >
           @if (!resendingInvitation) {
             <label class="wide check-line"
@@ -440,7 +487,7 @@
           <button
             class="btn secondary"
             type="button"
-            (click)="invitationUser = null"
+            (click)="closeInvitation()"
             [disabled]="loading"
           >
             Cancelar</button
@@ -449,7 +496,6 @@
             type="submit"
             [disabled]="
               loading ||
-              invitationForm.reason.trim().length < 10 ||
               (resendingInvitation && invitationStatuses()[invitationUser.id]?.status !== 'PENDING')
             "
           >
@@ -481,9 +527,9 @@
           <h2>Cambiar estado territorial</h2>
           <p>{{ territoryStatusTarget.name }}</p>
         </div>
-        <button type="button" (click)="territoryStatusTarget = null">×</button>
+        <button type="button" (click)="closeTerritoryStatus()">×</button>
       </header>
-      <form (ngSubmit)="saveTerritoryStatus()">
+      <form (ngSubmit)="saveTerritoryStatus()" novalidate>
         <div class="creation-form">
           <label class="wide"
             ><span>Nuevo estado</span
@@ -520,23 +566,27 @@
             ><textarea
               name="territoryStatusReason"
               [(ngModel)]="territoryStatusReason"
+              [class.invalid]="territoryStatusSubmitted && territoryStatusReason.trim().length < 10"
+              [attr.aria-invalid]="
+                territoryStatusSubmitted && territoryStatusReason.trim().length < 10
+              "
               minlength="10"
               maxlength="500"
             ></textarea
-            ><small
-              >La operación fallará si existen dependencias activas, usuarios asignados o reportes
-              abiertos.</small
-            ></label
+            ><small>
+              @if (territoryStatusSubmitted && territoryStatusReason.trim().length < 10) {
+                Ingrese al menos 10 caracteres.
+              } @else {
+                La operación fallará si existen dependencias activas, usuarios asignados o reportes
+                abiertos.
+              }
+            </small></label
           >
         </div>
         <footer>
-          <button class="btn secondary" type="button" (click)="territoryStatusTarget = null">
+          <button class="btn secondary" type="button" (click)="closeTerritoryStatus()">
             Cancelar</button
-          ><button
-            class="btn primary"
-            type="submit"
-            [disabled]="loading || territoryStatusReason.trim().length < 10"
-          >
+          ><button class="btn primary" type="submit" [disabled]="loading">
             Confirmar transición
           </button>
         </footer>
@@ -1062,6 +1112,7 @@
               name="territoryName"
               [(ngModel)]="territoryForm.name"
               [class.invalid]="formSubmitted && !territoryForm.name.trim()"
+              [attr.aria-invalid]="formSubmitted && !territoryForm.name.trim()"
               autocomplete="off"
             /><small>
               @if (formSubmitted && !territoryForm.name.trim()) {
@@ -1075,6 +1126,7 @@
               name="territoryCode"
               [(ngModel)]="territoryForm.code"
               [class.invalid]="formSubmitted && !territoryForm.code.trim()"
+              [attr.aria-invalid]="formSubmitted && !territoryForm.code.trim()"
               autocomplete="off"
             /><small>
               @if (formSubmitted && !territoryForm.code.trim()) {
@@ -1085,30 +1137,63 @@
           @if (createKind === 'municipality') {
             <label
               ><span>Región sanitaria *</span
-              ><select name="territoryRegion" [(ngModel)]="territoryForm.regionId">
+              ><select
+                name="territoryRegion"
+                [(ngModel)]="territoryForm.regionId"
+                [class.invalid]="formSubmitted && !territoryForm.regionId"
+                [attr.aria-invalid]="formSubmitted && !territoryForm.regionId"
+                required
+              >
                 @for (region of regions; track region.id) {
                   <option [value]="region.id">{{ region.name }}</option>
                 }
-              </select></label
+              </select>
+              <small>
+                @if (formSubmitted && !territoryForm.regionId) {
+                  Seleccione una región sanitaria.
+                }
+              </small></label
             >
           }
           @if (createKind === 'establishment') {
             <label
               ><span>Municipio *</span
-              ><select name="territoryMunicipality" [(ngModel)]="territoryForm.municipalityId">
+              ><select
+                name="territoryMunicipality"
+                [(ngModel)]="territoryForm.municipalityId"
+                [class.invalid]="formSubmitted && !territoryForm.municipalityId"
+                [attr.aria-invalid]="formSubmitted && !territoryForm.municipalityId"
+                required
+              >
                 @for (municipality of municipalities; track municipality.id) {
                   <option [value]="municipality.id">{{ municipality.name }}</option>
                 }
-              </select></label
+              </select>
+              <small>
+                @if (formSubmitted && !territoryForm.municipalityId) {
+                  Seleccione un municipio.
+                }
+              </small></label
             >
             <label
               ><span>Tipo de establecimiento *</span
-              ><select name="establishmentType" [(ngModel)]="territoryForm.type">
+              ><select
+                name="establishmentType"
+                [(ngModel)]="territoryForm.type"
+                [class.invalid]="formSubmitted && !territoryForm.type"
+                [attr.aria-invalid]="formSubmitted && !territoryForm.type"
+                required
+              >
                 <option>CIS</option>
                 <option>UAPS</option>
                 <option>Policlínico</option>
                 <option>Hospital</option>
-              </select></label
+              </select>
+              <small>
+                @if (formSubmitted && !territoryForm.type) {
+                  Seleccione el tipo de establecimiento.
+                }
+              </small></label
             >
             <label class="wide"
               ><span>Dirección</span
@@ -1134,6 +1219,7 @@
               name="territoryReason"
               [(ngModel)]="territoryForm.reason"
               [class.invalid]="formSubmitted && territoryForm.reason.trim().length < 10"
+              [attr.aria-invalid]="formSubmitted && territoryForm.reason.trim().length < 10"
               maxlength="500"
               placeholder="Explique el motivo de la creación"
             ></textarea

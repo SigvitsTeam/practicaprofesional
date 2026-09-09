@@ -47,6 +47,7 @@ export class Consolidated {
   private regionId = '';
   private activeMunicipalities = 0;
   private activeRegions = 0;
+  protected nationalReasonSubmitted = false;
 
   constructor() {
     effect(() => {
@@ -90,6 +91,7 @@ export class Consolidated {
     this.activeRegions = 0;
     this.municipalityId = '';
     this.regionId = '';
+    this.nationalReasonSubmitted = false;
     if (this.isLiveNational) {
       this.reloadNational(requestVersion);
       return;
@@ -375,6 +377,7 @@ export class Consolidated {
   }
 
   closeNational(reason: string) {
+    this.nationalReasonSubmitted = true;
     if (this.loading()) return;
     const report = this.nationalConsolidation();
     if (!report || reason.trim().length < 10) {
@@ -396,6 +399,7 @@ export class Consolidated {
   }
 
   reopenNational(reason: string) {
+    this.nationalReasonSubmitted = true;
     if (this.loading()) return;
     const report = this.nationalConsolidation();
     if (!report || reason.trim().length < 10) {

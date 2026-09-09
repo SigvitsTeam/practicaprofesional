@@ -135,7 +135,7 @@
     aria-labelledby="period-confirm-title"
     (cancel)="$event.preventDefault(); cancel()"
   >
-    <form (ngSubmit)="submit()">
+    <form (ngSubmit)="submit()" novalidate>
       <h2 id="period-confirm-title">
         {{
           operation.kind === 'create'
@@ -162,27 +162,45 @@
           maxlength="500"
           required
           [disabled]="saving()"
+          [class.invalid]="submitted && (reason.trim().length < 10 || reason.trim().length > 500)"
+          [attr.aria-invalid]="
+            submitted && (reason.trim().length < 10 || reason.trim().length > 500)
+          "
+          aria-describedby="period-reason-error"
         ></textarea>
       </label>
+      @if (submitted && reason.trim().length < 10) {
+        <small id="period-reason-error" class="field-error"
+          >Indique un motivo de al menos 10 caracteres.</small
+        >
+      } @else if (submitted && reason.trim().length > 500) {
+        <small id="period-reason-error" class="field-error"
+          >El motivo no puede superar 500 caracteres.</small
+        >
+      }
       <label class="period-check"
         ><input
           name="confirmed"
           type="checkbox"
           [(ngModel)]="confirmed"
           [disabled]="saving()"
+          [class.invalid]="submitted && !confirmed"
+          [attr.aria-invalid]="submitted && !confirmed"
+          aria-describedby="period-confirmation-error"
         /><span>Confirmo el alcance nacional de esta operación.</span></label
       >
+      @if (submitted && !confirmed) {
+        <small id="period-confirmation-error" class="field-error"
+          >Confirme el alcance de la operación.</small
+        >
+      }
       @if (error()) {
         <p class="period-error" role="alert">{{ error() }}</p>
       }
       <footer>
         <button class="btn secondary" type="button" (click)="cancel()" [disabled]="saving()">
           Cancelar</button
-        ><button
-          class="btn primary"
-          type="submit"
-          [disabled]="saving() || !confirmed || reason.trim().length < 10"
-        >
+        ><button class="btn primary" type="submit" [disabled]="saving()">
           {{ saving() ? 'Procesando…' : 'Confirmar operación' }}
         </button>
       </footer>

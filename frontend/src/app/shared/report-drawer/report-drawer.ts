@@ -40,6 +40,7 @@ export class ReportDrawer implements AfterViewInit {
   private readonly api = inject(ItsCaptureApiService);
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
   observation = '';
+  observationSubmitted = false;
   loading = false;
   errorMessage = '';
 
@@ -162,6 +163,7 @@ export class ReportDrawer implements AfterViewInit {
   }
 
   returnReport() {
+    this.observationSubmitted = true;
     const report = this.report();
     const id = report.workflowId;
     if (!this.canAct || !id) return;
@@ -200,7 +202,10 @@ export class ReportDrawer implements AfterViewInit {
     this.loading = true;
     this.errorMessage = '';
     operation.pipe(finalize(() => (this.loading = false))).subscribe({
-      next: () => this.action.emit(success),
+      next: () => {
+        this.observationSubmitted = false;
+        this.action.emit(success);
+      },
       error: (error: unknown) => {
         this.errorMessage = this.errorDetail(error, `No fue posible ${verb} el reporte.`);
       },

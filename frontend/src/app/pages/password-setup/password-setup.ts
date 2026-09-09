@@ -16,9 +16,14 @@ export class PasswordSetup {
     password: new FormControl('', { nonNullable: true }),
     confirmation: new FormControl('', { nonNullable: true }),
   });
+  submitted = false;
 
   async submit(): Promise<void> {
+    this.submitted = true;
     const { password, confirmation } = this.form.getRawValue();
-    if (await this.access.setPassword(password, confirmation)) this.form.reset();
+    if (await this.access.setPassword(password, confirmation)) {
+      this.form.reset();
+      this.submitted = false;
+    }
   }
 }

@@ -109,13 +109,17 @@ export class Territory implements OnInit {
   } | null = null;
   protected territoryNextStatus = 'SUSPENDIDO';
   protected territoryStatusReason = '';
+  protected territoryStatusSubmitted = false;
   protected users: ManagedUserRecord[] = [];
   protected showUserForm = false;
   protected editingUser: ManagedUserRecord | null = null;
   protected statusUser: ManagedUserRecord | null = null;
   protected statusReason = '';
+  protected statusSubmitted = false;
   protected identityUser: ManagedUserRecord | null = null;
+  protected identitySubmitted = false;
   protected invitationUser: ManagedUserRecord | null = null;
+  protected invitationSubmitted = false;
   protected readonly invitationError = signal('');
   protected readonly invitationStatuses = signal<Record<string, InvitationVerificationRecord>>({});
   protected readonly invitationStatusErrors = signal<Record<string, string>>({});
@@ -277,10 +281,41 @@ export class Territory implements OnInit {
     this.formSubmitted = false;
   }
 
+  protected closeUserForm() {
+    this.showUserForm = false;
+    this.editingUser = null;
+    this.userFormSubmitted = false;
+  }
+
+  protected closeStatus() {
+    this.statusUser = null;
+    this.statusSubmitted = false;
+  }
+
+  protected closeIdentity() {
+    this.identityUser = null;
+    this.identitySubmitted = false;
+  }
+
+  protected closeInvitation() {
+    this.invitationUser = null;
+    this.resendingInvitation = false;
+    this.invitationSubmitted = false;
+  }
+
+  protected closeTerritoryStatus() {
+    this.territoryStatusTarget = null;
+    this.territoryStatusSubmitted = false;
+  }
+
   protected saveTerritory() {
     this.formSubmitted = true;
     const form = this.territoryForm;
-    if (!form.name.trim() || !form.code.trim() || form.reason.trim().length < 10) return;
+    const missingParent =
+      (this.createKind === 'municipality' && !form.regionId) ||
+      (this.createKind === 'establishment' && (!form.municipalityId || !form.type));
+    if (!form.name.trim() || !form.code.trim() || form.reason.trim().length < 10 || missingParent)
+      return;
     this.loading = true;
     if (this.createKind === 'region') {
       this.api
@@ -362,7 +397,9 @@ export class Territory implements OnInit {
       !form.fullName.trim() ||
       !form.email.trim() ||
       form.reason.trim().length < 10 ||
-      !form.startDate ||
+      !this.userRoleValid ||
+      !this.userScopeValid ||
+      !this.userStartDateValid ||
       !this.userAccessValid
     )
       return;
@@ -401,16 +438,16 @@ export class Territory implements OnInit {
       )
       .subscribe({
         next: (user) => {
+          const wasEditing = !!this.editingUser;
           this.users = [...this.users.filter((item) => item.id !== user.id), user].sort((a, b) =>
             a.fullName.localeCompare(b.fullName),
           );
-          this.showUserForm = false;
+          this.closeUserForm();
           this.notify.emit(
-            this.editingUser
+            wasEditing
               ? `Acceso de “${user.fullName}” actualizado con historial.`
               : `Perfil de “${user.fullName}” creado pendiente de vincular su identidad.`,
           );
-          this.editingUser = null;
         },
         error: () =>
           this.notify.emit(
@@ -422,16 +459,19 @@ export class Territory implements OnInit {
   protected openStatus(user: ManagedUserRecord) {
     this.statusUser = user;
     this.statusReason = '';
+    this.statusSubmitted = false;
   }
   protected openIdentityLink(user: ManagedUserRecord) {
     this.identityUser = user;
     this.identityForm = { externalSubject: '', activate: true, reason: '' };
+    this.identitySubmitted = false;
   }
   protected openInvitation(user: ManagedUserRecord) {
     this.invitationError.set('');
     this.resendingInvitation = false;
     this.invitationUser = user;
     this.invitationForm = { activate: true, reason: '' };
+    this.invitationSubmitted = false;
   }
   protected openInvitationResend(user: ManagedUserRecord) {
     if (this.invitationStatuses()[user.id]?.status !== 'PENDING') return;
@@ -439,6 +479,7 @@ export class Territory implements OnInit {
     this.resendingInvitation = true;
     this.invitationUser = user;
     this.invitationForm = { activate: user.active, reason: '' };
+    this.invitationSubmitted = false;
   }
   protected checkInvitationStatus(user: ManagedUserRecord) {
     if (!user.hasExternalIdentity || this.checkingInvitationId()) return;
@@ -468,6 +509,7 @@ export class Territory implements OnInit {
       });
   }
   protected sendInvitation() {
+    this.invitationSubmitted = true;
     const user = this.invitationUser;
     if (
       !user ||
@@ -492,8 +534,7 @@ export class Territory implements OnInit {
           next: (status) => {
             this.updateInvitationProfileVersion(user.id, status.profileUpdatedAt);
             this.clearInvitationStatus(user.id);
-            this.invitationUser = null;
-            this.resendingInvitation = false;
+            this.closeInvitation();
             this.notify.emit(
               `Supabase aceptó el reenvío para “${user.email}”. Verifica el estado antes de solicitar otro correo.`,
             );
@@ -521,7 +562,7 @@ export class Territory implements OnInit {
         next: (updated) => {
           this.users = this.users.map((item) => (item.id === updated.id ? updated : item));
           this.clearInvitationStatus(updated.id);
-          this.invitationUser = null;
+          this.closeInvitation();
           this.notify.emit(
             `Supabase aceptó la invitación para “${updated.email}”. El destinatario debe abrir el correo y establecer su contraseña.`,
           );
@@ -533,6 +574,7 @@ export class Territory implements OnInit {
       });
   }
   protected saveIdentityLink() {
+    this.identitySubmitted = true;
     const user = this.identityUser;
     if (
       !user ||
@@ -552,7 +594,7 @@ export class Territory implements OnInit {
       .subscribe({
         next: (updated) => {
           this.users = this.users.map((item) => (item.id === updated.id ? updated : item));
-          this.identityUser = null;
+          this.closeIdentity();
           this.notify.emit(
             `Identidad externa vinculada a “${updated.fullName}”${updated.active ? ' y acceso activado' : ''}.`,
           );
@@ -564,6 +606,7 @@ export class Territory implements OnInit {
       });
   }
   protected saveStatus() {
+    this.statusSubmitted = true;
     const user = this.statusUser;
     if (!user || this.statusReason.trim().length < 10) return;
     this.loading = true;
@@ -573,7 +616,7 @@ export class Territory implements OnInit {
       .subscribe({
         next: (updated) => {
           this.users = this.users.map((item) => (item.id === updated.id ? updated : item));
-          this.statusUser = null;
+          this.closeStatus();
           this.notify.emit(
             `Usuario “${updated.fullName}” ${updated.active ? 'reactivado' : 'suspendido'} correctamente.`,
           );
@@ -602,9 +645,11 @@ export class Territory implements OnInit {
         } as Record<string, string>
       )[target.rawStatus] ?? 'ACTIVO';
     this.territoryStatusReason = '';
+    this.territoryStatusSubmitted = false;
   }
 
   protected saveTerritoryStatus() {
+    this.territoryStatusSubmitted = true;
     const target = this.territoryStatusTarget;
     if (!target || this.territoryStatusReason.trim().length < 10) return;
     this.loading = true;
@@ -619,7 +664,7 @@ export class Territory implements OnInit {
       .pipe(finalize(() => (this.loading = false)))
       .subscribe({
         next: (updated) => {
-          this.territoryStatusTarget = null;
+          this.closeTerritoryStatus();
           this.notify.emit(
             `Estado territorial actualizado a ${this.statusLabel(updated.operationalStatus)}.`,
           );
@@ -669,8 +714,17 @@ export class Territory implements OnInit {
     const scope = this.allowedUserScopes.find((scope) => scope === this.userForm.scopeType);
     return scope ? USER_TARGET_LABELS[scope] : 'Territorio';
   }
+  protected get userRoleValid() {
+    return this.assignableUserRoles.some((role) => role.code === this.userForm.roleCode);
+  }
+  protected get userScopeValid() {
+    return this.allowedUserScopes.some((scope) => scope === this.userForm.scopeType);
+  }
+  protected get userStartDateValid() {
+    return !!this.userForm.startDate;
+  }
   protected get userAccessValid() {
-    if (!this.allowedUserScopes.some((scope) => scope === this.userForm.scopeType)) return false;
+    if (!this.userScopeValid) return false;
     return (
       this.userForm.scopeType === 'NACIONAL' ||
       this.userTargets().some((target) => target.id === this.userForm.targetId)

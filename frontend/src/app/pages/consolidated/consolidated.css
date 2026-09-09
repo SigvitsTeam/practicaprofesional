@@ -6,6 +6,19 @@
   min-height: 38px;
   margin-top: 10px;
 }
+.national-actions input.invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px #bc4a5229;
+}
+.national-actions .field-error {
+  display: block;
+  margin-top: 6px;
+  color: var(--red);
+  font-size: 0.72rem;
+}
+:host-context([data-theme='dark']) .national-actions input.invalid {
+  box-shadow: 0 0 0 3px #ef8a9129;
+}
 .national-actions .danger {
   color: var(--red);
   border-color: #d8a0a5;

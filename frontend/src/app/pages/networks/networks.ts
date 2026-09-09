@@ -85,9 +85,11 @@ export class Networks {
   protected municipalities: MunicipalityView[] = [];
   protected membershipReason = '';
   protected membershipEffectiveDate = hondurasTodayIso();
+  protected membershipSubmitted = false;
   protected draftMembershipIds: string[] = [];
   protected showStatusForm = false;
   protected statusReason = '';
+  protected statusSubmitted = false;
   protected nextStatus = 'SUSPENDIDO';
   protected readonly tabs: { id: NetworkTab; label: string }[] = [
     { id: 'summary', label: 'Resumen' },
@@ -223,6 +225,11 @@ export class Networks {
   }
   protected closeCreate() {
     this.showCreateForm = false;
+    this.formSubmitted = false;
+  }
+  protected closeStatus() {
+    this.showStatusForm = false;
+    this.statusSubmitted = false;
   }
   protected saveNetwork() {
     if (!this.canManage || this.loading) return;
@@ -250,7 +257,7 @@ export class Networks {
       )
       .subscribe({
         next: (record) => {
-          this.showCreateForm = false;
+          this.closeCreate();
           this.notify.emit(`Red “${record.name}” creada correctamente.`);
           this.load();
         },
@@ -271,8 +278,15 @@ export class Networks {
       : this.draftMembershipIds.filter((item) => item !== id);
   }
   protected saveMemberships() {
+    this.membershipSubmitted = true;
     const network = this.currentNetworks.find(({ id }) => id === this.selectedNetworkId);
-    if (!this.canManage || this.loading || !network || this.membershipReason.trim().length < 10)
+    if (
+      !this.canManage ||
+      this.loading ||
+      !network ||
+      !this.membershipEffectiveDate ||
+      this.membershipReason.trim().length < 10
+    )
       return;
     this.saving = true;
     this.api
@@ -293,6 +307,7 @@ export class Networks {
       .subscribe({
         next: () => {
           this.membershipReason = '';
+          this.membershipSubmitted = false;
           this.notify.emit('Composición municipal actualizada con vigencia e historial.');
           this.load();
         },
@@ -317,9 +332,11 @@ export class Networks {
         } as Record<string, string>
       )[network.rawStatus] ?? 'ACTIVO';
     this.statusReason = '';
+    this.statusSubmitted = false;
     this.showStatusForm = true;
   }
   protected saveStatus() {
+    this.statusSubmitted = true;
     if (!this.canManage || this.loading) return;
     const network = this.selectedNetwork;
     if (!network.id || this.statusReason.trim().length < 10) return;
@@ -335,7 +352,7 @@ export class Networks {
       )
       .subscribe({
         next: (record) => {
-          this.showStatusForm = false;
+          this.closeStatus();
           this.notify.emit(
             `Red “${record.name}” actualizada a ${this.statusLabel(record.operationalStatus)}.`,
           );

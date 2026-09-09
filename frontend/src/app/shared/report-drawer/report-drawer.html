@@ -95,16 +95,17 @@
           [(ngModel)]="observation"
           maxlength="1000"
           [disabled]="loading"
+          [class.invalid]="observationSubmitted && !observation.trim()"
+          [attr.aria-invalid]="observationSubmitted && !observation.trim()"
+          aria-describedby="observation-error"
           placeholder="Escriba una indicación para el nivel remitente…"
         ></textarea>
       </label>
+      @if (observationSubmitted && !observation.trim()) {
+        <small id="observation-error" class="field-error">Escriba el motivo de devolución.</small>
+      }
       <div class="drawer-actions">
-        <button
-          class="btn secondary"
-          type="button"
-          [disabled]="loading || !observation.trim()"
-          (click)="returnReport()"
-        >
+        <button class="btn secondary" type="button" [disabled]="loading" (click)="returnReport()">
           Devolver
         </button>
         <button class="btn primary" type="button" [disabled]="loading" (click)="approveReport()">

@@ -58,6 +58,7 @@ export class PeriodAdministration {
   readonly historyError = signal('');
   reason = '';
   confirmed = false;
+  submitted = false;
   readonly monthLabel = formatHondurasMonth;
   readonly dateTime = formatHondurasDateTime;
   get allowed() {
@@ -138,10 +139,12 @@ export class PeriodAdministration {
       this.action.set(null);
       this.reason = '';
       this.confirmed = false;
+      this.submitted = false;
       this.error.set('');
     }
   }
   submit() {
+    this.submitted = true;
     const action = this.action();
     if (
       !action ||
@@ -161,6 +164,7 @@ export class PeriodAdministration {
       this.action.set(null);
       this.reason = '';
       this.confirmed = false;
+      this.submitted = false;
       this.load();
       this.feedback.set(
         action.kind === 'create'
@@ -263,6 +267,7 @@ export class PeriodAdministration {
   private prepare() {
     this.reason = '';
     this.confirmed = false;
+    this.submitted = false;
     this.error.set('');
     this.feedback.set('');
   }

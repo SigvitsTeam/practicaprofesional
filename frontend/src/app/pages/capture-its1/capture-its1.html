@@ -94,54 +94,118 @@
       <div class="form-grid">
         <label
           ><span>Fecha de atención *</span
-          ><input type="date" formControlName="attentionDate" /><small
-            >La semana mostrada es una vista previa.</small
-          ></label
+          ><input
+            type="date"
+            formControlName="attentionDate"
+            [class.invalid]="submitted && form.controls.attentionDate.invalid"
+            [attr.aria-invalid]="submitted && form.controls.attentionDate.invalid"
+          /><small [class.field-error]="submitted && form.controls.attentionDate.invalid">
+            @if (submitted && form.controls.attentionDate.invalid) {
+              Indique la fecha de atención.
+            } @else {
+              La semana mostrada es una vista previa.
+            }
+          </small></label
         >
         <label><span>Semana epidemiológica</span><input [value]="weekPreview" disabled /></label>
         <label
           ><span>N.º expediente / ID paciente *</span
-          ><input formControlName="patientId" placeholder="Ej. EXP-2026-01842" /><small
-            class="field-error"
-          >
-            @if (potentialDuplicate) {
+          ><input
+            formControlName="patientId"
+            placeholder="Ej. EXP-2026-01842"
+            [class.invalid]="submitted && form.controls.patientId.invalid"
+            [attr.aria-invalid]="submitted && form.controls.patientId.invalid"
+          /><small class="field-error">
+            @if (submitted && form.controls.patientId.hasError('required')) {
+              Ingrese el ID del paciente.
+            } @else if (submitted && form.controls.patientId.hasError('minlength')) {
+              Use al menos 4 caracteres.
+            } @else if (potentialDuplicate) {
               Posible duplicado en la fecha seleccionada.
             }
           </small></label
         >
         <label
           ><span>Sexo *</span
-          ><select formControlName="sex">
+          ><select
+            formControlName="sex"
+            [class.invalid]="submitted && form.controls.sex.invalid"
+            [attr.aria-invalid]="submitted && form.controls.sex.invalid"
+          >
             <option value="">Seleccione</option>
             <option>Hombre</option>
-            <option>Mujer</option>
-          </select></label
+            <option>Mujer</option></select
+          ><small class="field-error">
+            @if (submitted && form.controls.sex.invalid) {
+              Seleccione el sexo.
+            }
+          </small></label
         >
         <label
           ><span>Edad *</span
-          ><input type="number" formControlName="age" min="0" max="120" placeholder="Años"
-        /></label>
+          ><input
+            type="number"
+            formControlName="age"
+            min="0"
+            max="120"
+            placeholder="Años"
+            [class.invalid]="submitted && form.controls.age.invalid"
+            [attr.aria-invalid]="submitted && form.controls.age.invalid"
+          /><small class="field-error">
+            @if (submitted && form.controls.age.hasError('required')) {
+              Indique la edad.
+            } @else if (submitted && form.controls.age.invalid) {
+              Indique una edad entre 0 y 120.
+            }
+          </small></label
+        >
         <label
           ><span>Tipo de población *</span
-          ><select formControlName="populationType">
+          ><select
+            formControlName="populationType"
+            [class.invalid]="submitted && form.controls.populationType.invalid"
+            [attr.aria-invalid]="submitted && form.controls.populationType.invalid"
+          >
             <option>General</option>
-            <option>Trabajador(a) sexual</option>
-          </select></label
+            <option>Trabajador(a) sexual</option></select
+          ><small class="field-error">
+            @if (submitted && form.controls.populationType.invalid) {
+              Seleccione el tipo de población.
+            }
+          </small></label
         >
         <label
           ><span>Contacto *</span
-          ><select formControlName="contact">
+          ><select
+            formControlName="contact"
+            [class.invalid]="submitted && form.controls.contact.invalid"
+            [attr.aria-invalid]="submitted && form.controls.contact.invalid"
+          >
             <option value="">Seleccione</option>
             <option>Sí</option>
-            <option>No</option>
-          </select></label
+            <option>No</option></select
+          ><small class="field-error">
+            @if (submitted && form.controls.contact.invalid) {
+              Indique si existe contacto.
+            }
+          </small></label
         >
         <label
           ><span>Embarazada *</span
-          ><select formControlName="pregnant">
+          ><select
+            formControlName="pregnant"
+            [class.invalid]="submitted && form.controls.pregnant.invalid"
+            [attr.aria-invalid]="submitted && form.controls.pregnant.invalid"
+          >
             <option>Sí</option>
             <option>No</option></select
-          ><small>Disponible únicamente para sexo Mujer.</small></label
+          ><small [class.field-error]="submitted && form.controls.pregnant.invalid">
+            @if (submitted && form.controls.pregnant.invalid) {
+              Indique si está embarazada.
+            } @else {
+              Disponible únicamente para sexo Mujer.
+            }
+          </small></label
         >
       </div>
     </article>
@@ -159,7 +223,17 @@
           ><input
             formControlName="procedence"
             placeholder="Ej. Barrio El Centro, 2 cuadras al norte del parque"
-          /><small>Registre manualmente la referencia proporcionada por la persona.</small></label
+            [class.invalid]="submitted && form.controls.procedence.invalid"
+            [attr.aria-invalid]="submitted && form.controls.procedence.invalid"
+          /><small [class.field-error]="submitted && form.controls.procedence.invalid">
+            @if (submitted && form.controls.procedence.hasError('required')) {
+              Ingrese la procedencia.
+            } @else if (submitted && form.controls.procedence.hasError('minlength')) {
+              Use al menos 3 caracteres.
+            } @else {
+              Registre manualmente la referencia proporcionada por la persona.
+            }
+          </small></label
         >
       </div>
     </article>
@@ -180,17 +254,30 @@
             <span class="diagnostic-number">{{ $index + 1 }}</span
             ><label
               ><span>Clasificación *</span
-              ><select formControlName="classificationId" (change)="onClassificationChange($index)">
+              ><select
+                formControlName="classificationId"
+                (change)="onClassificationChange($index)"
+                [class.invalid]="submitted && diagnostic.get('classificationId')?.invalid"
+                [attr.aria-invalid]="submitted && diagnostic.get('classificationId')?.invalid"
+              >
                 <option value="">
                   {{ form.controls.sex.value ? 'Seleccione' : 'Seleccione primero el sexo' }}
                 </option>
                 @for (classification of availableClassifications(); track classification.id) {
                   <option [value]="classification.id">{{ classification.name }}</option>
+                }</select
+              ><small class="field-error">
+                @if (submitted && diagnostic.get('classificationId')?.invalid) {
+                  Seleccione una clasificación.
                 }
-              </select></label
+              </small></label
             ><label
               ><span>Enfermedad *</span
-              ><select formControlName="diseaseId">
+              ><select
+                formControlName="diseaseId"
+                [class.invalid]="submitted && diagnostic.get('diseaseId')?.invalid"
+                [attr.aria-invalid]="submitted && diagnostic.get('diseaseId')?.invalid"
+              >
                 <option value="">
                   {{ form.controls.sex.value ? 'Seleccione' : 'Seleccione primero el sexo' }}
                 </option>
@@ -198,13 +285,27 @@
                   <option [value]="disease.id">{{ disease.name }}</option>
                 }
               </select>
-              <small>Opciones filtradas por sexo y clasificación.</small></label
+              <small [class.field-error]="submitted && diagnostic.get('diseaseId')?.invalid">
+                @if (submitted && diagnostic.get('diseaseId')?.invalid) {
+                  Seleccione una enfermedad.
+                } @else {
+                  Opciones filtradas por sexo y clasificación.
+                }
+              </small></label
             ><label
               ><span>Tipo de caso *</span
-              ><select formControlName="caseType">
+              ><select
+                formControlName="caseType"
+                [class.invalid]="submitted && diagnostic.get('caseType')?.invalid"
+                [attr.aria-invalid]="submitted && diagnostic.get('caseType')?.invalid"
+              >
                 <option>Nuevo</option>
-                <option>Control</option>
-              </select></label
+                <option>Control</option></select
+              ><small class="field-error">
+                @if (submitted && diagnostic.get('caseType')?.invalid) {
+                  Seleccione el tipo de caso.
+                }
+              </small></label
             ><button
               type="button"
               class="remove-diagnostic"

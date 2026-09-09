@@ -264,16 +264,36 @@
                   @if (canManage) {
                     <div class="membership-controls">
                       <label
-                        >Vigencia<input type="date" [(ngModel)]="membershipEffectiveDate" /></label
+                        >Vigencia<input
+                          type="date"
+                          [(ngModel)]="membershipEffectiveDate"
+                          [class.invalid]="membershipSubmitted && !membershipEffectiveDate"
+                          [attr.aria-invalid]="membershipSubmitted && !membershipEffectiveDate"
+                        /><small>
+                          @if (membershipSubmitted && !membershipEffectiveDate) {
+                            Seleccione la fecha de vigencia.
+                          }
+                        </small></label
                       ><label
                         >Motivo<input
                           [(ngModel)]="membershipReason"
-                          placeholder="Motivo administrativo" /></label
+                          [class.invalid]="
+                            membershipSubmitted && membershipReason.trim().length < 10
+                          "
+                          [attr.aria-invalid]="
+                            membershipSubmitted && membershipReason.trim().length < 10
+                          "
+                          placeholder="Motivo administrativo"
+                        /><small>
+                          @if (membershipSubmitted && membershipReason.trim().length < 10) {
+                            Ingrese al menos 10 caracteres.
+                          }
+                        </small></label
                       ><button
                         class="btn primary"
                         type="button"
                         (click)="saveMemberships()"
-                        [disabled]="loading || membershipReason.trim().length < 10"
+                        [disabled]="loading"
                       >
                         Guardar asociaciones
                       </button>
@@ -478,6 +498,7 @@
               name="networkName"
               [(ngModel)]="networkForm.name"
               [class.invalid]="formSubmitted && !networkForm.name.trim()"
+              [attr.aria-invalid]="formSubmitted && !networkForm.name.trim()"
               autocomplete="off"
             /><small>
               @if (formSubmitted && !networkForm.name.trim()) {
@@ -491,6 +512,7 @@
               name="networkCode"
               [(ngModel)]="networkForm.code"
               [class.invalid]="formSubmitted && !networkForm.code.trim()"
+              [attr.aria-invalid]="formSubmitted && !networkForm.code.trim()"
               autocomplete="off"
             /><small>
               @if (formSubmitted && !networkForm.code.trim()) {
@@ -500,12 +522,22 @@
           >
           <label
             ><span>Región sanitaria *</span
-            ><select name="networkRegion" [(ngModel)]="networkForm.regionId" [disabled]="!isGlobal">
+            ><select
+              name="networkRegion"
+              [(ngModel)]="networkForm.regionId"
+              [disabled]="!isGlobal"
+              [class.invalid]="formSubmitted && !networkForm.regionId"
+              [attr.aria-invalid]="formSubmitted && !networkForm.regionId"
+            >
               @for (region of regions; track region.id) {
                 <option [value]="region.id">{{ region.name }}</option>
               }</select
-            ><small></small
-          ></label>
+            ><small>
+              @if (formSubmitted && !networkForm.regionId) {
+                Seleccione una región sanitaria.
+              }
+            </small></label
+          >
           <label
             ><span>Estado inicial</span
             ><select name="networkStatus" [(ngModel)]="networkForm.status">
@@ -523,6 +555,8 @@
             ><textarea
               name="networkReason"
               [(ngModel)]="networkForm.reason"
+              [class.invalid]="formSubmitted && networkForm.reason.trim().length < 10"
+              [attr.aria-invalid]="formSubmitted && networkForm.reason.trim().length < 10"
               maxlength="500"
             ></textarea
             ><small>
@@ -579,11 +613,9 @@
           <h2>Cambiar estado de Red</h2>
           <p>{{ selectedNetwork.name }} · {{ selectedNetwork.status }}</p>
         </div>
-        <button type="button" aria-label="Cerrar formulario" (click)="showStatusForm = false">
-          ×
-        </button>
+        <button type="button" aria-label="Cerrar formulario" (click)="closeStatus()">×</button>
       </header>
-      <form (ngSubmit)="saveStatus()">
+      <form (ngSubmit)="saveStatus()" novalidate>
         <div class="network-creation-form">
           <label class="wide"
             ><span>Nuevo estado</span
@@ -621,20 +653,23 @@
             ><textarea
               name="networkStatusReason"
               [(ngModel)]="statusReason"
+              [class.invalid]="statusSubmitted && statusReason.trim().length < 10"
+              [attr.aria-invalid]="statusSubmitted && statusReason.trim().length < 10"
               minlength="10"
               maxlength="500"
             ></textarea
-            ><small>La membresía histórica se conserva y la operación queda auditada.</small></label
+            ><small>
+              @if (statusSubmitted && statusReason.trim().length < 10) {
+                Ingrese al menos 10 caracteres.
+              } @else {
+                La membresía histórica se conserva y la operación queda auditada.
+              }
+            </small></label
           >
         </div>
         <footer>
-          <button class="btn secondary" type="button" (click)="showStatusForm = false">
-            Cancelar</button
-          ><button
-            class="btn primary"
-            type="submit"
-            [disabled]="loading || statusReason.trim().length < 10"
-          >
+          <button class="btn secondary" type="button" (click)="closeStatus()">Cancelar</button
+          ><button class="btn primary" type="submit" [disabled]="loading">
             Confirmar transición
           </button>
         </footer>

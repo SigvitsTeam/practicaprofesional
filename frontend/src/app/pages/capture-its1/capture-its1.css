@@ -93,6 +93,19 @@
   min-height: 41px;
   font-size: 0.82rem;
 }
+.form-grid input.invalid,
+.form-grid select.invalid,
+.form-grid textarea.invalid,
+.diagnostic-row select.invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px #bc4a5229;
+}
+.form-grid input.invalid:focus,
+.form-grid select.invalid:focus,
+.form-grid textarea.invalid:focus,
+.diagnostic-row select.invalid:focus {
+  outline-color: var(--red);
+}
 .form-grid label small {
   min-height: 15px;
   margin: 5px 3px 0;
@@ -256,6 +269,12 @@
 }
 :host-context([data-theme='dark']) .diagnostic-row {
   background: #152a33;
+}
+:host-context([data-theme='dark']) .form-grid input.invalid,
+:host-context([data-theme='dark']) .form-grid select.invalid,
+:host-context([data-theme='dark']) .form-grid textarea.invalid,
+:host-context([data-theme='dark']) .diagnostic-row select.invalid {
+  box-shadow: 0 0 0 3px #ef8a9129;
 }
 :host-context([data-theme='dark']) .diagnostic-number,
 :host-context([data-theme='dark']) .workflow-card li.active i {

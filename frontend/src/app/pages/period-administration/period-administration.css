@@ -111,6 +111,16 @@ td .btn {
   resize: vertical;
   padding: 10px;
 }
+.period-dialog textarea.invalid,
+.period-dialog .period-check input.invalid {
+  border-color: var(--period-error);
+  box-shadow: 0 0 0 3px #a82f3b29;
+}
+.period-dialog .field-error {
+  color: var(--period-error);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
 .period-check {
   display: flex;
   align-items: center;
@@ -130,6 +140,10 @@ td .btn {
   border: 1px solid currentColor;
   border-radius: 8px;
   padding: 12px;
+}
+:host-context([data-theme='dark']) .period-dialog textarea.invalid,
+:host-context([data-theme='dark']) .period-dialog .period-check input.invalid {
+  box-shadow: 0 0 0 3px #ef8a9129;
 }
 .period-event {
   border-bottom: 1px solid var(--line);

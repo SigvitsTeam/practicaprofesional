@@ -128,6 +128,20 @@ td {
   background: var(--surface);
   color: inherit;
 }
+.workflow-fields input.invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px #bc4a5229;
+}
+.workflow-fields .field-error {
+  display: block;
+  margin-top: 5px;
+  color: var(--red);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+:host-context([data-theme='dark']) .workflow-fields input.invalid {
+  box-shadow: 0 0 0 3px #ef8a9129;
+}
 :host-context([data-theme='dark']) .its2-correction {
   border-color: #63363a;
   background: #311f24;

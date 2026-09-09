@@ -191,21 +191,44 @@
           type="number"
           min="0"
           [(ngModel)]="attentionsUnder15"
-          readonly /></label
+          [class.invalid]="prepareAttempted && attentionsUnder15 === null"
+          [attr.aria-invalid]="prepareAttempted && attentionsUnder15 === null"
+          aria-describedby="under-15-error"
+          readonly
+        />
+        @if (prepareAttempted && attentionsUnder15 === null) {
+          <small id="under-15-error" class="field-error">No se calcularon estos totales.</small>
+        }</label
       ><label
         >Atenciones ≥ 15 años (automático)<input
           type="number"
           min="0"
           [(ngModel)]="attentions15Plus"
-          readonly /></label
+          [class.invalid]="prepareAttempted && attentions15Plus === null"
+          [attr.aria-invalid]="prepareAttempted && attentions15Plus === null"
+          aria-describedby="over-15-error"
+          readonly
+        />
+        @if (prepareAttempted && attentions15Plus === null) {
+          <small id="over-15-error" class="field-error">No se calcularon estos totales.</small>
+        }</label
       ><label
         >Fuente de los totales<input
           type="text"
           maxlength="300"
           [(ngModel)]="attentionTotalsSource"
+          [class.invalid]="prepareAttempted && !attentionTotalsSource.trim()"
+          [attr.aria-invalid]="prepareAttempted && !attentionTotalsSource.trim()"
+          aria-describedby="totals-source-error"
           readonly
           placeholder="Ej. Estadística mensual"
-      /></label>
+        />
+        @if (prepareAttempted && !attentionTotalsSource.trim()) {
+          <small id="totals-source-error" class="field-error"
+            >Indique la fuente de los totales.</small
+          >
+        }
+      </label>
     </div>
     <div class="validation ok">
       <i>✓</i

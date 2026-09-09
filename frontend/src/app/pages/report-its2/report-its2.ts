@@ -37,6 +37,7 @@ export class ReportIts2 implements OnInit {
   protected attentionsUnder15: number | null = null;
   protected attentions15Plus: number | null = null;
   protected attentionTotalsSource = '';
+  protected prepareAttempted = false;
 
   constructor() {
     effect(() => {
@@ -130,6 +131,14 @@ export class ReportIts2 implements OnInit {
     );
   }
 
+  protected get workflowInputsIncomplete() {
+    return (
+      this.attentionsUnder15 === null ||
+      this.attentions15Plus === null ||
+      !this.attentionTotalsSource.trim()
+    );
+  }
+
   protected classificationTotal(classificationCode: string) {
     const rows =
       this.report()?.rows.filter((row) => row.classificationCode === classificationCode) ?? [];
@@ -147,14 +156,10 @@ export class ReportIts2 implements OnInit {
   }
 
   protected prepareWorkflow() {
+    this.prepareAttempted = true;
     if (!this.canPrepare) return;
     const facilityId = this.context.selected().id;
-    if (
-      !facilityId ||
-      this.attentionsUnder15 === null ||
-      this.attentions15Plus === null ||
-      !this.attentionTotalsSource.trim()
-    ) {
+    if (!facilityId || this.workflowInputsIncomplete) {
       this.notify.emit('Complete los totales de atenciones y su fuente.');
       return;
     }
@@ -165,8 +170,8 @@ export class ReportIts2 implements OnInit {
         facilityId,
         year: this.year,
         month: this.month,
-        attentionsUnder15: this.attentionsUnder15,
-        attentions15Plus: this.attentions15Plus,
+        attentionsUnder15: this.attentionsUnder15!,
+        attentions15Plus: this.attentions15Plus!,
         attentionTotalsSource: this.attentionTotalsSource.trim(),
       })
       .pipe(
@@ -337,6 +342,7 @@ export class ReportIts2 implements OnInit {
   }
 
   private setWorkflow(workflow: Its2WorkflowReport | null, report?: ItsMonthlyReportResponse) {
+    this.prepareAttempted = false;
     this.workflowReport.set(workflow);
     this.attentionsUnder15 = report?.attentionsUnder15 ?? workflow?.attentionsUnder15 ?? null;
     this.attentions15Plus = report?.attentions15Plus ?? workflow?.attentions15Plus ?? null;

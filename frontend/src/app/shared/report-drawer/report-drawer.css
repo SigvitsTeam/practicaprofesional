@@ -30,6 +30,20 @@
 .observations textarea {
   font-size: 0.8rem;
 }
+.observations textarea.invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px #bc4a5229;
+}
+.field-error {
+  display: block;
+  margin: 6px 0 0;
+  color: var(--red);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+:host-context([data-theme='dark']) .observations textarea.invalid {
+  box-shadow: 0 0 0 3px #ef8a9129;
+}
 .drawer-error {
   margin: 12px 0 0;
   color: var(--red);

@@ -603,6 +603,17 @@
   width: 100%;
   margin-top: 5px;
 }
+.membership-controls small {
+  min-height: 14px;
+  display: block;
+  margin-top: 4px;
+  color: var(--red);
+  font-size: 0.62rem;
+}
+.membership-controls .invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 2px #c94e5817;
+}
 .network-modal-backdrop {
   position: fixed;
   inset: 0;

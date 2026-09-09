@@ -169,6 +169,18 @@ td {
 .annual-form input {
   width: 100%;
 }
+.annual-form input.invalid,
+.annual-form select.invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px #bc4a5229;
+}
+.annual-form .field-error {
+  display: block;
+  margin-top: 5px;
+  color: var(--red);
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
 .dimension-options {
   grid-column: 1/-1;
   padding: 13px;
@@ -335,6 +347,10 @@ td {
   color: #f1a0a6;
   border-color: #64333a;
   background: #3b2429;
+}
+:host-context([data-theme='dark']) .annual-form input.invalid,
+:host-context([data-theme='dark']) .annual-form select.invalid {
+  box-shadow: 0 0 0 3px #ef8a9129;
 }
 @media (max-width: 700px) {
   .annual-form {
