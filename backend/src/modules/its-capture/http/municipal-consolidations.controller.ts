@@ -20,6 +20,7 @@ import { CurrentSubject } from '../../authorization/http/current-subject.decorat
 import { RequireAccess } from '../../authorization/http/require-access.decorator';
 import { MunicipalConsolidationUseCase } from '../application/municipal-consolidation.use-case';
 import { GetMonthlyReportUseCase } from '../application/get-monthly-report.use-case';
+import { RenderMunicipalPreliminaryUseCase } from '../application/render-municipal-preliminary.use-case';
 import { RenderIts2PdfUseCase } from '../application/render-its2-pdf.use-case';
 import { RenderIts2XlsxUseCase } from '../application/render-its2-xlsx.use-case';
 import { mergeMunicipalMonthlyReports, type ItsMonthlyReport } from '../domain/its-monthly-report';
@@ -27,6 +28,7 @@ import {
   MunicipalConsolidationAccessError,
   MunicipalConsolidationError,
   MunicipalConsolidationNotFoundError,
+  type MunicipalPreliminaryReport,
   type MunicipalConsolidationSummary,
   type MunicipalConsolidationContext,
 } from '../domain/municipal-consolidation';
@@ -44,6 +46,7 @@ export class MunicipalConsolidationsController {
     private readonly getMonthlyReport: GetMonthlyReportUseCase,
     private readonly renderIts2Pdf: RenderIts2PdfUseCase,
     private readonly renderIts2Xlsx: RenderIts2XlsxUseCase,
+    private readonly renderPreliminary: RenderMunicipalPreliminaryUseCase,
   ) {}
 
   @Get('context')
@@ -61,10 +64,6 @@ export class MunicipalConsolidationsController {
     permission: 'its2:reports:read',
     dataLevel: DataLevel.Aggregated,
     scope: 'OWN',
-    target: (request) => ({
-      municipalityId:
-        typeof request.query.municipalityId === 'string' ? request.query.municipalityId : undefined,
-    }),
   })
   async current(
     @Query() query: MunicipalConsolidationPeriodDto,
@@ -83,20 +82,25 @@ export class MunicipalConsolidationsController {
     permission: 'its2:reports:read',
     dataLevel: DataLevel.Aggregated,
     scope: 'OWN',
-    target: (request) => ({
-      municipalityId:
-        typeof request.query.municipalityId === 'string' ? request.query.municipalityId : undefined,
-    }),
   })
   async currentXlsx(
     @Query() query: MunicipalConsolidationPeriodDto,
     @CurrentSubject() subject: AuthorizationSubject,
   ): Promise<StreamableFile> {
-    const report = await this.downloadReport(query, subject);
-    const contents = Buffer.from(await this.renderIts2Xlsx.execute(report));
+    const download = await this.downloadReport(query, subject);
+    const contents = Buffer.from(
+      download.preliminary
+        ? await this.renderPreliminary.xlsx(download.report)
+        : await this.renderIts2Xlsx.execute(download.report),
+    );
+    const code = download.preliminary
+      ? download.report.municipality.code
+      : download.report.facility.code;
     return new StreamableFile(contents, {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      disposition: `attachment; filename="ITS-2-Consolidado-Municipal-${report.facility.code}-${report.year}-${String(report.month).padStart(2, '0')}.xlsx"`,
+      disposition: download.preliminary
+        ? `attachment; filename="ITS-1-Resumen-Municipal-PRELIMINAR-${code}-${download.report.year}-${String(download.report.month).padStart(2, '0')}.xlsx"`
+        : `attachment; filename="ITS-2-Consolidado-Municipal-${code}-${download.report.year}-${String(download.report.month).padStart(2, '0')}.xlsx"`,
       length: contents.length,
     });
   }
@@ -107,20 +111,25 @@ export class MunicipalConsolidationsController {
     permission: 'its2:reports:read',
     dataLevel: DataLevel.Aggregated,
     scope: 'OWN',
-    target: (request) => ({
-      municipalityId:
-        typeof request.query.municipalityId === 'string' ? request.query.municipalityId : undefined,
-    }),
   })
   async currentPdf(
     @Query() query: MunicipalConsolidationPeriodDto,
     @CurrentSubject() subject: AuthorizationSubject,
   ): Promise<StreamableFile> {
-    const report = await this.downloadReport(query, subject);
-    const contents = Buffer.from(await this.renderIts2Pdf.execute(report));
+    const download = await this.downloadReport(query, subject);
+    const contents = Buffer.from(
+      download.preliminary
+        ? await this.renderPreliminary.pdf(download.report)
+        : await this.renderIts2Pdf.execute(download.report),
+    );
+    const code = download.preliminary
+      ? download.report.municipality.code
+      : download.report.facility.code;
     return new StreamableFile(contents, {
       type: 'application/pdf',
-      disposition: `attachment; filename="ITS-2-Consolidado-Municipal-${report.facility.code}-${report.year}-${String(report.month).padStart(2, '0')}.pdf"`,
+      disposition: download.preliminary
+        ? `attachment; filename="ITS-1-Resumen-Municipal-PRELIMINAR-${code}-${download.report.year}-${String(download.report.month).padStart(2, '0')}.pdf"`
+        : `attachment; filename="ITS-2-Consolidado-Municipal-${code}-${download.report.year}-${String(download.report.month).padStart(2, '0')}.pdf"`,
       length: contents.length,
     });
   }
@@ -216,27 +225,38 @@ export class MunicipalConsolidationsController {
   private async downloadReport(
     query: MunicipalConsolidationPeriodDto,
     subject: AuthorizationSubject,
-  ): Promise<ItsMonthlyReport> {
+  ): Promise<
+    | { report: ItsMonthlyReport; preliminary: false }
+    | { report: MunicipalPreliminaryReport; preliminary: true }
+  > {
     const consolidation = await this.execute(() =>
       this.workflow.getCurrent(query.municipalityId, query.year, query.month, subject),
     );
-    if (!consolidation)
-      throw new NotFoundException('Prepare primero el consolidado municipal del período.');
+    const officialConsolidation =
+      consolidation?.status === 'APROBADO_REGION' ? consolidation : undefined;
+    if (!officialConsolidation) {
+      const report = await this.execute(() =>
+        this.workflow.getPreliminaryReport(query.municipalityId, query.year, query.month, subject),
+      );
+      return { report, preliminary: true };
+    }
+
     const reports = await Promise.all(
-      consolidation.sourceReports.map((source) =>
+      officialConsolidation.sourceReports.map((source) =>
         this.getMonthlyReport.execute(source.facility.id, query.year, query.month),
       ),
     );
-    return mergeMunicipalMonthlyReports(
+    const report = mergeMunicipalMonthlyReports(
       reports,
       {
-        id: consolidation.municipality.id,
-        code: consolidation.municipality.code,
-        name: consolidation.municipality.name,
+        id: officialConsolidation.municipality.id,
+        code: officialConsolidation.municipality.code,
+        name: officialConsolidation.municipality.name,
         regionName: reports[0]?.facility.regionName ?? '',
       },
       query.year,
       query.month,
     );
+    return { report, preliminary: false };
   }
 }

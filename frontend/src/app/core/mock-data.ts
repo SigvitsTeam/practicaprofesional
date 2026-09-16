@@ -46,7 +46,7 @@ export const SCREEN_META: Record<string, ScreenMeta> = {
   'Reportes y exportaciones': {
     eyebrow: 'GESTIÓN DOCUMENTAL · PUERTO CORTÉS',
     title: 'Reportes y exportaciones',
-    description: 'Generación y descarga auditada de informes oficiales.',
+    description: 'Generación y descarga auditada según el estado de los datos.',
   },
   Redes: {
     eyebrow: 'AGRUPACIÓN TERRITORIAL · CORTÉS',

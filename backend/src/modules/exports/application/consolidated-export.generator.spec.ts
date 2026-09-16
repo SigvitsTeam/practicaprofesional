@@ -1,13 +1,15 @@
 import ExcelJS from 'exceljs';
+import { ConfigService } from '@nestjs/config';
 import type { MunicipalConsolidationRepository } from '../../its-capture/application/ports/municipal-consolidation.repository';
 import type { NationalConsolidationRepository } from '../../its-capture/application/ports/national-consolidation.repository';
 import type { RegionalConsolidationRepository } from '../../its-capture/application/ports/regional-consolidation.repository';
+import { TerritorialAnalyticsPrivacyPolicy } from '../../its-capture/application/territorial-analytics-privacy.policy';
 import type { ClaimedExportJob } from '../domain/export-job';
 import { ConsolidatedExportGenerator } from './consolidated-export.generator';
 
 const nationalGetCurrent = jest.fn().mockResolvedValue({
   id: 'national-1',
-  status: 'CONSOLIDADO_NACIONAL',
+  status: 'CERRADO_OFICIAL',
   version: 2,
   year: 2026,
   month: 8,
@@ -46,11 +48,44 @@ const regionalGetCurrent = jest.fn().mockResolvedValue({
   generatedAt: new Date('2026-08-21T00:00:00Z'),
   openObservations: [],
 });
+const municipalGetCurrent = jest.fn();
+const analyticsList = jest.fn().mockResolvedValue([
+  {
+    id: 'facility-1',
+    parentId: 'municipality-1',
+    code: '=E01',
+    name: 'Establecimiento Uno',
+    status: 'SIN_REPORTE',
+    dataStatus: 'PRELIMINAR',
+    dataSource: 'ITS1',
+    attentions: 12,
+    newCases: 4,
+    controls: 8,
+    alerts: 0,
+  },
+  {
+    id: 'facility-2',
+    parentId: 'municipality-1',
+    code: 'E02',
+    name: 'Establecimiento Dos',
+    status: 'SIN_REPORTE',
+    dataStatus: 'PRELIMINAR',
+    dataSource: 'ITS1',
+    attentions: 20,
+    newCases: 6,
+    controls: 10,
+    alerts: 0,
+  },
+]);
 
 const generator = new ConsolidatedExportGenerator(
-  { getCurrent: jest.fn() } as unknown as MunicipalConsolidationRepository,
+  { getCurrent: municipalGetCurrent } as unknown as MunicipalConsolidationRepository,
   { getCurrent: regionalGetCurrent } as unknown as RegionalConsolidationRepository,
   { getCurrent: nationalGetCurrent } as unknown as NationalConsolidationRepository,
+  { list: analyticsList },
+  new TerritorialAnalyticsPrivacyPolicy(
+    new ConfigService({ app: { territorialAnalyticsSmallCountThreshold: 5 } }),
+  ),
 );
 
 const baseJob: ClaimedExportJob = {
@@ -79,8 +114,8 @@ describe('ConsolidatedExportGenerator', () => {
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(new Uint8Array(contents).buffer);
     const sheet = workbook.getWorksheet('Consolidado');
-    expect(sheet?.getCell('A10').value).toBe("'=R01");
-    expect(sheet?.getCell('C10').value).toBe(3);
+    expect(sheet?.getCell('A11').value).toBe("'=R01");
+    expect(sheet?.getCell('C11').value).toBe(3);
     expect(nationalGetCurrent).toHaveBeenCalledWith({ year: 2026, month: 8 });
   });
 
@@ -97,6 +132,35 @@ describe('ConsolidatedExportGenerator', () => {
       regionId: '33333333-3333-4333-8333-333333333333',
       year: 2026,
       month: 8,
+    });
+  });
+
+  it('generates a preliminary municipal workbook directly from ITS-1 when ITS-2 is unavailable', async () => {
+    municipalGetCurrent.mockResolvedValueOnce(undefined);
+    const contents = await generator.generate({
+      ...baseJob,
+      reportType: 'MUNICIPAL_CONSOLIDATED',
+      scopeLevel: 'MUNICIPIO',
+      territoryId: '33333333-3333-4333-8333-333333333333',
+    });
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(new Uint8Array(contents).buffer);
+    const sheet = workbook.getWorksheet('Consolidado');
+
+    expect(sheet?.getCell('A5').value).toContain('datos preliminares');
+    expect(sheet?.getCell('A11').value).toBe("'=E01");
+    expect(sheet?.getCell('E11').value).toBe(12);
+    expect(sheet?.getCell('F11').value).toBe('SUPRIMIDO');
+    expect(sheet?.getCell('F12').value).toBe('SUPRIMIDO');
+    expect(sheet?.getCell('A7').value).toContain('Atenciones: 32');
+    expect(sheet?.getCell('A7').value).toContain('Casos nuevos: SUPRIMIDO');
+    expect(sheet?.getCell('A7').value).toContain('Controles: 18');
+    expect(analyticsList).toHaveBeenCalledWith({
+      level: 'ESTABLECIMIENTO',
+      year: 2026,
+      month: 8,
+      municipalityId: '33333333-3333-4333-8333-333333333333',
+      scope: { national: true, regionIds: [], municipalityIds: [], facilityIds: [] },
     });
   });
 });

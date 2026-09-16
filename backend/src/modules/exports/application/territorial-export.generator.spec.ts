@@ -1,5 +1,7 @@
 import ExcelJS from 'exceljs';
+import { ConfigService } from '@nestjs/config';
 import { TerritorialAnalyticsRepository } from '../../its-capture/application/ports/territorial-analytics.repository';
+import { TerritorialAnalyticsPrivacyPolicy } from '../../its-capture/application/territorial-analytics-privacy.policy';
 import type { TerritorialAnalyticsRow } from '../../its-capture/domain/territorial-analytics';
 import type { ClaimedExportJob } from '../domain/export-job';
 import { TerritorialExportGenerator } from './territorial-export.generator';
@@ -12,10 +14,24 @@ class AnalyticsRepository extends TerritorialAnalyticsRepository {
         code: '=unsafe',
         name: 'Región Norte',
         status: 'ENVIADO',
+        dataStatus: 'PRELIMINAR',
+        dataSource: 'ITS1',
         attentions: 10,
         newCases: 3,
         controls: 7,
         alerts: 1,
+      },
+      {
+        id: 'region-2',
+        code: 'R02',
+        name: 'Región Sur',
+        status: 'ENVIADO',
+        dataStatus: 'PRELIMINAR',
+        dataSource: 'ITS1',
+        attentions: 20,
+        newCases: 6,
+        controls: 9,
+        alerts: 0,
       },
     ]);
   }
@@ -42,13 +58,21 @@ const baseJob: ClaimedExportJob = {
 };
 
 describe('TerritorialExportGenerator', () => {
-  const generator = new TerritorialExportGenerator(new AnalyticsRepository());
+  const generator = new TerritorialExportGenerator(
+    new AnalyticsRepository(),
+    new TerritorialAnalyticsPrivacyPolicy(
+      new ConfigService({ app: { territorialAnalyticsSmallCountThreshold: 5 } }),
+    ),
+  );
 
   it('generates a valid XLSX and neutralizes spreadsheet formulas', async () => {
     const contents = await generator.generate(baseJob);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(new Uint8Array(contents).buffer);
-    expect(workbook.getWorksheet('Resumen territorial')?.getCell('A5').value).toBe("'=unsafe");
+    const sheet = workbook.getWorksheet('Resumen territorial');
+    expect(sheet?.getCell('A7').value).toBe("'=unsafe");
+    expect(sheet?.getCell('E7').value).toBe('SUPRIMIDO');
+    expect(sheet?.getCell('E8').value).toBe('SUPRIMIDO');
   });
 
   it('generates a valid PDF artifact', async () => {

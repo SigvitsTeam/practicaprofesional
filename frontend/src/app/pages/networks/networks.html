@@ -1,34 +1,46 @@
 <section class="network-notice">
   <i>⌘</i>
   <div>
-    <strong>{{
-      isGlobal
-        ? 'Redes configurables por región sanitaria'
-        : 'Redes dentro del alcance territorial asignado'
-    }}</strong
-    ><span
-      >Composición consultada al cierre de {{ periodLabel }} ({{ compositionDate }}). La fecha de
-      retiro es el primer día sin asociación. Los indicadores usan los consolidados municipales del
-      mes, sin prorratear por días.</span
-    >
+    @if (isAdministrative) {
+      <strong>Administración del catálogo de Redes</strong>
+      <span>
+        Configure la composición, vigencia y estado operativo de cada Red dentro de su alcance. Esta
+        vista se limita a información administrativa.
+      </span>
+    } @else {
+      <strong
+        >Datos {{ dataStatus === 'PRELIMINAR' ? 'preliminares' : 'oficiales' }} desde ITS 1</strong
+      >
+      <span>{{ analyticsNotice }}</span>
+    }
   </div>
   @if (canManage) {
     <button class="btn primary" type="button" (click)="openCreate()">＋ Nueva Red</button>
   } @else {
-    <span class="read-only-chip">SOLO CONSULTA</span>
+    <span class="read-only-chip">{{ dataStatus }}</span>
   }
 </section>
 
 @if (selectedNetwork.scopeLimited) {
   <section class="network-state" role="note">
-    Vista limitada a sus municipios autorizados. Los indicadores son un subtotal de su alcance, no
-    el total completo de la Red. No concede acceso a ITS 1 de otros territorios.
+    Vista limitada a sus municipios autorizados.
+    @if (isAdministrative) {
+      La cobertura mostrada corresponde únicamente al catálogo territorial que puede administrar.
+    } @else {
+      Los indicadores son un subtotal
+      {{ dataStatus === 'PRELIMINAR' ? 'preliminar' : 'oficial' }} de su alcance, no el total
+      completo de la Red. No concede acceso a ITS 1 de otros territorios.
+    }
   </section>
 }
 
 @if (loading) {
   <section class="network-state" role="status" aria-live="polite">
-    Cargando Redes y producción territorial…
+    {{
+      isAdministrative
+        ? 'Cargando catálogo y configuración de Redes…'
+        : 'Cargando Redes e indicadores ITS 1…'
+    }}
   </section>
 }
 @if (loadError) {
@@ -52,57 +64,51 @@
     ><small>Red seleccionada</small><i class="purple"></i>
   </article>
   <article>
-    <span>Producción consolidada</span><strong>{{ selectedNetworkTotal }}</strong
-    ><small>Atenciones · {{ periodLabel }}</small
-    ><i class="amber"></i>
+    @if (isAdministrative) {
+      <span>Establecimientos cubiertos</span><strong>{{ selectedNetworkFacilities }}</strong
+      ><small>En la Red seleccionada</small><i class="amber"></i>
+    } @else {
+      <span>Atenciones desde ITS 1</span><strong>{{ selectedNetworkTotal }}</strong
+      ><small
+        >{{ dataStatus === 'PRELIMINAR' ? 'Preliminares' : 'Oficiales' }} · {{ periodLabel }}</small
+      ><i class="amber"></i>
+    }
   </article>
 </section>
 
-<section class="network-filterbar">
-  <label
-    ><span>Período consultado</span
-    ><select disabled>
-      <option>{{ periodLabel }}</option>
-    </select></label
-  >
-  @if (isGlobal) {
-    <label
-      ><span>Región</span
-      ><select (change)="setRegion($event)">
-        <option value="">Todas las regiones</option>
-        @for (region of regions; track region.id) {
-          <option [value]="region.id">{{ region.name }}</option>
-        }
-      </select></label
-    >
-  }
-  <label
-    ><span>Red</span
-    ><select (change)="setNetwork($event)">
-      @for (network of visibleNetworks; track network.id) {
-        <option [value]="network.id" [selected]="network.id === selectedNetworkId">
-          {{ network.name }}
-        </option>
-      }
-    </select></label
-  ><label
-    ><span>Municipio</span
-    ><select (change)="setMunicipality($event)">
-      <option>Todos los municipios</option>
-      @for (municipality of associatedMunicipalities; track municipality.id) {
-        <option>{{ municipality.name }}</option>
-      }
-    </select></label
-  ><label
-    ><span>Métrica</span
-    ><select (change)="setMetric($event)">
-      <option value="total">Atenciones</option>
-      <option value="newCases">Casos nuevos</option>
-      <option value="controls">Controles</option>
-      <option value="reports">Consolidados disponibles</option>
-    </select></label
-  >
-</section>
+@if (isGlobal || !isAdministrative) {
+  <section class="network-filterbar">
+    @if (isGlobal) {
+      <label
+        ><span>Región</span
+        ><select (change)="setRegion($event)">
+          <option value="">Todas las regiones</option>
+          @for (region of regions; track region.id) {
+            <option [value]="region.id">{{ region.name }}</option>
+          }
+        </select></label
+      >
+    }
+    @if (!isAdministrative) {
+      <label
+        ><span>Municipio</span
+        ><select (change)="setMunicipality($event)">
+          <option>Todos los municipios</option>
+          @for (municipality of associatedMunicipalities; track municipality.id) {
+            <option>{{ municipality.name }}</option>
+          }
+        </select></label
+      ><label
+        ><span>Métrica ITS 1</span
+        ><select (change)="setMetric($event)">
+          <option value="total">Atenciones</option>
+          <option value="newCases">Casos nuevos</option>
+          <option value="controls">Controles</option>
+        </select></label
+      >
+    }
+  </section>
+}
 
 <section class="network-layout">
   <aside class="panel network-catalog">
@@ -197,51 +203,79 @@
             @switch (tab.id) {
               @case ('summary') {
                 <section class="network-summary">
-                  <div class="network-metrics">
-                    <article>
-                      <span>Total ITS</span><strong>{{ selectedNetworkTotal }}</strong
-                      ><small>Atenciones agregadas</small>
-                    </article>
-                    <article>
-                      <span>Consolidados disponibles</span
-                      ><strong
-                        >{{ selectedNetworkReports }}/{{
-                          filteredAssociatedMunicipalities.length
-                        }}</strong
-                      ><small>Municipios con consolidado</small>
-                    </article>
-                    <article>
-                      <span>Alertas</span><strong>{{ selectedNetworkAlerts }}</strong
-                      ><small>Hallazgos del período</small>
-                    </article>
-                  </div>
-                  <div class="municipality-production">
+                  @if (isAdministrative) {
+                    <div class="network-metrics">
+                      <article>
+                        <span>Estado operativo</span><strong>{{ selectedNetwork.status }}</strong
+                        ><small>Configuración vigente</small>
+                      </article>
+                      <article>
+                        <span>Municipios asociados</span
+                        ><strong>{{ associatedMunicipalities.length }}</strong
+                        ><small>Composición actual</small>
+                      </article>
+                      <article>
+                        <span>Establecimientos cubiertos</span
+                        ><strong>{{ selectedNetworkFacilities }}</strong
+                        ><small>Cobertura del catálogo</small>
+                      </article>
+                    </div>
+                  } @else {
+                    <div class="network-metrics">
+                      <article>
+                        <span>Atenciones</span><strong>{{ selectedNetworkTotal }}</strong
+                        ><small>Acumuladas desde ITS 1</small>
+                      </article>
+                      <article>
+                        <span>Casos nuevos</span><strong>{{ selectedNetworkNewCases }}</strong
+                        ><small>{{
+                          dataStatus === 'PRELIMINAR' ? 'Pendientes de aprobación' : 'Dato oficial'
+                        }}</small>
+                      </article>
+                      <article>
+                        <span>Controles</span><strong>{{ selectedNetworkControls }}</strong
+                        ><small>{{ periodLabel }}</small>
+                      </article>
+                    </div>
+                  }
+                  <div
+                    class="municipality-production"
+                    [class.administrative-composition]="isAdministrative"
+                  >
                     <div class="section-heading">
                       <div>
-                        <h2>Municipios de la Red</h2>
-                        <p>{{ metricLabel }} · {{ periodLabel }}</p>
+                        <h2>
+                          {{ isAdministrative ? 'Cobertura configurada' : 'Municipios de la Red' }}
+                        </h2>
+                        <p>
+                          {{
+                            isAdministrative
+                              ? 'Catálogo territorial y cobertura institucional'
+                              : metricLabel + ' · ' + periodLabel
+                          }}
+                        </p>
                       </div>
                     </div>
                     @for (municipality of filteredAssociatedMunicipalities; track municipality.id) {
                       <article>
                         <div>
                           <strong>{{ municipality.name }}</strong
-                          ><small
-                            >{{ municipality.establishments }} establecimientos ·
-                            {{ municipality.reports }}</small
+                          ><small>Código {{ municipality.code }}</small>
+                        </div>
+                        @if (isAdministrative) {
+                          <span
+                            ><strong>{{ municipality.establishments }}</strong
+                            ><small>Establecimientos</small></span
                           >
-                        </div>
-                        <div class="production-bar">
-                          <i [style.width]="metricWidth(municipality)"></i>
-                        </div>
-                        <span
-                          ><strong>{{
-                            selectedMetric === 'reports'
-                              ? metricValue(municipality)
-                              : metricDisplay(municipality)
-                          }}</strong
-                          ><small>{{ metricLabel }}</small></span
-                        >
+                        } @else {
+                          <div class="production-bar">
+                            <i [style.width]="metricWidth(municipality)"></i>
+                          </div>
+                          <span
+                            ><strong>{{ metricDisplay(municipality) }}</strong
+                            ><small>{{ metricLabel }}</small></span
+                          >
+                        }
                       </article>
                     } @empty {
                       <div class="inline-empty">No hay municipios que coincidan con el filtro.</div>
@@ -255,9 +289,8 @@
                     <div>
                       <h3>Composición municipal</h3>
                       <p>
-                        La consulta corresponde al cierre del mes; las casillas administrativas
-                        muestran las asociaciones vigentes hoy. Los cambios se guardan con vigencia
-                        y auditoría.
+                        Las asociaciones mostradas están vigentes hoy. Los cambios se guardan con
+                        fecha de vigencia y auditoría.
                       </p>
                     </div>
                   </div>
@@ -306,17 +339,13 @@
                         {{
                           selectedNetwork.name
                         }}
-                        ·
-                        {{
-                          periodLabel
-                        }}
+                        · composición vigente
                       </caption>
                       <thead>
                         <tr>
                           <th scope="col">Asociar</th>
                           <th scope="col">Municipio</th>
                           <th scope="col">Establecimientos</th>
-                          <th scope="col">Atenciones</th>
                           <th scope="col">Estado</th>
                         </tr>
                       </thead>
@@ -344,7 +373,6 @@
                               ><small>Código {{ municipality.code }}</small>
                             </td>
                             <td>{{ municipality.establishments }}</td>
-                            <td>{{ metricDisplay(municipality, 'total') }}</td>
                             <td>
                               <span
                                 class="member-status"
@@ -367,15 +395,19 @@
                 <section class="network-consolidated">
                   <div class="tab-section-heading">
                     <div>
-                      <h3>Consolidado de la Red</h3>
-                      <p>Información ITS 2 agregada; nunca contiene registros individuales.</p>
+                      <h3>Detalle territorial desde ITS 1</h3>
+                      <p>
+                        Suma automática agregada; nunca contiene registros individuales. La
+                        disponibilidad de ITS 2 indica el avance de aprobación, no bloquea estos
+                        resultados.
+                      </p>
                     </div>
-                    <span class="frozen-chip">{{ periodLabel }}</span>
+                    <span class="frozen-chip">{{ dataStatus }} · {{ periodLabel }}</span>
                   </div>
                   <div class="table-wrap">
                     <table>
                       <caption class="sr-only">
-                        Consolidado ITS-2 de
+                        Detalle territorial ITS-1 de
                         {{
                           selectedNetwork.name
                         }}
@@ -390,7 +422,7 @@
                           <th scope="col">Atenciones</th>
                           <th scope="col">Casos nuevos</th>
                           <th scope="col">Controles</th>
-                          <th scope="col">Reporte</th>
+                          <th scope="col">Estado ITS 2</th>
                         </tr>
                       </thead>
                       <tbody>

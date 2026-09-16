@@ -6,6 +6,7 @@ import {
   MunicipalConsolidationNotFoundError,
   type MunicipalConsolidationSummary,
   type MunicipalConsolidationContext,
+  type MunicipalPreliminaryReportSource,
   type MunicipalReportTerritory,
 } from '../domain/municipal-consolidation';
 import { aggregateReportDetails } from '../domain/aggregate-report-details';
@@ -111,6 +112,48 @@ export class PrismaMunicipalConsolidationRepository extends MunicipalConsolidati
         regionId: municipality.regionId,
         activeFacilities: municipality._count.facilities,
       })),
+    };
+  }
+
+  async getPreliminaryReportSource(input: {
+    municipalityId: string;
+    year: number;
+    month: number;
+  }): Promise<MunicipalPreliminaryReportSource | undefined> {
+    const contributedInPeriod = {
+      some: {
+        year: input.year,
+        month: input.month,
+        status: 'ACTIVO' as const,
+      },
+    };
+    const municipality = await this.prisma.client.municipality.findFirst({
+      where: {
+        id: input.municipalityId,
+        OR: [{ active: true }, { attentions: contributedInPeriod }],
+      },
+      select: {
+        id: true,
+        officialCode: true,
+        name: true,
+        region: { select: { id: true, name: true } },
+        facilities: {
+          where: { OR: [{ active: true }, { attentions: contributedInPeriod }] },
+          orderBy: [{ code: 'asc' }, { id: 'asc' }],
+          select: { id: true, code: true, name: true },
+        },
+      },
+    });
+    if (!municipality) return undefined;
+    return {
+      municipality: {
+        id: municipality.id,
+        code: municipality.officialCode,
+        name: municipality.name,
+        regionId: municipality.region.id,
+        regionName: municipality.region.name,
+      },
+      facilities: municipality.facilities,
     };
   }
 

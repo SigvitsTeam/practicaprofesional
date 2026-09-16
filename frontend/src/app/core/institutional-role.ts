@@ -12,7 +12,12 @@ const ROLE_CODE_MAP: Readonly<Record<string, RoleId>> = {
 };
 
 export function mapInstitutionalRoleCodes(codes: readonly string[]): RoleId[] {
-  return [
+  const mappedRoles = [
     ...new Set(codes.map((code) => ROLE_CODE_MAP[code]).filter((role): role is RoleId => !!role)),
   ];
+  const administrativeRoles = mappedRoles.filter(
+    (role) => role === 'superadmin' || role === 'regional-superadmin',
+  );
+
+  return administrativeRoles.length ? administrativeRoles : mappedRoles;
 }

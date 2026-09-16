@@ -41,6 +41,42 @@ export interface MunicipalConsolidationContext {
   }[];
 }
 
+export interface MunicipalPreliminaryReportSource {
+  municipality: {
+    id: string;
+    code: string;
+    name: string;
+    regionId: string;
+    regionName: string;
+  };
+  facilities: readonly { id: string; code: string; name: string }[];
+}
+
+export interface MunicipalPreliminaryReport {
+  municipality: MunicipalPreliminaryReportSource['municipality'];
+  year: number;
+  month: number;
+  dataStatus: 'PRELIMINAR';
+  dataSource: 'ITS1';
+  notice: string;
+  privacy: {
+    smallCountThreshold: number;
+    suppressedValue: null;
+  };
+  rows: readonly {
+    id: string;
+    code: string;
+    name: string;
+    status: string;
+    attentions: number | null;
+    newCases: number | null;
+    controls: number | null;
+    alerts: number | null;
+    suppressedMetrics: readonly string[];
+    complementarySuppressedMetrics: readonly string[];
+  }[];
+}
+
 export class MunicipalConsolidationError extends Error {}
 export class MunicipalConsolidationNotFoundError extends Error {}
 export class MunicipalConsolidationAccessError extends Error {}

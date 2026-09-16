@@ -1,7 +1,7 @@
 import { Component, DestroyRef, effect, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { forkJoin, map, Observable, of } from 'rxjs';
+import { map, Observable, of } from 'rxjs';
 import { MUNICIPAL_REPORTS, REGIONAL_REPORTS, REPORTS } from '../../core/mock-data';
 import { AuthService } from '../../core/auth.service';
 import { formatHondurasDateTime, formatHondurasMonth } from '../../core/honduras-date';
@@ -10,14 +10,12 @@ import {
   Its2WorkflowReport,
   MunicipalConsolidationReport,
   RegionalConsolidationReport,
-  TerritorialAnalyticsResponse,
 } from '../../core/its-capture-api.service';
 import { Report } from '../../core/models';
 import { RoleContext } from '../../core/role-context';
 import { OperationalPeriodService } from '../../core/operational-period';
 import { ReportTable } from '../../shared/report-table/report-table';
 
-type AnalyticsRow = TerritorialAnalyticsResponse['rows'][number];
 type InboxStatusFilter = 'Todos' | Report['status'];
 
 @Component({
@@ -51,9 +49,9 @@ export class ReviewInbox {
 
   constructor() {
     effect(() => {
-      this.roleContext.activeRoleId();
+      const role = this.roleContext.activeRoleId();
       const periodKey = this.operationalPeriod.selectedEndKey();
-      if (periodKey) this.reload();
+      if (periodKey && !this.isAdministrativeSuperadmin(role)) this.reload();
     });
   }
 
@@ -68,7 +66,7 @@ export class ReviewInbox {
   }
 
   reload() {
-    if (this.auth.isDemo()) return;
+    if (this.auth.isDemo() || this.isAdministrativeSuperadmin()) return;
     const requestVersion = ++this.requestVersion;
     this.liveReports.set([]);
     this.loading.set(true);
@@ -93,8 +91,9 @@ export class ReviewInbox {
   get sourceReports() {
     if (!this.auth.isDemo()) return this.liveReports();
     const role = this.roleContext.activeRoleId();
+    if (this.isAdministrativeSuperadmin(role)) return [];
     if (role === 'central-validator') return REGIONAL_REPORTS;
-    if (role === 'regional-admin' || role === 'regional-superadmin') return MUNICIPAL_REPORTS;
+    if (role === 'regional-admin') return MUNICIPAL_REPORTS;
     return REPORTS;
   }
 
@@ -144,58 +143,28 @@ export class ReviewInbox {
   private inboxRequest(): Observable<Report[]> {
     const role = this.roleContext.activeRoleId();
     if (role === 'municipal-coordinator') {
-      return forkJoin({
-        workflow: this.api.getMunicipalIts2Inbox(this.year, this.month),
-        analytics: this.api.getTerritorialAnalytics('ESTABLECIMIENTO', this.year, this.month),
-      }).pipe(
-        map(({ workflow, analytics }) =>
-          workflow.map((report) =>
-            this.toFacilityReport(
-              report,
-              this.metricFor(analytics.rows, report.id, report.facility.id),
-            ),
-          ),
-        ),
-      );
+      return this.api
+        .getMunicipalIts2Inbox(this.year, this.month)
+        .pipe(map((reports) => reports.map((report) => this.toFacilityReport(report))));
     }
-    if (role === 'regional-admin' || role === 'regional-superadmin') {
-      return forkJoin({
-        workflow: this.api.getRegionalConsolidationInbox(this.year, this.month),
-        analytics: this.api.getTerritorialAnalytics('MUNICIPIO', this.year, this.month),
-      }).pipe(
-        map(({ workflow, analytics }) =>
-          workflow.map((report) =>
-            this.toMunicipalReport(
-              report,
-              this.metricFor(analytics.rows, report.id, report.municipality.id),
-            ),
-          ),
-        ),
-      );
+    if (role === 'regional-admin') {
+      return this.api
+        .getRegionalConsolidationInbox(this.year, this.month)
+        .pipe(map((reports) => reports.map((report) => this.toMunicipalReport(report))));
     }
     if (role === 'central-validator') {
-      return forkJoin({
-        workflow: this.api.getCentralConsolidationInbox(this.year, this.month),
-        analytics: this.api.getTerritorialAnalytics('REGION', this.year, this.month),
-      }).pipe(
-        map(({ workflow, analytics }) =>
-          workflow.map((report) =>
-            this.toRegionalReport(
-              report,
-              this.metricFor(analytics.rows, report.id, report.region.id),
-            ),
-          ),
-        ),
-      );
+      return this.api
+        .getCentralConsolidationInbox(this.year, this.month)
+        .pipe(map((reports) => reports.map((report) => this.toRegionalReport(report))));
     }
     return of([]);
   }
 
-  private metricFor(rows: AnalyticsRow[], reportId: string, entityId: string) {
-    return rows.find((row) => row.reportId === reportId) ?? rows.find((row) => row.id === entityId);
+  private isAdministrativeSuperadmin(role = this.roleContext.activeRoleId()) {
+    return role === 'superadmin' || role === 'regional-superadmin';
   }
 
-  private toFacilityReport(report: Its2WorkflowReport, metric?: AnalyticsRow): Report {
+  private toFacilityReport(report: Its2WorkflowReport): Report {
     return this.baseReport({
       workflowId: report.id,
       workflowLevel: 'facility',
@@ -209,12 +178,11 @@ export class ReviewInbox {
         BORRADOR: 'Pendiente',
       }[report.status] as Report['status'],
       total: report.totalAttentions,
-      metric,
       report,
     });
   }
 
-  private toMunicipalReport(report: MunicipalConsolidationReport, metric?: AnalyticsRow): Report {
+  private toMunicipalReport(report: MunicipalConsolidationReport): Report {
     return this.baseReport({
       workflowId: report.id,
       workflowLevel: 'municipal',
@@ -228,12 +196,11 @@ export class ReviewInbox {
         BORRADOR: 'Pendiente',
       }[report.status] as Report['status'],
       total: report.sourceAttentionCount,
-      metric,
       report,
     });
   }
 
-  private toRegionalReport(report: RegionalConsolidationReport, metric?: AnalyticsRow): Report {
+  private toRegionalReport(report: RegionalConsolidationReport): Report {
     return this.baseReport({
       workflowId: report.id,
       workflowLevel: 'regional',
@@ -247,7 +214,6 @@ export class ReviewInbox {
         BORRADOR: 'Pendiente',
       }[report.status] as Report['status'],
       total: report.sourceAttentionCount,
-      metric,
       report,
     });
   }
@@ -260,7 +226,6 @@ export class ReviewInbox {
     code: string;
     status: Report['status'];
     total: number;
-    metric?: AnalyticsRow;
     report: {
       year: number;
       month: number;
@@ -281,9 +246,9 @@ export class ReviewInbox {
       code: input.code,
       status: input.status,
       total: input.total,
-      newCases: input.metric?.newCases ?? 0,
-      controls: input.metric?.controls ?? 0,
-      caseBreakdownAvailable: Boolean(input.metric),
+      newCases: 0,
+      controls: 0,
+      caseBreakdownAvailable: false,
       alerts: report.openObservations.length,
       sent: report.sentAt ? this.formatDate(report.sentAt) : 'Sin envío',
       periodYear: report.year,

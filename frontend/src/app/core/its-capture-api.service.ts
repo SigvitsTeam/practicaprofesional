@@ -224,6 +224,9 @@ export interface TerritorialAnalyticsResponse {
   month: number;
   regionId?: string;
   municipalityId?: string;
+  dataStatus: 'PRELIMINAR' | 'OFICIAL';
+  dataSource: 'ITS1';
+  notice: string;
   privacy: {
     smallCountThreshold: number;
     suppressedValue: null;
@@ -235,6 +238,8 @@ export interface TerritorialAnalyticsResponse {
     reportId?: string;
     reportVersion?: number;
     status: string;
+    dataStatus: 'PRELIMINAR' | 'OFICIAL';
+    dataSource: 'ITS1';
     attentions: number | null;
     newCases: number | null;
     controls: number | null;
@@ -242,6 +247,7 @@ export interface TerritorialAnalyticsResponse {
     suppressedMetrics: readonly TerritorialAnalyticsMetric[];
     complementarySuppressedMetrics: readonly TerritorialAnalyticsMetric[];
     sentAt?: string;
+    sourceUpdatedAt?: string;
     latitude?: number;
     longitude?: number;
     coordinatesValidated?: boolean;

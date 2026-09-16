@@ -5,13 +5,16 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { TerritorialAnalyticsUseCase } from './territorial-analytics.use-case';
 import { TerritorialAnalyticsRepository } from './ports/territorial-analytics.repository';
+import { TerritorialAnalyticsPrivacyPolicy } from './territorial-analytics-privacy.policy';
 
 describe('TerritorialAnalyticsUseCase', () => {
   const list = jest.fn();
   const repository = { list } as unknown as jest.Mocked<TerritorialAnalyticsRepository>;
   const useCase = new TerritorialAnalyticsUseCase(
     repository,
-    new ConfigService({ app: { territorialAnalyticsSmallCountThreshold: 5 } }),
+    new TerritorialAnalyticsPrivacyPolicy(
+      new ConfigService({ app: { territorialAnalyticsSmallCountThreshold: 5 } }),
+    ),
   );
   const regionalSubject: AuthorizationSubject = {
     userId: 'regional-1',
@@ -20,9 +23,15 @@ describe('TerritorialAnalyticsUseCase', () => {
     territory: {
       national: false,
       regionIds: ['region-1'],
+      regionGrantIds: ['region-1'],
       municipalityIds: ['municipality-1'],
+      municipalityScopeIds: ['municipality-1'],
       facilityIds: ['facility-1'],
     },
+  };
+  const preliminarySource = {
+    dataStatus: 'PRELIMINAR' as const,
+    dataSource: 'ITS1' as const,
   };
 
   beforeEach(() => {
@@ -45,6 +54,14 @@ describe('TerritorialAnalyticsUseCase', () => {
   });
 
   it('rechaza un padre explícito fuera del alcance territorial', async () => {
+    const municipalSubject: AuthorizationSubject = {
+      ...regionalSubject,
+      territory: {
+        ...regionalSubject.territory,
+        regionGrantIds: [],
+      },
+    };
+
     await expect(
       useCase.execute(
         { level: 'MUNICIPIO', year: 2026, month: 8, regionId: 'region-2' },
@@ -59,7 +76,7 @@ describe('TerritorialAnalyticsUseCase', () => {
           month: 8,
           municipalityId: 'municipality-2',
         },
-        regionalSubject,
+        municipalSubject,
       ),
     ).rejects.toThrow('fuera del alcance autorizado');
     expect(list).not.toHaveBeenCalled();
@@ -80,6 +97,35 @@ describe('TerritorialAnalyticsUseCase', () => {
     expect(list).not.toHaveBeenCalled();
   });
 
+  it('delega al repositorio el municipio histórico cuando existe una concesión regional directa', async () => {
+    const subject: AuthorizationSubject = {
+      ...regionalSubject,
+      territory: {
+        ...regionalSubject.territory,
+        regionGrantIds: ['region-1'],
+        municipalityIds: [],
+        facilityIds: [],
+      },
+    };
+
+    await useCase.execute(
+      {
+        level: 'ESTABLECIMIENTO',
+        year: 2026,
+        month: 8,
+        municipalityId: 'municipality-historical',
+      },
+      subject,
+    );
+
+    expect(list).toHaveBeenCalledWith(
+      expect.objectContaining({
+        municipalityId: 'municipality-historical',
+        scope: subject.territory,
+      }),
+    );
+  });
+
   it('reemplaza conteos positivos bajos por null y declara la supresión en el contrato', async () => {
     list.mockResolvedValue([
       {
@@ -87,6 +133,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         code: '0506',
         name: 'Puerto Cortés',
         status: 'ENVIADO_A_REGION',
+        ...preliminarySource,
         attentions: 4,
         newCases: 8,
         controls: 0,
@@ -100,7 +147,15 @@ describe('TerritorialAnalyticsUseCase', () => {
     );
 
     expect(result.privacy).toEqual({ smallCountThreshold: 5, suppressedValue: null });
+    expect(result).toMatchObject({
+      dataStatus: 'PRELIMINAR',
+      dataSource: 'ITS1',
+      notice:
+        'Datos preliminares acumulados automáticamente desde ITS 1; están pendientes de depuración y aprobación institucional.',
+    });
     expect(result.rows[0]).toMatchObject({
+      dataStatus: 'PRELIMINAR',
+      dataSource: 'ITS1',
       attentions: null,
       newCases: 8,
       controls: 0,
@@ -120,6 +175,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         code: '0501',
         name: 'Fila pequeña',
         status: 'ENVIADO_A_REGION',
+        ...preliminarySource,
         attentions: 2,
         newCases: 0,
         controls: 0,
@@ -131,6 +187,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         code: '0502',
         name: 'Fila complementaria',
         status: 'ENVIADO_A_REGION',
+        ...preliminarySource,
         attentions: 8,
         newCases: 0,
         controls: 0,
@@ -142,6 +199,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         code: '0503',
         name: 'Fila visible',
         status: 'ENVIADO_A_REGION',
+        ...preliminarySource,
         attentions: 12,
         newCases: 0,
         controls: 0,
@@ -186,6 +244,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         code: 'A1',
         name: 'A pequeña',
         status: 'ENVIADO_A_REGION',
+        ...preliminarySource,
         attentions: 2,
         newCases: 0,
         controls: 0,
@@ -197,6 +256,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         code: 'A2',
         name: 'A complemento',
         status: 'ENVIADO_A_REGION',
+        ...preliminarySource,
         attentions: 8,
         newCases: 0,
         controls: 0,
@@ -208,6 +268,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         code: 'B1',
         name: 'B pequeña',
         status: 'ENVIADO_A_REGION',
+        ...preliminarySource,
         attentions: 3,
         newCases: 0,
         controls: 0,
@@ -219,6 +280,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         code: 'B2',
         name: 'B complemento',
         status: 'ENVIADO_A_REGION',
+        ...preliminarySource,
         attentions: 10,
         newCases: 0,
         controls: 0,
@@ -248,6 +310,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         code: '0501',
         name: 'Única fila',
         status: 'ENVIADO_A_REGION',
+        ...preliminarySource,
         attentions: 2,
         newCases: 0,
         controls: 0,
@@ -258,6 +321,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         code: '0502',
         name: 'Fila cero',
         status: 'SIN_REPORTE',
+        ...preliminarySource,
         attentions: 0,
         newCases: 0,
         controls: 0,
@@ -282,10 +346,82 @@ describe('TerritorialAnalyticsUseCase', () => {
     });
   });
 
+  it('declara el resultado oficial sólo cuando todas las filas proceden de un período cerrado', async () => {
+    list.mockResolvedValue([
+      {
+        id: 'municipality-1',
+        code: '0506',
+        name: 'Puerto Cortés',
+        status: 'APROBADO_REGION',
+        dataStatus: 'OFICIAL',
+        dataSource: 'ITS1',
+        attentions: 10,
+        newCases: 5,
+        controls: 5,
+        alerts: 0,
+      },
+    ]);
+
+    const result = await useCase.execute(
+      { level: 'MUNICIPIO', year: 2026, month: 8 },
+      regionalSubject,
+    );
+
+    expect(result).toMatchObject({
+      dataStatus: 'OFICIAL',
+      dataSource: 'ITS1',
+      notice: 'Datos oficiales del período cerrado.',
+    });
+    expect(result.rows[0]).toMatchObject({
+      status: 'APROBADO_REGION',
+      dataStatus: 'OFICIAL',
+      dataSource: 'ITS1',
+    });
+  });
+
   it('rechaza el nivel nacional para un usuario regional', async () => {
     await expect(
       useCase.execute({ level: 'REGION', year: 2026, month: 8 }, regionalSubject),
     ).rejects.toThrow('alcance nacional');
     expect(list).not.toHaveBeenCalled();
   });
+
+  it('no eleva el municipio padre contextual de una asignación de establecimiento', async () => {
+    const facilityOnly: AuthorizationSubject = {
+      ...regionalSubject,
+      roles: [RoleCode.FacilityManager],
+      territory: {
+        national: false,
+        regionIds: ['region-1'],
+        regionGrantIds: [],
+        municipalityIds: ['municipality-1'],
+        municipalityScopeIds: [],
+        municipalityGrantIds: [],
+        facilityIds: ['facility-1'],
+        facilityGrantIds: ['facility-1'],
+      },
+    };
+
+    await expect(
+      useCase.execute({ level: 'MUNICIPIO', year: 2026, month: 8 }, facilityOnly),
+    ).rejects.toThrow('asignación municipal o regional directa');
+    expect(list).not.toHaveBeenCalled();
+  });
+
+  it.each([RoleCode.SuperAdmin, RoleCode.RegionalSuperAdmin])(
+    'mantiene a %s fuera de la analítica aun con permisos residuales',
+    async (role) => {
+      await expect(
+        useCase.execute(
+          { level: 'MUNICIPIO', year: 2026, month: 8 },
+          {
+            ...regionalSubject,
+            roles: [role],
+            permissions: ['*'],
+          },
+        ),
+      ).rejects.toThrow('alcance administrativo');
+      expect(list).not.toHaveBeenCalled();
+    },
+  );
 });

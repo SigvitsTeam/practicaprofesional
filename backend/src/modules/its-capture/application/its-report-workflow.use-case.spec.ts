@@ -1,17 +1,21 @@
-import type { AuthorizationSubject } from '../../authorization/domain/authorization.types';
+import {
+  RoleCode,
+  type AuthorizationSubject,
+} from '../../authorization/domain/authorization.types';
 import { ItsReportAccessError, ItsReportNotFoundError } from '../domain/its-report-workflow';
 import { ItsReportWorkflowUseCase } from './its-report-workflow.use-case';
 import { ItsReportWorkflowRepository } from './ports/its-report-workflow.repository';
 
 const subject: AuthorizationSubject = {
   userId: 'user-1',
-  roles: [],
+  roles: [RoleCode.CoordinationDataEntry],
   permissions: [],
   territory: {
     national: false,
     regionIds: ['region-1'],
     municipalityIds: ['municipality-1'],
     facilityIds: ['facility-1'],
+    facilityGrantIds: [],
   },
 };
 
@@ -20,13 +24,15 @@ describe('ItsReportWorkflowUseCase', () => {
   const findTerritory = jest.fn();
   const approveMunicipally = jest.fn();
   const listMunicipalInbox = jest.fn();
+  const getCurrent = jest.fn();
+  const submit = jest.fn();
   const repository = {
     prepare,
     findTerritory,
-    submit: jest.fn(),
+    submit,
     returnToFacility: jest.fn(),
     approveMunicipally,
-    getCurrent: jest.fn(),
+    getCurrent,
     listMunicipalInbox,
   } as unknown as jest.Mocked<ItsReportWorkflowRepository>;
   const useCase = new ItsReportWorkflowUseCase(repository);
@@ -38,6 +44,79 @@ describe('ItsReportWorkflowUseCase', () => {
       useCase.prepare({ facilityId: 'facility-2', year: 2026, month: 8 }, subject),
     ).toThrow(ItsReportAccessError);
     expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it('denies ITS 2 reads and operations inherited by a facility manager from a broader scope', async () => {
+    const inheritedFacilityManager: AuthorizationSubject = {
+      ...subject,
+      roles: [RoleCode.FacilityManager],
+      territory: {
+        ...subject.territory,
+        facilityIds: ['facility-1'],
+        facilityGrantIds: [],
+      },
+    };
+
+    expect(() =>
+      useCase.prepare({ facilityId: 'facility-1', year: 2026, month: 8 }, inheritedFacilityManager),
+    ).toThrow(ItsReportAccessError);
+    expect(() => useCase.getCurrent('facility-1', 2026, 8, inheritedFacilityManager)).toThrow(
+      ItsReportAccessError,
+    );
+
+    findTerritory.mockResolvedValue({
+      facilityId: 'facility-1',
+      municipalityId: 'municipality-1',
+    });
+    await expect(useCase.submit('report-1', inheritedFacilityManager)).rejects.toBeInstanceOf(
+      ItsReportAccessError,
+    );
+
+    expect(prepare).not.toHaveBeenCalled();
+    expect(getCurrent).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+  });
+
+  it('allows ITS 2 reads and operations for a facility manager with a direct grant', async () => {
+    const directFacilityManager: AuthorizationSubject = {
+      ...subject,
+      roles: [RoleCode.FacilityManager],
+      territory: {
+        ...subject.territory,
+        facilityGrantIds: ['facility-1'],
+      },
+    };
+    prepare.mockResolvedValueOnce({});
+    getCurrent.mockResolvedValueOnce({});
+    findTerritory.mockResolvedValueOnce({
+      facilityId: 'facility-1',
+      municipalityId: 'municipality-1',
+    });
+    submit.mockResolvedValueOnce({});
+
+    await expect(
+      useCase.prepare({ facilityId: 'facility-1', year: 2026, month: 8 }, directFacilityManager),
+    ).resolves.toEqual({});
+    await expect(useCase.getCurrent('facility-1', 2026, 8, directFacilityManager)).resolves.toEqual(
+      {},
+    );
+    await expect(useCase.submit('report-1', directFacilityManager)).resolves.toEqual({});
+  });
+
+  it('keeps descendant-facility ITS 2 access for municipal coordination data entry', async () => {
+    prepare.mockResolvedValueOnce({});
+    getCurrent.mockResolvedValueOnce({});
+    findTerritory.mockResolvedValueOnce({
+      facilityId: 'facility-1',
+      municipalityId: 'municipality-1',
+    });
+    submit.mockResolvedValueOnce({});
+
+    await expect(
+      useCase.prepare({ facilityId: 'facility-1', year: 2026, month: 8 }, subject),
+    ).resolves.toEqual({});
+    await expect(useCase.getCurrent('facility-1', 2026, 8, subject)).resolves.toEqual({});
+    await expect(useCase.submit('report-1', subject)).resolves.toEqual({});
   });
 
   it('prevents a municipal reviewer from approving a report outside its municipalities', async () => {

@@ -162,6 +162,59 @@ async function verify(): Promise<void> {
     );
     if (exportPermissions.rows[0]?.total !== 2)
       throw new Error('No están disponibles todos los permisos de trabajos de exportación.');
+    const superadminOperationalPermissions = await directClient.query<{ total: number }>(
+      `SELECT
+         count(*)::int AS total
+       FROM rol_permiso rp
+       JOIN roles r ON r.id = rp.rol_id
+       JOIN permisos p ON p.id = rp.permiso_id
+       WHERE r.codigo IN ('SUPERADMIN', 'SUPERADMIN_REGIONAL')
+         AND (
+           p.modulo = ANY($1::text[])
+           OR split_part(p.codigo, ':', 1) = ANY($1::text[])
+         )`,
+      [['analytics', 'exports', 'its1', 'its2']],
+    );
+    if (superadminOperationalPermissions.rows[0]?.total !== 0)
+      throw new Error(
+        'Los roles SuperAdmin deben limitarse a funciones administrativas sin permisos de analítica, exportaciones, ITS-1 ni ITS-2.',
+      );
+    const superadminAdministrativePermissions = await directClient.query<{
+      globalCount: number;
+      regionalCount: number;
+    }>(
+      `SELECT
+         count(*) FILTER (WHERE r.codigo = 'SUPERADMIN')::int AS "globalCount",
+         count(*) FILTER (WHERE r.codigo = 'SUPERADMIN_REGIONAL')::int AS "regionalCount"
+       FROM rol_permiso rp
+       JOIN roles r ON r.id = rp.rol_id
+       JOIN permisos p ON p.id = rp.permiso_id
+       WHERE r.codigo IN ('SUPERADMIN', 'SUPERADMIN_REGIONAL')
+         AND p.codigo = ANY($1::text[])`,
+      [
+        [
+          'territorial:catalog:read',
+          'territorial:municipalities:create',
+          'territorial:facilities:create',
+          'territorial:networks:read',
+          'territorial:networks:create',
+          'territorial:networks:update',
+          'territorial:status:update',
+          'audit:territorial:read',
+          'admin:users:read',
+          'admin:users:create',
+          'admin:users:update',
+          'admin:users:link',
+        ],
+      ],
+    );
+    if (
+      superadminAdministrativePermissions.rows[0]?.globalCount !== 12 ||
+      superadminAdministrativePermissions.rows[0]?.regionalCount !== 12
+    )
+      throw new Error(
+        'Los roles SuperAdmin deben conservar sus doce permisos de administración territorial, redes, auditoría y usuarios.',
+      );
     const reportingPeriodRoles = await directClient.query<{ total: number }>(
       `SELECT count(DISTINCT r.codigo)::int AS total
        FROM roles r
@@ -255,6 +308,8 @@ async function verify(): Promise<void> {
         its2WorkflowPermissions: workflowPermissions.rows[0].total,
         its1Permissions: its1Permissions.rows[0].total,
         analyticsPermissions: analyticsPermissions.rows[0].total,
+        superadminOperationalPermissions: superadminOperationalPermissions.rows[0],
+        superadminAdministrativePermissions: superadminAdministrativePermissions.rows[0],
         territorialPermissions: territorialPermissions.rows[0].total,
         userAdminPermissions: userAdminPermissions.rows[0].total,
         reportingPeriodRoles: reportingPeriodRoles.rows[0].total,

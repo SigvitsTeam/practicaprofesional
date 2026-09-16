@@ -43,13 +43,11 @@
             <button class="btn primary" (click)="primaryAction()">＋ {{ primaryLabel() }}</button>
           }
         </div>
-        <div
-          class="global-filter-slot"
-          [hidden]="!showGlobalFilters"
-          [attr.aria-hidden]="!showGlobalFilters"
-        >
-          <app-global-filters [role]="role" />
-        </div>
+        @if (showGlobalFilters) {
+          <div class="global-filter-slot">
+            <app-global-filters [role]="role" />
+          </div>
+        }
 
         @switch (active) {
           @case ('Inicio') {

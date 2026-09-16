@@ -8,6 +8,7 @@ import {
 import { ExportArtifactAccessError, type ExportFormat } from '../domain/export-job';
 import { ExportArtifactStorage } from './ports/export-artifact.storage';
 import { ExportJobRepository } from './ports/export-job.repository';
+import { isExportScopeAllowed } from './export-scope.policy';
 
 export interface DownloadedExportArtifact {
   contents: Uint8Array;
@@ -35,7 +36,11 @@ export class DownloadExportArtifactUseCase {
       dataLevel: individual ? DataLevel.Individual : DataLevel.Aggregated,
       target: this.target(artifact.scopeLevel, artifact.territoryId),
     });
-    if (!decision.allowed) throw new ExportArtifactAccessError('Acceso denegado al archivo.');
+    if (
+      !decision.allowed ||
+      !isExportScopeAllowed(artifact.scopeLevel, artifact.territoryId, subject)
+    )
+      throw new ExportArtifactAccessError('Acceso denegado al archivo.');
     const contents = await this.storage.read(artifact.storageKey);
     await this.jobs.recordDownloadServed(
       jobId,

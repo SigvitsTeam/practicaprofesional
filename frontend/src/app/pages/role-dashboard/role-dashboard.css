@@ -63,6 +63,50 @@
   grid-template-columns: repeat(4, 1fr);
   gap: 12px;
 }
+.data-maturity {
+  margin-bottom: 14px;
+  padding: 11px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #e5c978;
+  border-radius: 9px;
+  color: #604b12;
+  background: #fff9e8;
+}
+.data-maturity > i {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #b98714;
+  font-size: 0.7rem;
+  font-style: normal;
+  font-weight: 800;
+}
+.data-maturity strong,
+.data-maturity p {
+  display: block;
+}
+.data-maturity strong {
+  font-size: 0.75rem;
+}
+.data-maturity p {
+  margin: 2px 0 0;
+  font-size: 0.69rem;
+  line-height: 1.4;
+}
+.data-maturity.official {
+  border-color: #bfe4d8;
+  color: var(--green-dark);
+  background: #effaf6;
+}
+.data-maturity.official > i {
+  background: var(--green);
+}
 .role-kpi {
   position: relative;
   min-height: 124px;
@@ -116,6 +160,12 @@
   display: grid;
   grid-template-columns: 1.35fr 0.85fr;
   gap: 14px;
+}
+.role-dashboard-grid.compact {
+  grid-template-columns: 1fr;
+}
+.role-priorities.full-width {
+  width: 100%;
 }
 .role-priorities,
 .role-access {
@@ -275,6 +325,16 @@
 }
 :host-context([data-theme='dark']) .role-kpi {
   background: #11242d;
+}
+:host-context([data-theme='dark']) .data-maturity {
+  border-color: #705b25;
+  color: #f1d98f;
+  background: #312a18;
+}
+:host-context([data-theme='dark']) .data-maturity.official {
+  border-color: #285148;
+  color: #86dfc3;
+  background: #112b29;
 }
 :host-context([data-theme='dark']) .role-priorities > button:hover {
   background: #172f38;

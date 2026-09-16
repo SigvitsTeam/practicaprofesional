@@ -1,71 +1,97 @@
-<section class="map-kpis" aria-label="Resumen territorial">
-  <div>
-    <i class="green-dot"></i><span>Alcance visible</span><strong>{{ scopeLabel }}</strong>
-  </div>
-  <div>
-    <i class="blue-dot"></i><span>Métrica activa</span><strong>{{ metricLabel }}</strong>
-  </div>
-  <div>
-    <i class="amber-dot"></i><span>Valor del período</span><strong>{{ totalMetricDisplay }}</strong>
-  </div>
-  <div>
-    <i class="red-dot"></i><span>{{ entityLabel }} visibles</span
-    ><strong>{{ reports.length }}</strong>
-  </div>
-</section>
+@if (isAdministrativeSuperadmin) {
+  <article class="panel map-administrative-only">
+    <span class="eyebrow">ALCANCE ADMINISTRATIVO</span>
+    <h2>El mapa epidemiológico no corresponde a los perfiles de superadministración</h2>
+    <p>
+      Este perfil administra usuarios, catálogos y estructura territorial sin acceder a información
+      de casos.
+    </p>
+  </article>
+} @else {
+  <section class="map-kpis" aria-label="Resumen territorial">
+    <div>
+      <i class="green-dot"></i><span>Alcance visible</span><strong>{{ scopeLabel }}</strong>
+    </div>
+    <div>
+      <i class="blue-dot"></i><span>Métrica activa</span><strong>{{ metricLabel }}</strong>
+    </div>
+    <div>
+      <i class="amber-dot"></i><span>Valor del período</span
+      ><strong>{{ totalMetricDisplay }}</strong>
+    </div>
+    <div>
+      <i class="red-dot"></i><span>{{ entityLabel }} visibles</span
+      ><strong>{{ reports.length }}</strong>
+    </div>
+  </section>
 
-<div aria-live="polite">
-  @if (loading()) {
-    <section class="map-message" role="status">Cargando indicadores agregados…</section>
-  }
-  @if (loadError()) {
-    <section class="map-message error" role="alert">
-      {{ loadError() }}
-      <button class="btn secondary" type="button" (click)="retryLoad()">Reintentar</button>
-    </section>
-  }
-</div>
+  <div aria-live="polite">
+    @if (loading()) {
+      <section class="map-message" role="status">Cargando indicadores agregados…</section>
+    }
+    @if (loadError()) {
+      <section class="map-message error" role="alert">
+        {{ loadError() }}
+        <button class="btn secondary" type="button" (click)="retryLoad()">Reintentar</button>
+      </section>
+    }
+    @if (isLive && dataNotice()) {
+      <section
+        class="map-message data-maturity"
+        [class.official]="dataStatus() === 'OFICIAL'"
+        role="status"
+      >
+        <strong>{{ dataStatus() }} · Fuente ITS 1.</strong> {{ dataNotice() }}
+      </section>
+    }
+  </div>
 
-<section class="map-layout" [attr.aria-busy]="loading()">
-  <aside class="panel map-filters">
-    <div class="section-heading">
-      <div>
-        <h2>Visualización</h2>
-        <p>Indicadores agregados del período vigente.</p>
+  <section class="map-layout" [attr.aria-busy]="loading()">
+    <aside class="panel map-filters">
+      <div class="section-heading">
+        <div>
+          <h2>Visualización</h2>
+          <p>Conteos agregados automáticamente desde ITS 1 para el período vigente.</p>
+        </div>
       </div>
-    </div>
-    <h3>MÉTRICA DEL MARCADOR</h3>
-    <label class="filter-field">
-      <span>Mostrar en cada ubicación</span>
-      <select [value]="metric" (change)="setMetric($event)">
-        <option value="total">Casos totales</option>
-        <option value="newCases">Casos nuevos</option>
-        <option value="controls">Controles</option>
-        <option value="alerts">Observaciones abiertas</option>
-      </select>
-    </label>
-    <div class="map-privacy-note">
-      <strong>Privacidad territorial</strong>
-      <p>
-        El mapa muestra únicamente reportes agregados y ubicaciones institucionales. No representa
-        domicilios ni registros individuales.
-      </p>
-    </div>
-    <button class="btn secondary full" type="button" (click)="resetFilters()">
-      Restablecer métrica
-    </button>
-  </aside>
+      <h3>MÉTRICA DEL MARCADOR</h3>
+      <label class="filter-field">
+        <span>Mostrar en cada ubicación</span>
+        <select [value]="metric" (change)="setMetric($event)">
+          <option value="total">Atenciones</option>
+          <option value="newCases">Casos nuevos</option>
+          <option value="controls">Controles</option>
+          <option value="alerts">Observaciones abiertas del flujo formal</option>
+        </select>
+      </label>
+      <div class="map-privacy-note">
+        <strong>Privacidad territorial</strong>
+        <p>
+          El mapa muestra únicamente conteos agregados de ITS 1 y ubicaciones institucionales. No
+          representa domicilios ni registros individuales.
+          {{
+            dataStatus() === 'PRELIMINAR'
+              ? 'Los datos preliminares pueden cambiar durante la depuración y aprobación.'
+              : 'Los datos corresponden al período cerrado oficialmente.'
+          }}
+        </p>
+      </div>
+      <button class="btn secondary full" type="button" (click)="resetFilters()">
+        Restablecer métrica
+      </button>
+    </aside>
 
-  <app-interactive-map
-    [reports]="reports"
-    [level]="mapLevel"
-    [metric]="metric"
-    [entityLabel]="entityLabel"
-    [allowNational]="allowNational"
-    [allowRegional]="allowRegional"
-    [regionLabel]="selectedRegion?.name ?? 'Región autorizada'"
-    [municipalityLabel]="selectedMunicipality?.name ?? 'Municipio autorizado'"
-    (levelChange)="setLevel($event)"
-    (reportSelected)="selectMapEntity($event)"
-  />
-</section>
+    <app-interactive-map
+      [reports]="reports"
+      [level]="mapLevel"
+      [metric]="metric"
+      [entityLabel]="entityLabel"
+      [allowNational]="allowNational"
+      [allowRegional]="allowRegional"
+      [regionLabel]="selectedRegion?.name ?? 'Región autorizada'"
+      [municipalityLabel]="selectedMunicipality?.name ?? 'Municipio autorizado'"
+      (levelChange)="setLevel($event)"
+      (reportSelected)="selectMapEntity($event)"
+    />
+  </section>
+}

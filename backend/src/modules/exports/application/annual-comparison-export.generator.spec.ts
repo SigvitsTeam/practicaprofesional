@@ -1,5 +1,7 @@
 import ExcelJS from 'exceljs';
+import { ConfigService } from '@nestjs/config';
 import { TerritorialAnalyticsRepository } from '../../its-capture/application/ports/territorial-analytics.repository';
+import { TerritorialAnalyticsPrivacyPolicy } from '../../its-capture/application/territorial-analytics-privacy.policy';
 import type { TerritorialAnalyticsRow } from '../../its-capture/domain/territorial-analytics';
 import type { ClaimedExportJob } from '../domain/export-job';
 import { AnnualComparisonExportGenerator } from './annual-comparison-export.generator';
@@ -14,6 +16,8 @@ class AnalyticsRepository extends TerritorialAnalyticsRepository {
         code: '0506',
         name: 'Puerto Cortés',
         status: 'ENVIADO',
+        dataStatus: 'PRELIMINAR',
+        dataSource: 'ITS1',
         attentions: 100,
         newCases: 10,
         controls: 5,
@@ -22,6 +26,43 @@ class AnalyticsRepository extends TerritorialAnalyticsRepository {
     ]);
   }
 }
+
+class SmallCountAnalyticsRepository extends TerritorialAnalyticsRepository {
+  list(): Promise<readonly TerritorialAnalyticsRow[]> {
+    return Promise.resolve([
+      {
+        id: 'territory-small',
+        parentId: 'authorized-parent',
+        code: '0506',
+        name: 'Puerto Cortés',
+        status: 'ENVIADO',
+        dataStatus: 'PRELIMINAR',
+        dataSource: 'ITS1',
+        attentions: 40,
+        newCases: 2,
+        controls: 8,
+        alerts: 0,
+      },
+      {
+        id: 'territory-large',
+        parentId: 'authorized-parent',
+        code: '0507',
+        name: 'Omoa',
+        status: 'ENVIADO',
+        dataStatus: 'PRELIMINAR',
+        dataSource: 'ITS1',
+        attentions: 60,
+        newCases: 98,
+        controls: 12,
+        alerts: 0,
+      },
+    ]);
+  }
+}
+
+const privacy = new TerritorialAnalyticsPrivacyPolicy(
+  new ConfigService({ app: { territorialAnalyticsSmallCountThreshold: 5 } }),
+);
 
 const baseJob: ClaimedExportJob = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -54,7 +95,9 @@ const baseJob: ClaimedExportJob = {
 describe('AnnualComparisonExportGenerator', () => {
   it('generates an aggregated XLSX with summary and monthly detail', async () => {
     const repository = new AnalyticsRepository();
-    const contents = await new AnnualComparisonExportGenerator(repository).generate(baseJob);
+    const contents = await new AnnualComparisonExportGenerator(repository, privacy).generate(
+      baseJob,
+    );
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(new Uint8Array(contents).buffer);
     expect(repository.calls).toBe(4);
@@ -63,10 +106,30 @@ describe('AnnualComparisonExportGenerator', () => {
   });
 
   it('generates a valid PDF artifact', async () => {
-    const contents = await new AnnualComparisonExportGenerator(new AnalyticsRepository()).generate({
-      ...baseJob,
-      format: 'PDF',
-    });
+    const contents = await new AnnualComparisonExportGenerator(
+      new AnalyticsRepository(),
+      privacy,
+    ).generate({ ...baseJob, format: 'PDF' });
     expect(Buffer.from(contents).subarray(0, 5).toString('ascii')).toBe('%PDF-');
+  });
+
+  it('does not dilute a protected descendant count into a visible 2 + 98 monthly aggregate', async () => {
+    const contents = await new AnnualComparisonExportGenerator(
+      new SmallCountAnalyticsRepository(),
+      privacy,
+    ).generate(baseJob);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(new Uint8Array(contents).buffer);
+    const summary = workbook.getWorksheet('Comparación');
+    const detail = workbook.getWorksheet('Detalle mensual');
+
+    expect(detail?.getCell('D2').value).toBe('SUPRIMIDO');
+    expect(detail?.getCell('D3').value).toBe('SUPRIMIDO');
+    expect(detail?.getCell('F2').value).toBe('SUPRIMIDO');
+    expect(detail?.getCell('H2').value).toBe('SUPRIMIDO');
+    expect(summary?.getCell('D7').value).toBe('SUPRIMIDO');
+    expect(summary?.getCell('F7').value).toBe('SUPRIMIDO');
+    expect(summary?.getCell('H7').value).toBe('SUPRIMIDO');
+    expect(summary?.getCell('J7').value).toBe('SUPRIMIDO');
   });
 });

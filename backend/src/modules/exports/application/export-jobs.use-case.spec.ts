@@ -1,4 +1,7 @@
-import type { AuthorizationSubject } from '../../authorization/domain/authorization.types';
+import {
+  RoleCode,
+  type AuthorizationSubject,
+} from '../../authorization/domain/authorization.types';
 import {
   ExportJobScopeError,
   InvalidExportJobError,
@@ -61,13 +64,16 @@ class Repository extends ExportJobRepository {
 
 const subject: AuthorizationSubject = {
   userId: 'user-1',
-  roles: [],
+  roles: [RoleCode.CoordinationDataEntry],
   permissions: ['exports:jobs:create'],
   territory: {
     national: false,
     regionIds: ['region-1'],
+    regionGrantIds: ['region-1'],
     municipalityIds: ['municipality-1'],
+    municipalityScopeIds: ['municipality-1'],
     facilityIds: ['facility-1'],
+    facilityGrantIds: ['facility-1'],
   },
 };
 const base = {
@@ -94,6 +100,98 @@ describe('ExportJobsUseCase', () => {
       new ExportJobsUseCase(new Repository()).create(
         { ...base, territoryId: 'municipality-2' },
         subject,
+      ),
+    ).toThrow(ExportJobScopeError);
+  });
+
+  it('does not elevate contextual parent IDs from a facility assignment', () => {
+    const facilityOnly: AuthorizationSubject = {
+      ...subject,
+      roles: [RoleCode.FacilityManager],
+      territory: {
+        national: false,
+        regionIds: ['region-1'],
+        regionGrantIds: [],
+        municipalityIds: ['municipality-1'],
+        municipalityScopeIds: [],
+        municipalityGrantIds: [],
+        facilityIds: ['facility-1'],
+        facilityGrantIds: ['facility-1'],
+      },
+    };
+    const jobs = new ExportJobsUseCase(new Repository());
+
+    expect(() => jobs.create(base, facilityOnly)).toThrow(ExportJobScopeError);
+    expect(() =>
+      jobs.create(
+        {
+          ...base,
+          reportType: 'REGIONAL_CONSOLIDATED',
+          scopeLevel: 'REGION',
+          territoryId: 'region-1',
+        },
+        facilityOnly,
+      ),
+    ).toThrow(ExportJobScopeError);
+  });
+
+  it('does not elevate a direct municipality assignment to its contextual region', async () => {
+    const municipalOnly: AuthorizationSubject = {
+      ...subject,
+      roles: [RoleCode.MunicipalCoordinator],
+      territory: {
+        national: false,
+        regionIds: ['region-1'],
+        regionGrantIds: [],
+        municipalityIds: ['municipality-1'],
+        municipalityScopeIds: ['municipality-1'],
+        municipalityGrantIds: ['municipality-1'],
+        facilityIds: ['facility-1'],
+        facilityGrantIds: [],
+      },
+    };
+    const jobs = new ExportJobsUseCase(new Repository());
+
+    await expect(jobs.create(base, municipalOnly)).resolves.toMatchObject({
+      scopeLevel: 'MUNICIPIO',
+      territoryId: 'municipality-1',
+    });
+    expect(() =>
+      jobs.create(
+        {
+          ...base,
+          reportType: 'REGIONAL_CONSOLIDATED',
+          scopeLevel: 'REGION',
+          territoryId: 'region-1',
+        },
+        municipalOnly,
+      ),
+    ).toThrow(ExportJobScopeError);
+  });
+
+  it('denies case exports to administrative superadmins even with residual permissions', () => {
+    const administrative: AuthorizationSubject = {
+      ...subject,
+      roles: [RoleCode.SuperAdmin],
+      permissions: ['*'],
+      territory: {
+        national: true,
+        regionIds: [],
+        municipalityIds: [],
+        municipalityScopeIds: [],
+        facilityIds: [],
+      },
+    };
+
+    expect(() =>
+      new ExportJobsUseCase(new Repository()).create(
+        {
+          ...base,
+          reportType: 'NATIONAL_CONSOLIDATED',
+          scopeLevel: 'NACIONAL',
+          territoryId: null,
+        },
+        administrative,
       ),
     ).toThrow(ExportJobScopeError);
   });

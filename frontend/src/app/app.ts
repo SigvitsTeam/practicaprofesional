@@ -123,12 +123,14 @@ export class App {
         this.allowedRoleIds = [];
         this.loadedProfileUserId = '';
         this.institutionalDisplayName = '';
+        this.roleContext.institutionalProfile.set(null);
         return;
       }
       if (this.auth.isDemo()) {
         this.profileSubscriptions.unsubscribe();
         this.profileRequestVersion += 1;
         this.loadingProfileUserId = '';
+        this.roleContext.institutionalProfile.set(null);
         this.operationalPeriod.useDemoCatalog();
         this.allowedRoleIds = this.roleContext.roles.map((role) => role.id);
         this.loadedProfileUserId = user.id;
@@ -150,6 +152,7 @@ export class App {
     this.profileError.set('');
     this.allowedRoleIds = [];
     this.institutionalDisplayName = '';
+    this.roleContext.institutionalProfile.set(null);
     this.operationalPeriod.clear();
     const profile = this.currentProfileApi.get().pipe(
       catchError(() =>
@@ -185,24 +188,36 @@ export class App {
           if (requestVersion !== this.profileRequestVersion || this.auth.user()?.id !== userId)
             return;
           if (!periods.length) {
-            const adminRole = roleIds.find((r) => r === 'superadmin' || r === 'central-validator');
-            if (
-              !adminRole ||
-              !profile.territory.national ||
-              !profile.permissions.some((p) => p === 'reporting:periods:manage' || p === '*')
-            ) {
+            const periodManagerRole = roleIds.find(
+              (roleId) => roleId === 'superadmin' || roleId === 'central-validator',
+            );
+            const canConfigurePeriods =
+              Boolean(periodManagerRole) &&
+              profile.territory.national &&
+              profile.permissions.some((permission) =>
+                ['reporting:periods:manage', '*'].includes(permission),
+              );
+            const administrativeRole = roleIds.find(
+              (roleId) => roleId === 'superadmin' || roleId === 'regional-superadmin',
+            );
+            if (!canConfigurePeriods && !administrativeRole) {
               this.loadingProfileUserId = '';
               this.profileError.set(
                 'No existen períodos institucionales mensuales configurados para SIGVITS. Contacte al administrador.',
               );
               return;
             }
-            initialRole = adminRole;
-            this.active = 'Administración';
-            this.adminSection = 'periods';
+            initialRole = canConfigurePeriods ? periodManagerRole! : administrativeRole!;
+            if (canConfigurePeriods) {
+              this.active = 'Administración';
+              this.adminSection = 'periods';
+            } else {
+              this.active = 'Inicio';
+            }
           }
           this.allowedRoleIds = roleIds;
           this.institutionalDisplayName = profile.displayName?.trim() ?? '';
+          this.roleContext.institutionalProfile.set(profile);
           this.roleContext.select(initialRole);
           this.operationalPeriod.useCatalog(periods);
           this.loadedProfileUserId = userId;
@@ -288,7 +303,7 @@ export class App {
       return {
         eyebrow: 'SUPERADMIN REGIONAL · CORTÉS',
         title: 'Redes de la Región de Cortés',
-        description: 'Administración, consolidación y exportación de agrupaciones municipales.',
+        description: 'Configuración y vigencia de las agrupaciones municipales de la región.',
       };
     }
     if (this.active === 'Redes') {
@@ -306,7 +321,7 @@ export class App {
           title: 'Revisión de regiones',
           description: 'Validación de consolidados regionales antes del cierre nacional.',
         };
-      if (['regional-superadmin', 'regional-admin'].includes(this.role.id))
+      if (this.role.id === 'regional-admin')
         return {
           eyebrow: 'REGIÓN SANITARIA · CORTÉS',
           title: 'Revisión de municipios',
@@ -325,7 +340,7 @@ export class App {
           title: 'Consolidado nacional',
           description: 'Cobertura regional, calidad y preparación del cierre nacional ITS.',
         };
-      if (['regional-superadmin', 'regional-admin'].includes(this.role.id))
+      if (this.role.id === 'regional-admin')
         return {
           eyebrow: 'REGIÓN SANITARIA · CORTÉS',
           title: 'Consolidado regional',
@@ -338,13 +353,13 @@ export class App {
       };
     }
     if (this.active === 'Mapas') {
-      if (['superadmin', 'central-validator'].includes(this.role.id))
+      if (this.role.id === 'central-validator')
         return {
           eyebrow: 'ANÁLISIS TERRITORIAL · HONDURAS',
           title: 'Mapa nacional ITS',
           description: 'Comparación agregada por región, sin exposición de registros individuales.',
         };
-      if (['regional-superadmin', 'regional-admin', 'supervisor'].includes(this.role.id))
+      if (['regional-admin', 'supervisor'].includes(this.role.id))
         return {
           eyebrow: 'ANÁLISIS TERRITORIAL · CORTÉS',
           title: 'Mapa regional ITS',
@@ -359,7 +374,7 @@ export class App {
     }
     if (this.active === 'Reportes y exportaciones') {
       const scope =
-        this.role.id === 'central-validator' || this.role.id === 'superadmin'
+        this.role.id === 'central-validator'
           ? 'nacionales'
           : this.role.id.startsWith('regional-') || this.role.id === 'supervisor'
             ? 'regionales'
@@ -375,6 +390,7 @@ export class App {
     return SCREEN_META[this.active];
   }
   private productionMeta() {
+    if (this.active === 'Inicio') return this.role.dashboardMeta;
     const metadata: Record<string, { eyebrow: string; title: string; description: string }> = {
       Inicio: {
         eyebrow: this.role.roleName.toUpperCase(),
@@ -431,6 +447,11 @@ export class App {
     );
   }
   get showGlobalFilters() {
+    if (
+      ['superadmin', 'regional-superadmin'].includes(this.role.id) &&
+      (this.active === 'Inicio' || this.active === 'Redes')
+    )
+      return false;
     return [
       'Inicio',
       'Bandeja de revisión',
@@ -443,9 +464,16 @@ export class App {
   }
 
   navigate(page: string) {
+    if (!this.role.navItems.includes(page)) {
+      this.active = 'Inicio';
+      this.selectedReport = null;
+      this.showNotice('La sección solicitada no pertenece al perfil institucional activo.');
+      return;
+    }
     if (
       !this.auth.isDemo() &&
       !this.operationalPeriod.periods().length &&
+      !['superadmin', 'regional-superadmin'].includes(this.role.id) &&
       page !== 'Administración'
     ) {
       this.showNotice(

@@ -64,6 +64,8 @@
     <app-report-table
       [reports]="reports"
       [entityLabel]="entityLabel"
+      totalLabel="Atenciones del reporte"
+      [showCaseBreakdown]="false"
       (reportSelected)="reportSelected.emit($event)"
     />
   }

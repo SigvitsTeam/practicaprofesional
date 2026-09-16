@@ -23,7 +23,13 @@ export interface GrantedTerritory {
   /** Direct regional grants only; regionIds also includes contextual parents. Missing means none. */
   regionGrantIds?: readonly string[];
   municipalityIds: readonly string[];
+  /** Municipalities granted at aggregate level, directly or through a regional grant. */
+  municipalityScopeIds?: readonly string[];
+  /** Direct municipal grants only; municipalityIds also includes contextual parents. Missing means none. */
+  municipalityGrantIds?: readonly string[];
   facilityIds: readonly string[];
+  /** Direct facility grants only; facilityIds may also include descendants of broader grants. */
+  facilityGrantIds?: readonly string[];
 }
 
 export interface AuthorizationSubject {
@@ -51,5 +57,9 @@ export type AuthorizationDecision =
   | { allowed: true }
   | {
       allowed: false;
-      reason: 'MISSING_PERMISSION' | 'OUTSIDE_TERRITORY' | 'INDIVIDUAL_DATA_RESTRICTED';
+      reason:
+        | 'MISSING_PERMISSION'
+        | 'OUTSIDE_TERRITORY'
+        | 'INDIVIDUAL_DATA_RESTRICTED'
+        | 'ADMINISTRATIVE_ROLE_RESTRICTED';
     };

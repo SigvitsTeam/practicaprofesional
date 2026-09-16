@@ -1,7 +1,7 @@
 import { Component, DestroyRef, OnInit, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { finalize, of, switchMap, throwError } from 'rxjs';
+import { finalize, switchMap, throwError } from 'rxjs';
 import { RoleContext } from '../../core/role-context';
 import { AuthService } from '../../core/auth.service';
 import { ExportJobsApiService } from '../../core/export-jobs-api.service';
@@ -43,9 +43,7 @@ interface ExportJob {
   report: string;
   period: string;
   format: 'XLSX' | 'PDF';
-  template: string;
   status: 'Generado' | 'Generando' | 'Error';
-  user: string;
   outputAvailable: boolean;
 }
 
@@ -107,7 +105,7 @@ export class Exports implements OnInit {
   protected annualPreview: AnnualEvaluationConfig | null = null;
 
   ngOnInit() {
-    if (this.auth.isDemo()) return;
+    if (this.auth.isDemo() || this.isAdministrativeSuperadmin) return;
     this.queue.refresh();
     if (
       ['establishment-manager', 'coordination-digitizer'].includes(this.roleContext.activeRoleId())
@@ -127,8 +125,13 @@ export class Exports implements OnInit {
     return this.auth.isDemo();
   }
 
+  protected get isAdministrativeSuperadmin() {
+    return ['superadmin', 'regional-superadmin'].includes(this.roleContext.activeRoleId());
+  }
+
   protected get exportOptions(): ExportOption[] {
     const role = this.roleContext.activeRoleId();
+    if (this.isAdministrativeSuperadmin) return [];
     if (role === 'establishment-manager' || role === 'coordination-digitizer')
       return [
         {
@@ -140,7 +143,7 @@ export class Exports implements OnInit {
         {
           icon: '◇',
           title: 'ITS 2 mensual',
-          detail: 'Excel oficial · alcance asignado',
+          detail: 'Excel del período · alcance asignado',
           action: 'generate',
           reportType: 'ITS2_MONTHLY',
         },
@@ -158,19 +161,20 @@ export class Exports implements OnInit {
           reportType: 'TERRITORIAL_SUMMARY',
         },
       ];
-    if (role === 'central-validator' || role === 'superadmin')
+    if (role === 'supervisor') return this.supervisorExportOptions();
+    if (role === 'central-validator')
       return [
         {
           icon: '▣',
           title: 'Consolidado nacional',
-          detail: 'Excel · por región',
+          detail: 'Preliminar desde ITS 1 hasta el cierre oficial',
           action: 'generate',
           reportType: 'NATIONAL_CONSOLIDATED',
         },
         {
           icon: '◇',
           title: 'Consolidados regionales',
-          detail: 'Seleccione una región autorizada',
+          detail: 'Disponibles aun con aprobación pendiente',
           action: 'scoped',
           reportType: 'REGIONAL_CONSOLIDATED',
           targetLevel: 'REGION',
@@ -204,7 +208,7 @@ export class Exports implements OnInit {
         {
           icon: '▣',
           title: 'Consolidado municipal',
-          detail: 'Descarga inmediata · Excel oficial o PDF',
+          detail: 'Disponible como preliminar antes de consolidar',
           action: 'municipal',
           reportType: 'MUNICIPAL_CONSOLIDATED',
         },
@@ -235,7 +239,7 @@ export class Exports implements OnInit {
       {
         icon: '▣',
         title: 'Consolidado regional',
-        detail: 'Excel · municipios incluidos',
+        detail: 'Preliminar desde ITS 1 hasta la aprobación central',
         action: 'generate',
         reportType: 'REGIONAL_CONSOLIDATED',
       },
@@ -256,13 +260,13 @@ export class Exports implements OnInit {
   }
 
   protected get recentJobs(): ExportJob[] {
+    if (this.isAdministrativeSuperadmin) return [];
     if (!this.auth.isDemo())
       return this.queue.jobs().map((job) => ({
         id: job.id,
         report: job.reportType.replaceAll('_', ' '),
         period: `${String(job.month).padStart(2, '0')}/${job.year}`,
         format: job.format,
-        template: 'Vigente',
         status: (
           {
             PENDIENTE: 'Generando',
@@ -271,16 +275,14 @@ export class Exports implements OnInit {
             FALLIDO: 'Error',
           } as const
         )[job.status],
-        user: this.auth.user()?.name ?? 'Usuario actual',
         outputAvailable: job.outputAvailable,
       }));
-    const role = this.roleContext.activeRole();
     const level =
       this.roleContext.activeRoleId() === 'establishment-manager'
         ? 'CIS Linda Coello'
         : this.roleContext.activeRoleId() === 'municipal-coordinator'
           ? 'Puerto Cortés'
-          : ['superadmin', 'central-validator'].includes(this.roleContext.activeRoleId())
+          : this.roleContext.activeRoleId() === 'central-validator'
             ? 'Honduras'
             : 'Región de Cortés';
     return [
@@ -289,9 +291,7 @@ export class Exports implements OnInit {
         report: `Consolidado · ${level}`,
         period: 'Julio 2026',
         format: 'XLSX',
-        template: 'v3.2',
         status: 'Generado',
-        user: role.userName,
         outputAvailable: true,
       },
       {
@@ -299,9 +299,7 @@ export class Exports implements OnInit {
         report: 'Evaluación anual comparativa',
         period: '2025 vs 2026',
         format: 'PDF',
-        template: 'v1.4',
         status: 'Generando',
-        user: role.userName,
         outputAvailable: false,
       },
       {
@@ -309,9 +307,7 @@ export class Exports implements OnInit {
         report: `Reporte territorial · ${level}`,
         period: 'Julio 2026',
         format: 'PDF',
-        template: 'v1.0',
         status: 'Generado',
-        user: role.userName,
         outputAvailable: true,
       },
     ];
@@ -321,7 +317,7 @@ export class Exports implements OnInit {
     if (this.loading()) return;
     if (option.action === 'annual') this.openAnnualEvaluation();
     else if (option.action === 'municipal') {
-      if (this.auth.isDemo()) this.notify.emit(`${option.title}: descarga inmediata simulada.`);
+      if (this.auth.isDemo()) this.notify.emit(`${option.title}: generación simulada.`);
       else this.openMunicipalDownload();
     } else if (option.action === 'its1') {
       if (this.auth.isDemo())
@@ -531,7 +527,6 @@ export class Exports implements OnInit {
     const period = this.municipalPeriod;
     if (!period || this.loading()) return;
     const format = this.municipalFormat;
-    let municipalityCode = '';
     this.loading.set(true);
     this.itsCaptureApi
       .getMunicipalConsolidationContext()
@@ -540,53 +535,32 @@ export class Exports implements OnInit {
           const municipality = context.municipalities[0];
           if (!municipality)
             return throwError(
-              () => new Error('No hay un municipio autorizado para preparar el consolidado.'),
+              () => new Error('No hay un municipio autorizado para generar el resumen.'),
             );
-          municipalityCode = municipality.code;
-          return this.itsCaptureApi
-            .getCurrentMunicipalConsolidation(municipality.id, period.year, period.month)
-            .pipe(
-              switchMap((current) =>
-                current && !['BORRADOR', 'DEVUELTO_POR_REGION'].includes(current.status)
-                  ? of(current)
-                  : this.itsCaptureApi.prepareMunicipalConsolidation(
-                      municipality.id,
-                      period.year,
-                      period.month,
-                    ),
-              ),
-              switchMap(() =>
-                format === 'XLSX'
-                  ? this.itsCaptureApi.downloadMunicipalConsolidationXlsx(
-                      municipality.id,
-                      period.year,
-                      period.month,
-                    )
-                  : this.itsCaptureApi.downloadMunicipalConsolidationPdf(
-                      municipality.id,
-                      period.year,
-                      period.month,
-                    ),
-              ),
-            );
+          return this.jobsApi.create({
+            idempotencyKey: crypto.randomUUID(),
+            reportType: 'MUNICIPAL_CONSOLIDATED',
+            format,
+            scopeLevel: 'MUNICIPIO',
+            territoryId: municipality.id,
+            year: period.year,
+            month: period.month,
+          });
         }),
         takeUntilDestroyed(this.destroyRef),
         finalize(() => this.loading.set(false)),
       )
       .subscribe({
-        next: (blob) => {
-          this.saveBlob(
-            blob,
-            `ITS-2-Consolidado-Municipal-${municipalityCode}-${period.year}-${String(period.month).padStart(2, '0')}.${format.toLowerCase()}`,
-          );
+        next: (job) => {
+          this.queue.record(job);
           this.showMunicipalDownload = false;
           this.municipalPeriod = null;
-          this.notify.emit(`Consolidado municipal ${format} descargado para ${period.label}.`);
+          this.notify.emit(
+            `Resumen municipal ${format} solicitado para ${period.label}. Puede descargarlo desde la cola aunque la aprobación siga pendiente.`,
+          );
         },
         error: (error) =>
-          this.notify.emit(
-            this.apiError(error, 'No fue posible preparar y descargar el consolidado municipal.'),
-          ),
+          this.notify.emit(this.apiError(error, 'No fue posible generar el resumen municipal.')),
       });
   }
 
@@ -639,9 +613,14 @@ export class Exports implements OnInit {
 
   private currentScope(): { level: string; territoryId?: string } | null {
     const role = this.roleContext.activeRoleId();
-    if (['superadmin', 'central-validator'].includes(role)) return { level: 'NACIONAL' };
-    if (['regional-superadmin', 'regional-admin', 'supervisor'].includes(role))
-      return { level: 'REGION' };
+    if (this.isAdministrativeSuperadmin) return null;
+    if (!this.auth.isDemo()) {
+      const effective = this.roleContext.effectiveScope?.();
+      if (effective) return effective;
+      if (typeof this.roleContext.institutionalProfile === 'function') return null;
+    }
+    if (role === 'central-validator') return { level: 'NACIONAL' };
+    if (['regional-admin', 'supervisor'].includes(role)) return { level: 'REGION' };
     if (role === 'municipal-coordinator') return { level: 'MUNICIPIO' };
     return { level: 'ESTABLECIMIENTO' };
   }
@@ -651,16 +630,16 @@ export class Exports implements OnInit {
   }
 
   protected get territoryOptions() {
+    if (this.isAdministrativeSuperadmin) return [];
     if (!this.auth.isDemo()) {
-      const role = this.roleContext.activeRoleId();
-      if (['superadmin', 'central-validator'].includes(role)) return ['Honduras'];
-      if (['regional-superadmin', 'regional-admin', 'supervisor'].includes(role))
-        return ['Región autorizada'];
-      if (role === 'municipal-coordinator') return ['Municipio autorizado'];
-      return ['Establecimiento autorizado'];
+      const scope = this.currentScope();
+      if (scope?.level === 'NACIONAL') return ['Honduras'];
+      if (scope?.level === 'REGION') return ['Región autorizada'];
+      if (scope?.level === 'MUNICIPIO') return ['Municipio autorizado'];
+      if (scope?.level === 'ESTABLECIMIENTO') return ['Establecimiento autorizado'];
+      return [];
     }
     switch (this.roleContext.activeRoleId()) {
-      case 'superadmin':
       case 'central-validator':
         return [
           'Honduras',
@@ -668,7 +647,6 @@ export class Exports implements OnInit {
           'Región de Atlántida',
           'Región de Francisco Morazán',
         ];
-      case 'regional-superadmin':
       case 'regional-admin':
         return ['Región de Cortés', 'Puerto Cortés', 'Omoa', 'San Pedro Sula', 'Choloma'];
       case 'municipal-coordinator':
@@ -688,6 +666,97 @@ export class Exports implements OnInit {
 
   protected get canCompareTerritories() {
     return this.territoryOptions.length > 1;
+  }
+
+  private supervisorExportOptions(): ExportOption[] {
+    const scope = this.currentScope();
+    if (scope?.level === 'MUNICIPIO')
+      return [
+        {
+          icon: '◇',
+          title: 'ITS 2 por establecimiento',
+          detail: 'Seleccione un establecimiento autorizado',
+          action: 'scoped',
+          reportType: 'ITS2_MONTHLY',
+          targetLevel: 'ESTABLECIMIENTO',
+          scopeLevel: 'ESTABLECIMIENTO',
+        },
+        {
+          icon: '▣',
+          title: 'Resumen municipal',
+          detail: 'Preliminar desde ITS 1 hasta el cierre oficial',
+          action: 'generate',
+          reportType: 'MUNICIPAL_CONSOLIDATED',
+        },
+        {
+          icon: '↗',
+          title: 'Evaluación anual municipal',
+          detail: 'General y comparativa',
+          action: 'annual',
+        },
+        {
+          icon: '⌖',
+          title: 'Reporte territorial municipal',
+          detail: 'Indicadores agregados del alcance',
+          action: 'generate',
+          reportType: 'TERRITORIAL_SUMMARY',
+        },
+      ];
+    if (scope?.level === 'ESTABLECIMIENTO')
+      return [
+        {
+          icon: '◇',
+          title: 'ITS 2 mensual',
+          detail: 'Reporte agregado del establecimiento autorizado',
+          action: 'generate',
+          reportType: 'ITS2_MONTHLY',
+        },
+        {
+          icon: '↗',
+          title: 'Evaluación anual del establecimiento',
+          detail: 'General y comparativa',
+          action: 'annual',
+        },
+        {
+          icon: '⌖',
+          title: 'Reporte territorial del establecimiento',
+          detail: 'Indicadores agregados del alcance',
+          action: 'generate',
+          reportType: 'TERRITORIAL_SUMMARY',
+        },
+      ];
+    if (scope?.level !== 'REGION') return [];
+    return [
+      {
+        icon: '◇',
+        title: 'Consolidados municipales',
+        detail: 'Seleccione un municipio autorizado',
+        action: 'scoped',
+        reportType: 'MUNICIPAL_CONSOLIDATED',
+        targetLevel: 'MUNICIPIO',
+        scopeLevel: 'MUNICIPIO',
+      },
+      {
+        icon: '▣',
+        title: 'Consolidado regional',
+        detail: 'Preliminar desde ITS 1 hasta la aprobación central',
+        action: 'generate',
+        reportType: 'REGIONAL_CONSOLIDATED',
+      },
+      {
+        icon: '↗',
+        title: 'Evaluación anual regional',
+        detail: 'General y comparativa',
+        action: 'annual',
+      },
+      {
+        icon: '⌖',
+        title: 'Reporte territorial regional',
+        detail: 'Municipios y Redes',
+        action: 'generate',
+        reportType: 'TERRITORIAL_SUMMARY',
+      },
+    ];
   }
   protected get invalidRanges() {
     const form = this.annualForm;

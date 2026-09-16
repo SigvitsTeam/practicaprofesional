@@ -19,9 +19,8 @@ describe('Exports request lifecycle', () => {
   const selectedPeriod = signal({ year: 2026, month: 8 });
   let create: ReturnType<typeof vi.fn>;
   let downloadMonthlyReportXlsx: ReturnType<typeof vi.fn>;
-  let prepareMunicipalConsolidation: ReturnType<typeof vi.fn>;
-  let downloadMunicipalConsolidationXlsx: ReturnType<typeof vi.fn>;
   let getTerritorialAnalytics: ReturnType<typeof vi.fn>;
+  let activeRoleId: ReturnType<typeof signal<string>>;
 
   beforeEach(async () => {
     selectedPeriod.set({ year: 2026, month: 8 });
@@ -29,16 +28,13 @@ describe('Exports request lifecycle', () => {
     download = new Subject<Blob>();
     create = vi.fn(() => new Subject<ExportJobRecord>());
     downloadMonthlyReportXlsx = vi.fn(() => download);
-    prepareMunicipalConsolidation = vi.fn(() =>
-      of({ municipality: { id: 'municipality-1', code: '0506', name: 'Puerto Cortés' } }),
-    );
-    downloadMunicipalConsolidationXlsx = vi.fn(() => of(new Blob(['municipal'])));
     getTerritorialAnalytics = vi.fn(() => analytics);
+    activeRoleId = signal('municipal-coordinator');
     await TestBed.configureTestingModule({
       imports: [Exports],
       providers: [
         { provide: AuthService, useValue: { isDemo: () => false, user: () => ({ name: 'QA' }) } },
-        { provide: RoleContext, useValue: { activeRoleId: () => 'municipal-coordinator' } },
+        { provide: RoleContext, useValue: { activeRoleId } },
         { provide: OperationalPeriodService, useValue: { selected: selectedPeriod } },
         { provide: ExportJobsApiService, useValue: { list: () => of([]), create } },
         {
@@ -58,9 +54,6 @@ describe('Exports request lifecycle', () => {
                   },
                 ],
               }),
-            getCurrentMunicipalConsolidation: () => of(null),
-            prepareMunicipalConsolidation,
-            downloadMunicipalConsolidationXlsx,
           },
         },
       ],
@@ -122,9 +115,7 @@ describe('Exports request lifecycle', () => {
     expect(download.observed).toBe(false);
   });
 
-  it('prepares and immediately downloads the municipal consolidation without using the queue', () => {
-    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:municipal');
-    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+  it('queues a municipal summary without requiring a formal consolidation', () => {
     const buttons = element.querySelectorAll<HTMLButtonElement>('.export-catalog button');
     buttons[1]?.click();
     fixture.detectChanges();
@@ -133,8 +124,42 @@ describe('Exports request lifecycle', () => {
 
     dialog?.querySelector<HTMLButtonElement>('footer .primary')?.click();
 
-    expect(prepareMunicipalConsolidation).toHaveBeenCalledWith('municipality-1', 2026, 8);
-    expect(downloadMunicipalConsolidationXlsx).toHaveBeenCalledWith('municipality-1', 2026, 8);
-    expect(create).not.toHaveBeenCalled();
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reportType: 'MUNICIPAL_CONSOLIDATED',
+        format: 'XLSX',
+        scopeLevel: 'MUNICIPIO',
+        territoryId: 'municipality-1',
+        year: 2026,
+        month: 8,
+      }),
+    );
   });
+
+  it('does not infer a role-based scope when a loaded institutional profile has no grant', () => {
+    const roleContext = TestBed.inject(RoleContext) as unknown as {
+      effectiveScope?: () => null;
+      institutionalProfile?: () => object;
+    };
+    roleContext.effectiveScope = () => null;
+    roleContext.institutionalProfile = () => ({ territory: {} });
+
+    const component = fixture.componentInstance as unknown as {
+      currentScope: () => { level: string; territoryId?: string } | null;
+    };
+
+    expect(component.currentScope()).toBeNull();
+  });
+
+  it.each(['superadmin', 'regional-superadmin'])(
+    'does not render export controls or jobs for %s',
+    (roleId) => {
+      activeRoleId.set(roleId);
+      fixture.detectChanges();
+
+      expect(element.textContent).toContain('ALCANCE ADMINISTRATIVO');
+      expect(element.textContent).not.toContain('Trabajos de exportación recientes');
+      expect(element.querySelector('.export-catalog')).toBeNull();
+    },
+  );
 });

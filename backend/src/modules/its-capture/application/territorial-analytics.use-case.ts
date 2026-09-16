@@ -1,28 +1,36 @@
 import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import type { AuthorizationSubject } from '../../authorization/domain/authorization.types';
+import {
+  RoleCode,
+  type AuthorizationSubject,
+} from '../../authorization/domain/authorization.types';
 import {
   InvalidTerritorialAnalyticsQueryError,
   TerritorialAnalyticsScopeDeniedError,
-  type TerritorialAnalyticsMetric,
-  type TerritorialAnalyticsPublicRow,
   type TerritorialAnalyticsQuery,
-  type TerritorialAnalyticsRow,
   type TerritorialAnalyticsResult,
 } from '../domain/territorial-analytics';
 import { TerritorialAnalyticsRepository } from './ports/territorial-analytics.repository';
+import { TerritorialAnalyticsPrivacyPolicy } from './territorial-analytics-privacy.policy';
 
 @Injectable()
 export class TerritorialAnalyticsUseCase {
   constructor(
     private readonly repository: TerritorialAnalyticsRepository,
-    private readonly config: ConfigService,
+    private readonly privacy: TerritorialAnalyticsPrivacyPolicy,
   ) {}
 
   async execute(
     input: TerritorialAnalyticsQuery,
     subject: AuthorizationSubject,
   ): Promise<TerritorialAnalyticsResult> {
+    if (
+      subject.roles.some(
+        (role) => role === RoleCode.SuperAdmin || role === RoleCode.RegionalSuperAdmin,
+      )
+    )
+      throw new TerritorialAnalyticsScopeDeniedError(
+        'Los perfiles superadmin tienen alcance administrativo y no consultan datos de casos.',
+      );
     if (!Number.isInteger(input.year) || input.year < 2020 || input.year > 2100)
       throw new InvalidTerritorialAnalyticsQueryError('El año solicitado no es válido.');
     if (!Number.isInteger(input.month) || input.month < 1 || input.month > 12)
@@ -31,19 +39,38 @@ export class TerritorialAnalyticsUseCase {
       throw new InvalidTerritorialAnalyticsQueryError(
         'El nivel regional agregado requiere alcance nacional.',
       );
+    if (
+      input.level === 'MUNICIPIO' &&
+      !subject.territory.national &&
+      !(subject.territory.regionGrantIds?.length ?? 0) &&
+      !(subject.territory.municipalityScopeIds ?? subject.territory.municipalityGrantIds ?? [])
+        .length
+    )
+      throw new TerritorialAnalyticsScopeDeniedError(
+        'El nivel municipal agregado requiere una asignación municipal o regional directa.',
+      );
     this.validateParent(input, subject);
     const rows = await this.repository.list({
       ...input,
       scope: subject.territory,
     });
-    const smallCountThreshold = this.config.get<number>(
-      'app.territorialAnalyticsSmallCountThreshold',
-      5,
-    );
+    const protectedRows = this.privacy.protect(rows);
     return {
       ...input,
-      privacy: { smallCountThreshold, suppressedValue: null },
-      rows: this.suppress(rows, smallCountThreshold),
+      dataStatus:
+        rows.length > 0 && rows.every((row) => row.dataStatus === 'OFICIAL')
+          ? 'OFICIAL'
+          : 'PRELIMINAR',
+      dataSource: 'ITS1',
+      notice:
+        rows.length > 0 && rows.every((row) => row.dataStatus === 'OFICIAL')
+          ? 'Datos oficiales del período cerrado.'
+          : 'Datos preliminares acumulados automáticamente desde ITS 1; están pendientes de depuración y aprobación institucional.',
+      privacy: {
+        smallCountThreshold: protectedRows.smallCountThreshold,
+        suppressedValue: protectedRows.suppressedValue,
+      },
+      rows: protectedRows.rows,
     };
   }
 
@@ -71,67 +98,11 @@ export class TerritorialAnalyticsUseCase {
     if (
       input.municipalityId &&
       !subject.territory.national &&
-      !subject.territory.municipalityIds.includes(input.municipalityId)
+      !subject.territory.municipalityIds.includes(input.municipalityId) &&
+      !(subject.territory.regionGrantIds?.length ?? 0)
     )
       throw new TerritorialAnalyticsScopeDeniedError(
         'El municipio solicitado está fuera del alcance autorizado.',
       );
-  }
-
-  private suppress(
-    rows: readonly TerritorialAnalyticsRow[],
-    threshold: number,
-  ): readonly TerritorialAnalyticsPublicRow[] {
-    const metrics = [
-      'attentions',
-      'newCases',
-      'controls',
-      'alerts',
-    ] as const satisfies readonly TerritorialAnalyticsMetric[];
-    const primary = rows.map(
-      (row) =>
-        new Set<TerritorialAnalyticsMetric>(
-          metrics.filter((metric) => threshold > 0 && row[metric] > 0 && row[metric] < threshold),
-        ),
-    );
-    const complementary = rows.map(() => new Set<TerritorialAnalyticsMetric>());
-    const groups = new Map<string, number[]>();
-    rows.forEach((row, index) => {
-      const key = row.parentId ?? 'AUTHORIZED_SCOPE';
-      groups.set(key, [...(groups.get(key) ?? []), index]);
-    });
-
-    for (const metric of metrics) {
-      for (const indexes of groups.values()) {
-        const primaryIndexes = indexes.filter((index) => primary[index]?.has(metric));
-        if (primaryIndexes.length !== 1) continue;
-
-        const candidate = indexes
-          .map((index) => ({ index, id: rows[index]?.id ?? '', value: rows[index]?.[metric] ?? 0 }))
-          .filter(({ index, value }) => !primary[index]?.has(metric) && value > 0)
-          .sort((left, right) => left.value - right.value || left.id.localeCompare(right.id))[0];
-        if (candidate) complementary[candidate.index]?.add(metric);
-      }
-    }
-
-    return rows.map((row, index) => {
-      const primaryMetrics = primary[index] ?? new Set<TerritorialAnalyticsMetric>();
-      const complementaryMetrics = complementary[index] ?? new Set<TerritorialAnalyticsMetric>();
-      const hidden = (metric: TerritorialAnalyticsMetric): boolean =>
-        primaryMetrics.has(metric) || complementaryMetrics.has(metric);
-      const publicRow = { ...row };
-      delete publicRow.parentId;
-      return {
-        ...publicRow,
-        attentions: hidden('attentions') ? null : row.attentions,
-        newCases: hidden('newCases') ? null : row.newCases,
-        controls: hidden('controls') ? null : row.controls,
-        alerts: hidden('alerts') ? null : row.alerts,
-        suppressedMetrics: metrics.filter((metric) => primaryMetrics.has(metric)),
-        complementarySuppressedMetrics: metrics.filter((metric) =>
-          complementaryMetrics.has(metric),
-        ),
-      };
-    });
   }
 }

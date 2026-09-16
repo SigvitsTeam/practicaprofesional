@@ -27,16 +27,17 @@
 
     <div class="drawer-metrics" aria-label="Resumen del reporte">
       <div>
-        <span>Total ITS</span><strong>{{ metricDisplay('total') }}</strong>
+        <span>{{ report().caseBreakdownAvailable ? 'Total ITS' : 'Atenciones del reporte' }}</span
+        ><strong>{{ metricDisplay('total') }}</strong>
       </div>
-      <div>
-        <span>Casos nuevos</span
-        ><strong>{{ report().caseBreakdownAvailable ? metricDisplay('newCases') : '—' }}</strong>
-      </div>
-      <div>
-        <span>Controles</span
-        ><strong>{{ report().caseBreakdownAvailable ? metricDisplay('controls') : '—' }}</strong>
-      </div>
+      @if (report().caseBreakdownAvailable) {
+        <div>
+          <span>Casos nuevos</span><strong>{{ metricDisplay('newCases') }}</strong>
+        </div>
+        <div>
+          <span>Controles</span><strong>{{ metricDisplay('controls') }}</strong>
+        </div>
+      }
       <div>
         <span>Observaciones</span><strong>{{ metricDisplay('alerts') }}</strong>
       </div>

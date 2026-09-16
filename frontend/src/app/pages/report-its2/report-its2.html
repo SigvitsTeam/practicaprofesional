@@ -4,7 +4,7 @@
 <section class="report-overview">
   <article class="panel report-state">
     <div>
-      <span class="eyebrow">FORMATOS OFICIALES · {{ context.selected().code }}</span
+      <span class="eyebrow">FORMATOS INSTITUCIONALES · {{ context.selected().code }}</span
       ><strong>{{ loading() ? 'Procesando' : workflowStatus }}</strong
       ><small
         >{{ context.selected().name }} · {{ periodLabel }}
@@ -62,8 +62,8 @@
   <section class="report-message">
     <strong>Vista conectada a datos reales</strong
     ><span
-      >Inicie sesión con el backend configurado para calcular el ITS-2. Los formatos oficiales están
-      disponibles en Excel y PDF.</span
+      >Inicie sesión con el backend configurado para calcular el ITS-2. Los formatos institucionales
+      están disponibles en Excel y PDF.</span
     >
   </section>
 }
@@ -239,7 +239,8 @@
     <div class="validation ok">
       <i>✓</i
       ><span
-        ><strong>Excel y PDF oficiales</strong><small>Listos para descargar e imprimir</small></span
+        ><strong>Formatos institucionales</strong
+        ><small>Excel y PDF listos para descargar</small></span
       >
     </div>
     <div class="its2-actions">

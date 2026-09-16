@@ -15,7 +15,7 @@ export const ROLE_PROFILES: RoleProfile[] = [
       title: 'Control general del sistema',
       description: 'Estructura, usuarios, catálogos y disponibilidad operativa nacional.',
     },
-    navItems: ['Inicio', 'Administración', 'Redes', 'Mapas', 'Reportes y exportaciones'],
+    navItems: ['Inicio', 'Administración', 'Redes'],
     metrics: [
       {
         label: 'Regiones operativas',
@@ -48,7 +48,7 @@ export const ROLE_PROFILES: RoleProfile[] = [
         title: 'Completar coordenadas institucionales',
         detail: '12 establecimientos pendientes de validación geográfica.',
         status: 'Territorio',
-        target: 'Mapas',
+        target: 'Administración',
       },
       {
         title: 'Revisar acciones excepcionales',
@@ -105,7 +105,12 @@ export const ROLE_PROFILES: RoleProfile[] = [
         tone: 'green',
       },
       { label: 'En revisión', value: '1', detail: 'Consolidado regional', tone: 'blue' },
-      { label: 'Casos consolidados', value: '184', detail: 'Julio 2026', tone: 'purple' },
+      {
+        label: 'Casos preliminares',
+        value: '184',
+        detail: 'Suma automática ITS 1 · julio 2026',
+        tone: 'purple',
+      },
       { label: 'Observaciones', value: '2', detail: 'Pendientes de respuesta', tone: 'amber' },
     ],
     tasks: [
@@ -146,24 +151,16 @@ export const ROLE_PROFILES: RoleProfile[] = [
     scopeLabel: 'Región de Cortés',
     scopeDetail: 'Región asignada y todos sus niveles dependientes',
     privacyLabel: 'Administración regional',
-    privacyDetail: 'Gestión limitada a Cortés y con auditoría.',
+    privacyDetail: 'Configuración limitada a Cortés; sin información de casos.',
     dashboardMeta: {
       eyebrow: 'SUPERADMIN REGIONAL · CORTÉS',
-      title: 'Gestión integral de la región',
+      title: 'Administración de la región',
       description:
-        'Operación regional y administración de municipios, establecimientos y usuarios.',
+        'Configuración de municipios, establecimientos, usuarios y Redes dentro del alcance.',
     },
-    navItems: [
-      'Inicio',
-      'Bandeja de revisión',
-      'Consolidados',
-      'Redes',
-      'Mapas',
-      'Reportes y exportaciones',
-      'Administración',
-    ],
+    navItems: ['Inicio', 'Administración', 'Redes'],
     metrics: [
-      { label: 'Municipios activos', value: '1', detail: 'Puerto Cortés en piloto', tone: 'green' },
+      { label: 'Municipios activos', value: '1', detail: 'Dentro de Cortés', tone: 'green' },
       {
         label: 'Establecimientos',
         value: '12',
@@ -177,18 +174,18 @@ export const ROLE_PROFILES: RoleProfile[] = [
         tone: 'purple',
       },
       {
-        label: 'Pendientes críticos',
+        label: 'Configuración pendiente',
         value: '4',
-        detail: 'Operación y configuración',
+        detail: 'Identidades y validación territorial',
         tone: 'amber',
       },
     ],
     tasks: [
       {
-        title: 'Revisar consolidado de Puerto Cortés',
-        detail: 'El municipio reportó 184 casos en el período.',
-        status: 'Operación',
-        target: 'Bandeja de revisión',
+        title: 'Completar identidades institucionales',
+        detail: 'Dos usuarios requieren vinculación para habilitar su acceso.',
+        status: 'Usuarios',
+        target: 'Administración',
       },
       {
         title: 'Asignar responsables institucionales',
@@ -200,24 +197,20 @@ export const ROLE_PROFILES: RoleProfile[] = [
         title: 'Validar ubicación de establecimientos',
         detail: 'Confirmar los 12 puntos antes de publicarlos.',
         status: 'Territorio',
-        target: 'Mapas',
+        target: 'Administración',
       },
     ],
     permissions: [
-      'Todo lo permitido al Admin Regional',
       'Administrar municipios y establecimientos de Cortés',
       'Gestionar usuarios y permisos dentro de la región',
+      'Configurar Redes de Servicios de Salud de la región',
     ],
     restrictions: [
       'No administra otras regiones',
+      'No revisa casos ni ejecuta el flujo de aprobación ITS',
       'No modifica objetos nacionales ni consulta ITS 1 individual',
     ],
-    workflow: [
-      'Configurar región',
-      'Supervisar municipios',
-      'Consolidar Cortés',
-      'Enviar a Nivel Central',
-    ],
+    workflow: ['Configurar región', 'Mantener catálogos', 'Gestionar accesos', 'Auditar cambios'],
     primaryLabel: 'Administrar región',
     primaryTarget: 'Administración',
   },
@@ -246,7 +239,12 @@ export const ROLE_PROFILES: RoleProfile[] = [
     metrics: [
       { label: 'Municipios recibidos', value: '1', detail: 'Puerto Cortés', tone: 'green' },
       { label: 'Consolidado regional', value: 'En curso', detail: 'Julio 2026', tone: 'blue' },
-      { label: 'Casos reportados', value: '184', detail: 'Información agregada', tone: 'purple' },
+      {
+        label: 'Casos preliminares',
+        value: '184',
+        detail: 'Suma automática ITS 1',
+        tone: 'purple',
+      },
       { label: 'Observaciones', value: '3', detail: 'Devueltas al municipio', tone: 'amber' },
     ],
     tasks: [
@@ -309,7 +307,12 @@ export const ROLE_PROFILES: RoleProfile[] = [
       'Reportes y exportaciones',
     ],
     metrics: [
-      { label: 'Casos ITS', value: '184', detail: '+7.6% respecto a junio', tone: 'green' },
+      {
+        label: 'Casos preliminares',
+        value: '184',
+        detail: 'Suma automática ITS 1',
+        tone: 'green',
+      },
       { label: 'Reportes recibidos', value: '9 / 12', detail: '75% de cumplimiento', tone: 'blue' },
       { label: 'En revisión', value: '2', detail: 'ITS 2 de establecimientos', tone: 'purple' },
       { label: 'Pendientes', value: '3', detail: 'Requieren seguimiento', tone: 'amber' },
@@ -427,9 +430,14 @@ export const ROLE_PROFILES: RoleProfile[] = [
       title: 'Operación del establecimiento',
       description: 'Captura individual, control de calidad y reporte mensual propio.',
     },
-    navItems: ['Inicio', 'Captura ITS 1', 'Reporte ITS 2', 'Mapas', 'Reportes y exportaciones'],
+    navItems: ['Inicio', 'Captura ITS 1', 'Reporte ITS 2', 'Reportes y exportaciones'],
     metrics: [
-      { label: 'Casos del período', value: '28', detail: '21 nuevos · 7 controles', tone: 'green' },
+      {
+        label: 'Casos registrados',
+        value: '28',
+        detail: 'ITS 1 · 21 nuevos · 7 controles',
+        tone: 'green',
+      },
       {
         label: 'Capturas pendientes',
         value: '2',
@@ -485,7 +493,12 @@ export const ROLE_PROFILES: RoleProfile[] = [
     },
     navItems: ['Inicio', 'Redes', 'Mapas', 'Reportes y exportaciones'],
     metrics: [
-      { label: 'Casos visibles', value: '184', detail: 'Información consolidada', tone: 'green' },
+      {
+        label: 'Casos visibles',
+        value: '184',
+        detail: 'Preliminares desde ITS 1',
+        tone: 'green',
+      },
       {
         label: 'Cobertura de reportes',
         value: '75%',

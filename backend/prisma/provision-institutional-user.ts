@@ -1,6 +1,11 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, type TerritorialScopeType } from '../src/generated/prisma/client';
+import { PrismaClient } from '../src/generated/prisma/client';
+import {
+  isInstitutionalRoleCode,
+  isRoleScopeCompatible,
+  isTerritorialScopeType,
+} from '../src/modules/user-admin/domain/role-scope-compatibility';
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name]?.trim();
@@ -14,16 +19,22 @@ async function provision(): Promise<void> {
   const subject = requiredEnvironment('PROVISION_USER_SUBJECT');
   const email = requiredEnvironment('PROVISION_USER_EMAIL').toLowerCase();
   const fullName = requiredEnvironment('PROVISION_USER_NAME');
-  const roleCode = requiredEnvironment('PROVISION_USER_ROLE').toUpperCase();
-  const scopeType = requiredEnvironment(
-    'PROVISION_SCOPE_TYPE',
-  ).toUpperCase() as TerritorialScopeType;
+  const requestedRoleCode = requiredEnvironment('PROVISION_USER_ROLE').toUpperCase();
+  const requestedScopeType = requiredEnvironment('PROVISION_SCOPE_TYPE').toUpperCase();
   const scopeCode = process.env.PROVISION_SCOPE_CODE?.trim();
   const actorEmail = (
     process.env.PROVISION_ACTOR_EMAIL?.trim() || requiredEnvironment('BOOTSTRAP_ADMIN_EMAIL')
   ).toLowerCase();
-  if (!['NACIONAL', 'REGION', 'MUNICIPIO', 'ESTABLECIMIENTO'].includes(scopeType))
-    throw new Error(`Tipo de alcance no válido: ${scopeType}.`);
+  if (!isInstitutionalRoleCode(requestedRoleCode))
+    throw new Error(`Código de rol institucional no válido: ${requestedRoleCode}.`);
+  if (!isTerritorialScopeType(requestedScopeType))
+    throw new Error(`Tipo de alcance no válido: ${requestedScopeType}.`);
+  const roleCode = requestedRoleCode;
+  const scopeType = requestedScopeType;
+  if (!isRoleScopeCompatible(roleCode, scopeType))
+    throw new Error(
+      `El alcance ${scopeType} no es compatible con el rol institucional ${roleCode}.`,
+    );
   if (scopeType !== 'NACIONAL' && !scopeCode)
     throw new Error('PROVISION_SCOPE_CODE es obligatorio para un alcance territorial.');
 

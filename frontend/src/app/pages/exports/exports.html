@@ -1,532 +1,541 @@
-<section class="export-catalog">
-  @for (option of exportOptions; track option.title) {
-    <button class="panel" type="button" [disabled]="loading()" (click)="selectExport(option)">
-      <i>{{ option.icon }}</i
-      ><span
-        ><strong>{{ option.title }}</strong
-        ><small>{{ option.detail }}</small></span
-      ><b>›</b>
-    </button>
-  }
-</section>
-@if (annualPreview; as preview) {
-  <section class="annual-preview panel" aria-label="Vista previa de evaluación anual">
-    <header>
-      <div>
-        <span class="eyebrow">COMPARACIÓN CONFIGURADA</span>
-        <h2>{{ preview.reportType }}</h2>
-        <p>
-          {{
-            preview.dimension === 'periods'
-              ? 'Comparación por períodos de tiempo'
-              : preview.dimension === 'territories'
-                ? 'Comparación territorial'
-                : 'Comparación de indicadores'
-          }}
-        </p>
-      </div>
-      <div>
-        <button
-          class="btn secondary"
-          type="button"
-          [disabled]="loading()"
-          (click)="openAnnualEvaluation()"
-        >
-          Cambiar comparación</button
-        ><button
-          class="btn primary"
-          type="button"
-          [disabled]="loading()"
-          (click)="runAnnualEvaluation(preview)"
-        >
-          {{ preview.format === 'Vista previa' ? 'Actualizar' : 'Generar ' + preview.format }}
-        </button>
-      </div>
-    </header>
-    <div class="preview-comparison">
-      <article>
-        <i>A</i
+@if (isAdministrativeSuperadmin) {
+  <article class="panel">
+    <span class="eyebrow">ALCANCE ADMINISTRATIVO</span>
+    <h2>Las exportaciones epidemiológicas no corresponden a la superadministración</h2>
+    <p>
+      Este perfil administra usuarios, catálogos y estructura territorial sin acceder a archivos de
+      casos o indicadores operativos.
+    </p>
+  </article>
+} @else {
+  <section class="export-catalog">
+    @for (option of exportOptions; track option.title) {
+      <button class="panel" type="button" [disabled]="loading()" (click)="selectExport(option)">
+        <i>{{ option.icon }}</i
         ><span
-          ><small>{{ formatRange(preview.rangeAStart, preview.rangeAEnd) }}</small
-          ><strong>{{
-            preview.dimension === 'territories' ? preview.territoryA : preview.indicatorA
-          }}</strong></span
-        >
-      </article>
-      <b>VS</b>
-      <article>
-        <i>B</i
-        ><span
-          ><small>{{ formatRange(preview.rangeBStart, preview.rangeBEnd) }}</small
-          ><strong>{{
-            preview.dimension === 'territories' ? preview.territoryB : preview.indicatorB
-          }}</strong></span
-        >
-      </article>
-    </div>
-    <footer>
-      <span>Alcance autorizado: {{ territoryOptions[0] }}</span
-      ><span>Datos agregados · Sin acceso a registros ITS 1</span>
-    </footer>
-  </section>
-}
-<article class="panel">
-  <div class="table-toolbar">
-    <div>
-      <h2>Trabajos de exportación recientes</h2>
-      <p>
-        Aquí solo aparecen evaluaciones y reportes analíticos que requieren procesamiento; los ITS 2
-        y el consolidado municipal se descargan de inmediato.
-      </p>
-    </div>
-    @if (!demoMode) {
-      <button
-        class="btn secondary"
-        type="button"
-        [disabled]="queue.refreshing()"
-        (click)="queue.refresh()"
-      >
-        {{ queue.refreshing() ? 'Actualizando…' : 'Actualizar cola' }}
+          ><strong>{{ option.title }}</strong
+          ><small>{{ option.detail }}</small></span
+        ><b>›</b>
       </button>
     }
-  </div>
-  @if (queue.error()) {
-    <p class="queue-message" role="alert">{{ queue.error() }}</p>
-  }
-  @if (queue.autoRefreshPaused()) {
-    <p class="queue-message" role="status">
-      Actualización automática pausada. Use «Actualizar cola» para consultar los trabajos
-      pendientes.
-    </p>
-  } @else if (queue.hasPendingJobs()) {
-    <p class="queue-message" role="status">
-      La cola se actualiza automáticamente mientras se generan los archivos.
-    </p>
-  }
-  <div class="table-wrap" [attr.aria-busy]="queue.refreshing()">
-    <table>
-      <caption class="sr-only">
-        Trabajos de exportación solicitados y disponibilidad de descarga
-      </caption>
-      <thead>
-        <tr>
-          <th scope="col">Reporte</th>
-          <th scope="col">Período</th>
-          <th scope="col">Formato</th>
-          <th scope="col">Plantilla</th>
-          <th scope="col">Estado</th>
-          <th scope="col">Solicitado por</th>
-          <th scope="col"><span class="sr-only">Descargar</span></th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (job of recentJobs; track job.id) {
-          <tr>
-            <td>
-              <strong>{{ job.report }}</strong>
-            </td>
-            <td>{{ job.period }}</td>
-            <td>
-              <span class="file" [class.pdf]="job.format === 'PDF'">{{ job.format }}</span>
-            </td>
-            <td>{{ job.template }}</td>
-            <td>
-              <span
-                class="job"
-                [class.error]="job.status === 'Error'"
-                [class.processing]="job.status === 'Generando'"
-                ><i></i>{{ job.status }}</span
-              >
-            </td>
-            <td>{{ job.user }}</td>
-            <td>
-              <button
-                class="download"
-                type="button"
-                [attr.aria-label]="'Descargar ' + job.report + ' · ' + job.period"
-                [disabled]="!job.outputAvailable"
-                (click)="download(job)"
-              >
-                ↓
-              </button>
-            </td>
-          </tr>
-        } @empty {
-          <tr>
-            <td colspan="7">No hay trabajos de exportación solicitados.</td>
-          </tr>
-        }
-      </tbody>
-    </table>
-  </div>
-</article>
-<p class="footnote">
-  ● El nivel de detalle de cada archivo respeta el perfil y queda registrado en auditoría.
-</p>
-
-@if (showScopedExport && scopedOption; as option) {
-  <div class="annual-backdrop">
-    <section
-      class="annual-dialog scoped-export-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Seleccionar territorio para exportación"
-    >
+  </section>
+  @if (annualPreview; as preview) {
+    <section class="annual-preview panel" aria-label="Vista previa de evaluación anual">
       <header>
         <div>
-          <span class="eyebrow">EXPORTACIÓN AUTORIZADA</span>
-          <h2>{{ option.title }}</h2>
+          <span class="eyebrow">COMPARACIÓN CONFIGURADA</span>
+          <h2>{{ preview.reportType }}</h2>
           <p>
-            Período: {{ scopedPeriod?.label }}.
             {{
-              isDirectScopedDownload
-                ? 'Seleccione el establecimiento y el archivo se descargará inmediatamente.'
-                : 'El documento se generará en segundo plano para el territorio seleccionado.'
+              preview.dimension === 'periods'
+                ? 'Comparación por períodos de tiempo'
+                : preview.dimension === 'territories'
+                  ? 'Comparación territorial'
+                  : 'Comparación de indicadores'
             }}
           </p>
         </div>
-        <button
-          type="button"
-          aria-label="Cerrar"
-          [disabled]="loading()"
-          (click)="closeScopedExport()"
-        >
-          ×
-        </button>
+        <div>
+          <button
+            class="btn secondary"
+            type="button"
+            [disabled]="loading()"
+            (click)="openAnnualEvaluation()"
+          >
+            Cambiar comparación</button
+          ><button
+            class="btn primary"
+            type="button"
+            [disabled]="loading()"
+            (click)="runAnnualEvaluation(preview)"
+          >
+            {{ preview.format === 'Vista previa' ? 'Actualizar' : 'Generar ' + preview.format }}
+          </button>
+        </div>
       </header>
-      <div class="scoped-export-form">
-        <label>
-          <span>Territorio</span>
-          <select [(ngModel)]="selectedScopedTargetId" [disabled]="loading()">
-            @for (target of scopedTargets; track target.id) {
-              <option [value]="target.id">{{ target.code }} · {{ target.name }}</option>
-            }
-          </select>
-        </label>
-        <label>
-          <span>Formato</span>
-          <select [(ngModel)]="scopedFormat" [disabled]="loading()">
-            <option value="XLSX">Excel oficial</option>
-            <option value="PDF">PDF</option>
-          </select>
-        </label>
+      <div class="preview-comparison">
+        <article>
+          <i>A</i
+          ><span
+            ><small>{{ formatRange(preview.rangeAStart, preview.rangeAEnd) }}</small
+            ><strong>{{
+              preview.dimension === 'territories' ? preview.territoryA : preview.indicatorA
+            }}</strong></span
+          >
+        </article>
+        <b>VS</b>
+        <article>
+          <i>B</i
+          ><span
+            ><small>{{ formatRange(preview.rangeBStart, preview.rangeBEnd) }}</small
+            ><strong>{{
+              preview.dimension === 'territories' ? preview.territoryB : preview.indicatorB
+            }}</strong></span
+          >
+        </article>
       </div>
       <footer>
+        <span>Alcance autorizado: {{ territoryOptions[0] }}</span
+        ><span>Datos agregados · Sin registros individuales ITS 1</span>
+      </footer>
+    </section>
+  }
+  <article class="panel">
+    <div class="table-toolbar">
+      <div>
+        <h2>Trabajos de exportación recientes</h2>
+        <p>
+          Los resúmenes preliminares, consolidados y evaluaciones se generan en segundo plano y se
+          descargan desde esta cola.
+        </p>
+      </div>
+      @if (!demoMode) {
         <button
           class="btn secondary"
           type="button"
-          [disabled]="loading()"
-          (click)="closeScopedExport()"
+          [disabled]="queue.refreshing()"
+          (click)="queue.refresh()"
         >
-          Cancelar
+          {{ queue.refreshing() ? 'Actualizando…' : 'Actualizar cola' }}
         </button>
-        <button
-          class="btn primary"
-          type="button"
-          [disabled]="loading() || !selectedScopedTargetId"
-          (click)="generateScopedExport()"
-        >
-          {{ isDirectScopedDownload ? 'Descargar ahora' : 'Generar documento' }}
-        </button>
-      </footer>
-    </section>
-  </div>
-}
-
-@if (showMunicipalDownload) {
-  <div class="annual-backdrop">
-    <section
-      class="annual-dialog scoped-export-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Descargar consolidado municipal"
-    >
-      <header>
-        <div>
-          <span class="eyebrow">DESCARGA INMEDIATA</span>
-          <h2>Consolidado municipal ITS 2</h2>
-          <p>
-            Período: {{ municipalPeriod?.label }}. Se sumarán los ITS 2 aprobados de todos los
-            establecimientos activos del municipio.
-          </p>
-        </div>
-        <button
-          type="button"
-          aria-label="Cerrar"
-          [disabled]="loading()"
-          (click)="closeMunicipalDownload()"
-        >
-          ×
-        </button>
-      </header>
-      <div class="scoped-export-form municipal-download-form">
-        <label>
-          <span>Formato</span>
-          <select [(ngModel)]="municipalFormat" [disabled]="loading()">
-            <option value="XLSX">Excel oficial</option>
-            <option value="PDF">PDF</option>
-          </select>
-        </label>
-      </div>
-      <footer>
-        <button
-          class="btn secondary"
-          type="button"
-          [disabled]="loading()"
-          (click)="closeMunicipalDownload()"
-        >
-          Cancelar
-        </button>
-        <button
-          class="btn primary"
-          type="button"
-          [disabled]="loading()"
-          (click)="downloadMunicipalConsolidation()"
-        >
-          {{ loading() ? 'Preparando…' : 'Descargar ahora' }}
-        </button>
-      </footer>
-    </section>
-  </div>
-}
-
-@if (showAnnualEvaluation) {
-  <div class="annual-backdrop">
-    <section
-      class="annual-dialog"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Configurar evaluación anual"
-    >
-      <header>
-        <div>
-          <span class="eyebrow">EVALUACIÓN ITS</span>
-          <h2>Configurar evaluación anual</h2>
-          <p>Seleccione qué desea comparar y defina los dos rangos de tiempo.</p>
-        </div>
-        <button
-          type="button"
-          aria-label="Cerrar"
-          [disabled]="loading()"
-          (click)="closeAnnualEvaluation()"
-        >
-          ×
-        </button>
-      </header>
-      <form (ngSubmit)="generateAnnualEvaluation()" novalidate>
-        <div class="annual-form">
-          <label
-            ><span>Tipo de informe</span
-            ><select name="reportType" [(ngModel)]="annualForm.reportType">
-              <option>Comparativo anual</option>
-              <option>Informe anual general</option>
-            </select></label
-          >
-          <label
-            ><span>Salida</span
-            ><select name="outputFormat" [(ngModel)]="annualForm.format">
-              <option>Vista previa</option>
-              <option>Excel oficial</option>
-              <option>PDF</option>
-            </select></label
-          >
-
-          <fieldset class="dimension-options">
-            <legend>¿Qué desea comparar?</legend>
-            <div>
-              @for (dimension of dimensions; track dimension.value) {
+      }
+    </div>
+    @if (queue.error()) {
+      <p class="queue-message" role="alert">{{ queue.error() }}</p>
+    }
+    @if (queue.autoRefreshPaused()) {
+      <p class="queue-message" role="status">
+        Actualización automática pausada. Use «Actualizar cola» para consultar los trabajos
+        pendientes.
+      </p>
+    } @else if (queue.hasPendingJobs()) {
+      <p class="queue-message" role="status">
+        La cola se actualiza automáticamente mientras se generan los archivos.
+      </p>
+    }
+    <div class="table-wrap" [attr.aria-busy]="queue.refreshing()">
+      <table>
+        <caption class="sr-only">
+          Trabajos de exportación solicitados y disponibilidad de descarga
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Reporte</th>
+            <th scope="col">Período</th>
+            <th scope="col">Formato</th>
+            <th scope="col">Estado</th>
+            <th scope="col"><span class="sr-only">Descargar</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (job of recentJobs; track job.id) {
+            <tr>
+              <td>
+                <strong>{{ job.report }}</strong>
+              </td>
+              <td>{{ job.period }}</td>
+              <td>
+                <span class="file" [class.pdf]="job.format === 'PDF'">{{ job.format }}</span>
+              </td>
+              <td>
+                <span
+                  class="job"
+                  [class.error]="job.status === 'Error'"
+                  [class.processing]="job.status === 'Generando'"
+                  ><i></i>{{ job.status }}</span
+                >
+              </td>
+              <td>
                 <button
+                  class="download"
                   type="button"
-                  [class.selected]="annualForm.dimension === dimension.value"
-                  [disabled]="dimension.value === 'territories' && !canCompareTerritories"
-                  (click)="setDimension(dimension.value)"
+                  [attr.aria-label]="'Descargar ' + job.report + ' · ' + job.period"
+                  [disabled]="!job.outputAvailable"
+                  (click)="download(job)"
                 >
-                  <i>{{ annualForm.dimension === dimension.value ? '✓' : '' }}</i
-                  ><span
-                    ><strong>{{ dimension.label }}</strong
-                    ><small>{{
-                      dimension.value === 'territories' && !canCompareTerritories
-                        ? 'No disponible para su alcance'
-                        : dimension.detail
-                    }}</small></span
-                  >
+                  ↓
                 </button>
-              }
-            </div>
-          </fieldset>
-
-          <section class="comparison-column">
-            <div class="comparison-heading">
-              <i>A</i>
-              <div><strong>Primera selección</strong><small>Base de comparación</small></div>
-            </div>
-            <label
-              ><span>Desde *</span
-              ><input
-                type="month"
-                name="rangeAStart"
-                [(ngModel)]="annualForm.rangeAStart"
-                [class.invalid]="
-                  formSubmitted &&
-                  (!annualForm.rangeAStart || annualForm.rangeAStart > annualForm.rangeAEnd)
-                "
-                [attr.aria-invalid]="
-                  formSubmitted &&
-                  (!annualForm.rangeAStart || annualForm.rangeAStart > annualForm.rangeAEnd)
-                "
-                aria-describedby="range-a-start-error"
-              />
-              @if (formSubmitted && !annualForm.rangeAStart) {
-                <small id="range-a-start-error" class="field-error"
-                  >Seleccione el inicio del rango.</small
-                >
-              }</label
-            ><label
-              ><span>Hasta *</span
-              ><input
-                type="month"
-                name="rangeAEnd"
-                [(ngModel)]="annualForm.rangeAEnd"
-                [class.invalid]="
-                  formSubmitted &&
-                  (!annualForm.rangeAEnd || annualForm.rangeAStart > annualForm.rangeAEnd)
-                "
-                [attr.aria-invalid]="
-                  formSubmitted &&
-                  (!annualForm.rangeAEnd || annualForm.rangeAStart > annualForm.rangeAEnd)
-                "
-                aria-describedby="range-a-end-error"
-              />
-              @if (formSubmitted && !annualForm.rangeAEnd) {
-                <small id="range-a-end-error" class="field-error"
-                  >Seleccione el fin del rango.</small
-                >
-              }
-            </label>
-            @if (annualForm.dimension === 'territories') {
-              <label class="wide"
-                ><span>Territorio A</span
-                ><select name="territoryA" [(ngModel)]="annualForm.territoryA">
-                  @for (territory of territoryOptions; track territory) {
-                    <option>{{ territory }}</option>
-                  }
-                </select></label
-              >
-            } @else {
-              <label class="wide"
-                ><span>Indicador A</span
-                ><select name="indicatorA" [(ngModel)]="annualForm.indicatorA">
-                  @for (indicator of indicators; track indicator) {
-                    <option>{{ indicator }}</option>
-                  }
-                </select></label
-              >
-            }
-          </section>
-          <section class="comparison-column">
-            <div class="comparison-heading">
-              <i>B</i>
-              <div>
-                <strong>Segunda selección</strong><small>Período o elemento a contrastar</small>
-              </div>
-            </div>
-            <label
-              ><span>Desde *</span
-              ><input
-                type="month"
-                name="rangeBStart"
-                [(ngModel)]="annualForm.rangeBStart"
-                [class.invalid]="
-                  formSubmitted &&
-                  (!annualForm.rangeBStart || annualForm.rangeBStart > annualForm.rangeBEnd)
-                "
-                [attr.aria-invalid]="
-                  formSubmitted &&
-                  (!annualForm.rangeBStart || annualForm.rangeBStart > annualForm.rangeBEnd)
-                "
-                aria-describedby="range-b-start-error"
-              />
-              @if (formSubmitted && !annualForm.rangeBStart) {
-                <small id="range-b-start-error" class="field-error"
-                  >Seleccione el inicio del rango.</small
-                >
-              }</label
-            ><label
-              ><span>Hasta *</span
-              ><input
-                type="month"
-                name="rangeBEnd"
-                [(ngModel)]="annualForm.rangeBEnd"
-                [class.invalid]="
-                  formSubmitted &&
-                  (!annualForm.rangeBEnd || annualForm.rangeBStart > annualForm.rangeBEnd)
-                "
-                [attr.aria-invalid]="
-                  formSubmitted &&
-                  (!annualForm.rangeBEnd || annualForm.rangeBStart > annualForm.rangeBEnd)
-                "
-                aria-describedby="range-b-end-error"
-              />
-              @if (formSubmitted && !annualForm.rangeBEnd) {
-                <small id="range-b-end-error" class="field-error"
-                  >Seleccione el fin del rango.</small
-                >
-              }
-            </label>
-            @if (annualForm.dimension === 'territories') {
-              <label class="wide"
-                ><span>Territorio B</span
-                ><select name="territoryB" [(ngModel)]="annualForm.territoryB">
-                  @for (territory of territoryOptions; track territory) {
-                    <option>{{ territory }}</option>
-                  }
-                </select></label
-              >
-            } @else {
-              <label class="wide"
-                ><span>Indicador B</span
-                ><select name="indicatorB" [(ngModel)]="annualForm.indicatorB">
-                  @for (indicator of indicators; track indicator) {
-                    <option>{{ indicator }}</option>
-                  }
-                </select></label
-              >
-            }
-          </section>
-          @if (formSubmitted && invalidRanges) {
-            <div class="range-error">
-              Revise los rangos: indique todas las fechas y asegúrese de que “Desde” no sea
-              posterior a “Hasta”.
-            </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5">No hay trabajos de exportación solicitados.</td>
+            </tr>
           }
-          <div class="access-note">
-            <i>i</i
-            ><span
-              ><strong>Comparación según su alcance</strong
-              ><small
-                >Solo se muestran territorios y datos agregados permitidos para el rol
-                activo.</small
-              ></span
-            >
+        </tbody>
+      </table>
+    </div>
+  </article>
+  <p class="footnote">
+    ● Cada archivo respeta su alcance y queda auditado. Si el flujo aún no ha cerrado, identifica
+    los datos como preliminares y pendientes de aprobación.
+  </p>
+
+  @if (showScopedExport && scopedOption; as option) {
+    <div class="annual-backdrop">
+      <section
+        class="annual-dialog scoped-export-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Seleccionar territorio para exportación"
+      >
+        <header>
+          <div>
+            <span class="eyebrow">EXPORTACIÓN AUTORIZADA</span>
+            <h2>{{ option.title }}</h2>
+            <p>
+              Período: {{ scopedPeriod?.label }}.
+              {{
+                isDirectScopedDownload
+                  ? 'Seleccione el establecimiento y el archivo se descargará inmediatamente.'
+                  : 'El documento se generará en segundo plano para el territorio seleccionado.'
+              }}
+            </p>
           </div>
+          <button
+            type="button"
+            aria-label="Cerrar"
+            [disabled]="loading()"
+            (click)="closeScopedExport()"
+          >
+            ×
+          </button>
+        </header>
+        <div class="scoped-export-form">
+          <label>
+            <span>Territorio</span>
+            <select [(ngModel)]="selectedScopedTargetId" [disabled]="loading()">
+              @for (target of scopedTargets; track target.id) {
+                <option [value]="target.id">{{ target.code }} · {{ target.name }}</option>
+              }
+            </select>
+          </label>
+          <label>
+            <span>Formato</span>
+            <select [(ngModel)]="scopedFormat" [disabled]="loading()">
+              <option value="XLSX">Excel</option>
+              <option value="PDF">PDF</option>
+            </select>
+          </label>
         </div>
         <footer>
           <button
             class="btn secondary"
             type="button"
             [disabled]="loading()"
-            (click)="closeAnnualEvaluation()"
+            (click)="closeScopedExport()"
           >
-            Cancelar</button
-          ><button class="btn primary" type="submit" [disabled]="loading()">
-            {{
-              annualForm.format === 'Vista previa'
-                ? 'Ver comparación'
-                : 'Generar ' + annualForm.format
-            }}
+            Cancelar
+          </button>
+          <button
+            class="btn primary"
+            type="button"
+            [disabled]="loading() || !selectedScopedTargetId"
+            (click)="generateScopedExport()"
+          >
+            {{ isDirectScopedDownload ? 'Descargar ahora' : 'Generar documento' }}
           </button>
         </footer>
-      </form>
-    </section>
-  </div>
+      </section>
+    </div>
+  }
+
+  @if (showMunicipalDownload) {
+    <div class="annual-backdrop">
+      <section
+        class="annual-dialog scoped-export-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Generar resumen municipal"
+      >
+        <header>
+          <div>
+            <span class="eyebrow">RESUMEN DESCARGABLE</span>
+            <h2>Resumen municipal</h2>
+            <p>
+              Período: {{ municipalPeriod?.label }}. Se sumará automáticamente la captura ITS 1 de
+              los establecimientos. Si el consolidado aún no está aprobado, el archivo indicará que
+              los datos son preliminares.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Cerrar"
+            [disabled]="loading()"
+            (click)="closeMunicipalDownload()"
+          >
+            ×
+          </button>
+        </header>
+        <div class="scoped-export-form municipal-download-form">
+          <label>
+            <span>Formato</span>
+            <select [(ngModel)]="municipalFormat" [disabled]="loading()">
+              <option value="XLSX">Excel</option>
+              <option value="PDF">PDF</option>
+            </select>
+          </label>
+        </div>
+        <footer>
+          <button
+            class="btn secondary"
+            type="button"
+            [disabled]="loading()"
+            (click)="closeMunicipalDownload()"
+          >
+            Cancelar
+          </button>
+          <button
+            class="btn primary"
+            type="button"
+            [disabled]="loading()"
+            (click)="downloadMunicipalConsolidation()"
+          >
+            {{ loading() ? 'Solicitando…' : 'Generar archivo' }}
+          </button>
+        </footer>
+      </section>
+    </div>
+  }
+
+  @if (showAnnualEvaluation) {
+    <div class="annual-backdrop">
+      <section
+        class="annual-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Configurar evaluación anual"
+      >
+        <header>
+          <div>
+            <span class="eyebrow">EVALUACIÓN ITS</span>
+            <h2>Configurar evaluación anual</h2>
+            <p>Seleccione qué desea comparar y defina los dos rangos de tiempo.</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Cerrar"
+            [disabled]="loading()"
+            (click)="closeAnnualEvaluation()"
+          >
+            ×
+          </button>
+        </header>
+        <form (ngSubmit)="generateAnnualEvaluation()" novalidate>
+          <div class="annual-form">
+            <label
+              ><span>Tipo de informe</span
+              ><select name="reportType" [(ngModel)]="annualForm.reportType">
+                <option>Comparativo anual</option>
+                <option>Informe anual general</option>
+              </select></label
+            >
+            <label
+              ><span>Salida</span
+              ><select name="outputFormat" [(ngModel)]="annualForm.format">
+                <option>Vista previa</option>
+                <option>Excel</option>
+                <option>PDF</option>
+              </select></label
+            >
+
+            <fieldset class="dimension-options">
+              <legend>¿Qué desea comparar?</legend>
+              <div>
+                @for (dimension of dimensions; track dimension.value) {
+                  <button
+                    type="button"
+                    [class.selected]="annualForm.dimension === dimension.value"
+                    [disabled]="dimension.value === 'territories' && !canCompareTerritories"
+                    (click)="setDimension(dimension.value)"
+                  >
+                    <i>{{ annualForm.dimension === dimension.value ? '✓' : '' }}</i
+                    ><span
+                      ><strong>{{ dimension.label }}</strong
+                      ><small>{{
+                        dimension.value === 'territories' && !canCompareTerritories
+                          ? 'No disponible para su alcance'
+                          : dimension.detail
+                      }}</small></span
+                    >
+                  </button>
+                }
+              </div>
+            </fieldset>
+
+            <section class="comparison-column">
+              <div class="comparison-heading">
+                <i>A</i>
+                <div><strong>Primera selección</strong><small>Base de comparación</small></div>
+              </div>
+              <label
+                ><span>Desde *</span
+                ><input
+                  type="month"
+                  name="rangeAStart"
+                  [(ngModel)]="annualForm.rangeAStart"
+                  [class.invalid]="
+                    formSubmitted &&
+                    (!annualForm.rangeAStart || annualForm.rangeAStart > annualForm.rangeAEnd)
+                  "
+                  [attr.aria-invalid]="
+                    formSubmitted &&
+                    (!annualForm.rangeAStart || annualForm.rangeAStart > annualForm.rangeAEnd)
+                  "
+                  aria-describedby="range-a-start-error"
+                />
+                @if (formSubmitted && !annualForm.rangeAStart) {
+                  <small id="range-a-start-error" class="field-error"
+                    >Seleccione el inicio del rango.</small
+                  >
+                }</label
+              ><label
+                ><span>Hasta *</span
+                ><input
+                  type="month"
+                  name="rangeAEnd"
+                  [(ngModel)]="annualForm.rangeAEnd"
+                  [class.invalid]="
+                    formSubmitted &&
+                    (!annualForm.rangeAEnd || annualForm.rangeAStart > annualForm.rangeAEnd)
+                  "
+                  [attr.aria-invalid]="
+                    formSubmitted &&
+                    (!annualForm.rangeAEnd || annualForm.rangeAStart > annualForm.rangeAEnd)
+                  "
+                  aria-describedby="range-a-end-error"
+                />
+                @if (formSubmitted && !annualForm.rangeAEnd) {
+                  <small id="range-a-end-error" class="field-error"
+                    >Seleccione el fin del rango.</small
+                  >
+                }
+              </label>
+              @if (annualForm.dimension === 'territories') {
+                <label class="wide"
+                  ><span>Territorio A</span
+                  ><select name="territoryA" [(ngModel)]="annualForm.territoryA">
+                    @for (territory of territoryOptions; track territory) {
+                      <option>{{ territory }}</option>
+                    }
+                  </select></label
+                >
+              } @else {
+                <label class="wide"
+                  ><span>Indicador A</span
+                  ><select name="indicatorA" [(ngModel)]="annualForm.indicatorA">
+                    @for (indicator of indicators; track indicator) {
+                      <option>{{ indicator }}</option>
+                    }
+                  </select></label
+                >
+              }
+            </section>
+            <section class="comparison-column">
+              <div class="comparison-heading">
+                <i>B</i>
+                <div>
+                  <strong>Segunda selección</strong><small>Período o elemento a contrastar</small>
+                </div>
+              </div>
+              <label
+                ><span>Desde *</span
+                ><input
+                  type="month"
+                  name="rangeBStart"
+                  [(ngModel)]="annualForm.rangeBStart"
+                  [class.invalid]="
+                    formSubmitted &&
+                    (!annualForm.rangeBStart || annualForm.rangeBStart > annualForm.rangeBEnd)
+                  "
+                  [attr.aria-invalid]="
+                    formSubmitted &&
+                    (!annualForm.rangeBStart || annualForm.rangeBStart > annualForm.rangeBEnd)
+                  "
+                  aria-describedby="range-b-start-error"
+                />
+                @if (formSubmitted && !annualForm.rangeBStart) {
+                  <small id="range-b-start-error" class="field-error"
+                    >Seleccione el inicio del rango.</small
+                  >
+                }</label
+              ><label
+                ><span>Hasta *</span
+                ><input
+                  type="month"
+                  name="rangeBEnd"
+                  [(ngModel)]="annualForm.rangeBEnd"
+                  [class.invalid]="
+                    formSubmitted &&
+                    (!annualForm.rangeBEnd || annualForm.rangeBStart > annualForm.rangeBEnd)
+                  "
+                  [attr.aria-invalid]="
+                    formSubmitted &&
+                    (!annualForm.rangeBEnd || annualForm.rangeBStart > annualForm.rangeBEnd)
+                  "
+                  aria-describedby="range-b-end-error"
+                />
+                @if (formSubmitted && !annualForm.rangeBEnd) {
+                  <small id="range-b-end-error" class="field-error"
+                    >Seleccione el fin del rango.</small
+                  >
+                }
+              </label>
+              @if (annualForm.dimension === 'territories') {
+                <label class="wide"
+                  ><span>Territorio B</span
+                  ><select name="territoryB" [(ngModel)]="annualForm.territoryB">
+                    @for (territory of territoryOptions; track territory) {
+                      <option>{{ territory }}</option>
+                    }
+                  </select></label
+                >
+              } @else {
+                <label class="wide"
+                  ><span>Indicador B</span
+                  ><select name="indicatorB" [(ngModel)]="annualForm.indicatorB">
+                    @for (indicator of indicators; track indicator) {
+                      <option>{{ indicator }}</option>
+                    }
+                  </select></label
+                >
+              }
+            </section>
+            @if (formSubmitted && invalidRanges) {
+              <div class="range-error">
+                Revise los rangos: indique todas las fechas y asegúrese de que “Desde” no sea
+                posterior a “Hasta”.
+              </div>
+            }
+            <div class="access-note">
+              <i>i</i
+              ><span
+                ><strong>Comparación según su alcance</strong
+                ><small
+                  >Solo se muestran territorios y datos agregados permitidos para el rol
+                  activo.</small
+                ></span
+              >
+            </div>
+          </div>
+          <footer>
+            <button
+              class="btn secondary"
+              type="button"
+              [disabled]="loading()"
+              (click)="closeAnnualEvaluation()"
+            >
+              Cancelar</button
+            ><button class="btn primary" type="submit" [disabled]="loading()">
+              {{
+                annualForm.format === 'Vista previa'
+                  ? 'Ver comparación'
+                  : 'Generar ' + annualForm.format
+              }}
+            </button>
+          </footer>
+        </form>
+      </section>
+    </div>
+  }
 }

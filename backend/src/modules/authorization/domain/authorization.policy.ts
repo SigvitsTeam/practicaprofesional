@@ -15,6 +15,15 @@ export class AuthorizationPolicy {
       return { allowed: false, reason: 'MISSING_PERMISSION' };
     }
 
+    if (
+      request.dataLevel !== DataLevel.Configuration &&
+      subject.roles.some(
+        (role) => role === RoleCode.SuperAdmin || role === RoleCode.RegionalSuperAdmin,
+      )
+    ) {
+      return { allowed: false, reason: 'ADMINISTRATIVE_ROLE_RESTRICTED' };
+    }
+
     if (!this.isWithinGrantedTerritory(subject, request.target)) {
       return { allowed: false, reason: 'OUTSIDE_TERRITORY' };
     }
@@ -38,6 +47,12 @@ export class AuthorizationPolicy {
     target: TargetTerritory,
   ): boolean {
     if (target.national) return subject.territory.national;
+    if (
+      target.facilityId !== undefined &&
+      subject.roles.includes(RoleCode.FacilityManager) &&
+      !this.isFacilityWithinGrantedTerritory(subject, target.facilityId)
+    )
+      return false;
     if (subject.territory.national) return true;
 
     const regionAllowed =
@@ -46,7 +61,8 @@ export class AuthorizationPolicy {
       target.municipalityId === undefined ||
       subject.territory.municipalityIds.includes(target.municipalityId);
     const facilityAllowed =
-      target.facilityId === undefined || subject.territory.facilityIds.includes(target.facilityId);
+      target.facilityId === undefined ||
+      this.isFacilityWithinGrantedTerritory(subject, target.facilityId);
 
     return regionAllowed && municipalityAllowed && facilityAllowed;
   }
@@ -55,7 +71,7 @@ export class AuthorizationPolicy {
     if (!target.facilityId) return false;
 
     if (subject.roles.includes(RoleCode.FacilityManager)) {
-      return subject.territory.facilityIds.includes(target.facilityId);
+      return this.isFacilityWithinGrantedTerritory(subject, target.facilityId);
     }
 
     if (subject.roles.includes(RoleCode.CoordinationDataEntry)) {
@@ -63,5 +79,16 @@ export class AuthorizationPolicy {
     }
 
     return false;
+  }
+
+  private isFacilityWithinGrantedTerritory(
+    subject: AuthorizationSubject,
+    facilityId: string,
+  ): boolean {
+    if (subject.roles.includes(RoleCode.FacilityManager)) {
+      return (subject.territory.facilityGrantIds ?? []).includes(facilityId);
+    }
+
+    return subject.territory.facilityIds.includes(facilityId);
   }
 }

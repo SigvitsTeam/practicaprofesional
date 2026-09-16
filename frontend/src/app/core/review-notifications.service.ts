@@ -45,7 +45,7 @@ export class ReviewNotificationsService {
     if (role === 'municipal-coordinator') {
       request = this.api.getMunicipalIts2Inbox(period.year, period.month);
       actionableStatus = 'ENVIADO_A_MUNICIPIO';
-    } else if (role === 'regional-admin' || role === 'regional-superadmin') {
+    } else if (role === 'regional-admin') {
       request = this.api.getRegionalConsolidationInbox(period.year, period.month);
       actionableStatus = 'ENVIADO_A_REGION';
     } else if (role === 'central-validator') {

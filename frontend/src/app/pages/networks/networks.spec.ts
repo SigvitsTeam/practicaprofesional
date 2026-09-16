@@ -47,7 +47,7 @@ describe('Networks history', () => {
         { provide: ItsCaptureApiService, useValue: {} },
       ],
     }).compileComponents();
-    TestBed.inject(RoleContext).select('regional-admin');
+    TestBed.inject(RoleContext).select('regional-superadmin');
     const fixture = TestBed.createComponent(Networks);
     const component = fixture.componentInstance;
     const harness = component as unknown as NetworkHarness;
@@ -121,6 +121,7 @@ describe('Networks monthly view', () => {
   const selected = signal({ year: 2026, month: 8 });
   const selectedEndKey = signal('2026-08');
   let listNetworks: ReturnType<typeof vi.fn>;
+  let getTerritorialAnalytics: ReturnType<typeof vi.fn>;
   const catalog = {
     municipalities: [
       {
@@ -137,6 +138,35 @@ describe('Networks monthly view', () => {
     selected.set({ year: 2026, month: 8 });
     selectedEndKey.set('2026-08');
     listNetworks = vi.fn(() => of([network]));
+    getTerritorialAnalytics = vi.fn(() =>
+      of({
+        level: 'MUNICIPIO' as const,
+        year: 2026,
+        month: 8,
+        dataStatus: 'PRELIMINAR' as const,
+        dataSource: 'ITS1' as const,
+        notice:
+          'Datos preliminares acumulados automáticamente desde ITS 1; están pendientes de depuración y aprobación institucional.',
+        privacy: { smallCountThreshold: 5, suppressedValue: null },
+        rows: [
+          {
+            id: 'municipality-1',
+            code: '0506',
+            name: 'Puerto Cortés',
+            status: 'BORRADOR',
+            dataStatus: 'PRELIMINAR' as const,
+            dataSource: 'ITS1' as const,
+            attentions: 10,
+            newCases: 8,
+            controls: 2,
+            alerts: 0,
+            reportId: 'report-1',
+            suppressedMetrics: [],
+            complementarySuppressedMetrics: [],
+          },
+        ],
+      }),
+    );
     await TestBed.configureTestingModule({
       imports: [Networks],
       providers: [
@@ -152,21 +182,7 @@ describe('Networks monthly view', () => {
         },
         {
           provide: ItsCaptureApiService,
-          useValue: {
-            getTerritorialAnalytics: () =>
-              of({
-                rows: [
-                  {
-                    id: 'municipality-1',
-                    attentions: 10,
-                    newCases: 8,
-                    controls: 2,
-                    alerts: 0,
-                    reportId: 'report-1',
-                  },
-                ],
-              }),
-          },
+          useValue: { getTerritorialAnalytics },
         },
       ],
     }).compileComponents();
@@ -220,19 +236,70 @@ describe('Networks monthly view', () => {
     expect(fixture.nativeElement.textContent).toContain('No se pudo cargar');
   });
 
-  it('keeps historical composition separate from the current administrative draft', async () => {
-    TestBed.inject(RoleContext).select('regional-superadmin');
-    listNetworks.mockImplementation((asOf?: string) =>
-      of([{ ...network, scopeLimited: false, municipalities: asOf ? network.municipalities : [] }]),
-    );
+  it.each(['superadmin', 'regional-superadmin'] as const)(
+    'loads an administrative-only view for %s without requesting analytics',
+    async (roleId) => {
+      TestBed.inject(RoleContext).select(roleId);
+      listNetworks.mockReturnValue(of([{ ...network, scopeLimited: false }]));
+      const fixture = TestBed.createComponent(Networks);
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(listNetworks).toHaveBeenCalledExactlyOnceWith(undefined);
+      expect(getTerritorialAnalytics).not.toHaveBeenCalled();
+      expect(fixture.componentInstance.associatedMunicipalities).toHaveLength(1);
+      const harness = fixture.componentInstance as unknown as { draftMembershipIds: string[] };
+      expect(harness.draftMembershipIds).toEqual(['municipality-1']);
+      expect(fixture.nativeElement.textContent).toContain('Administración del catálogo de Redes');
+      const content = String(fixture.nativeElement.textContent).toLowerCase();
+      expect(content).not.toContain('atenciones');
+      expect(content).not.toContain('casos');
+      expect(content).not.toContain('consolidado');
+    },
+  );
+
+  it('labels operational analytics as an automatic preliminary ITS 1 sum', async () => {
     const fixture = TestBed.createComponent(Networks);
     fixture.detectChanges();
     await fixture.whenStable();
-    expect(listNetworks).toHaveBeenCalledWith('2026-08-31');
-    expect(listNetworks).toHaveBeenCalledWith();
+
+    expect(getTerritorialAnalytics).toHaveBeenCalledExactlyOnceWith('MUNICIPIO', 2026, 8);
+    expect(fixture.nativeElement.textContent).toContain('Datos preliminares desde ITS 1');
+    expect(fixture.nativeElement.textContent).toContain('pendientes de depuración y aprobación');
+    expect(fixture.nativeElement.textContent).toContain('subtotal preliminar');
+    expect(fixture.nativeElement.textContent).toContain('Atenciones desde ITS 1');
+
+    fixture.destroy();
+    getTerritorialAnalytics.mockReturnValue(
+      of({
+        level: 'MUNICIPIO' as const,
+        year: 2026,
+        month: 8,
+        dataStatus: 'OFICIAL' as const,
+        dataSource: 'ITS1' as const,
+        notice: 'Datos oficiales del período cerrado.',
+        privacy: { smallCountThreshold: 5, suppressedValue: null },
+        rows: [],
+      }),
+    );
+    const officialFixture = TestBed.createComponent(Networks);
+    officialFixture.detectChanges();
+    await officialFixture.whenStable();
+    officialFixture.detectChanges();
+    expect(officialFixture.nativeElement.textContent).toContain('subtotal oficial');
+    expect(officialFixture.nativeElement.textContent).not.toContain('subtotal preliminar');
+  });
+
+  it('uses the current administrative composition without a period snapshot', async () => {
+    TestBed.inject(RoleContext).select('regional-superadmin');
+    listNetworks.mockReturnValue(of([{ ...network, scopeLimited: false }]));
+    const fixture = TestBed.createComponent(Networks);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    expect(listNetworks).toHaveBeenCalledExactlyOnceWith(undefined);
     expect(fixture.componentInstance.associatedMunicipalities).toHaveLength(1);
     const harness = fixture.componentInstance as unknown as { draftMembershipIds: string[] };
-    expect(harness.draftMembershipIds).toEqual([]);
+    expect(harness.draftMembershipIds).toEqual(['municipality-1']);
   });
 
   it('cancels pending reads when the page is destroyed', () => {

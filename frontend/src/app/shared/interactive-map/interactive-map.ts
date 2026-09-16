@@ -127,7 +127,7 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
   metricLabel() {
     return (
       {
-        total: 'Casos totales',
+        total: 'Atenciones',
         newCases: 'Casos nuevos',
         controls: 'Controles',
         alerts: 'Alertas',

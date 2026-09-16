@@ -13,6 +13,8 @@ export class ReportTable {
   readonly title = input<string>();
   readonly subtitle = input('Información consolidada ITS 2');
   readonly entityLabel = input('Establecimiento');
+  readonly totalLabel = input('Total ITS');
+  readonly showCaseBreakdown = input(true);
   readonly reportSelected = output<Report>();
   readonly viewAll = output<void>();
 

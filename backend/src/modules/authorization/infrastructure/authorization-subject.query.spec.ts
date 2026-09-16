@@ -7,6 +7,10 @@ describe('Access query parameterization', () => {
     const query = authorizationSubjectQuery(untrusted, untrusted, new Date('2026-09-02T00:00:00Z'));
     expect(query.text).not.toContain(untrusted);
     expect(query.values.slice(0, 2)).toEqual([untrusted, untrusted]);
+    expect(query.text).toContain('AS "regionGrantIds"');
+    expect(query.text).toContain('AS "municipalityScopeIds"');
+    expect(query.text).toContain('AS "municipalityGrantIds"');
+    expect(query.text).toContain('AS "facilityGrantIds"');
   });
 
   it('binds all regional filters, including values used in each hierarchy branch', () => {

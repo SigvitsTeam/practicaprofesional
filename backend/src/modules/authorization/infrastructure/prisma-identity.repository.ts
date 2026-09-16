@@ -33,7 +33,10 @@ export class PrismaIdentityRepository extends IdentityRepository {
         regionIds: identity.regionIds,
         regionGrantIds: identity.regionGrantIds,
         municipalityIds: identity.municipalityIds,
+        municipalityScopeIds: identity.municipalityScopeIds,
+        municipalityGrantIds: identity.municipalityGrantIds,
         facilityIds: identity.facilityIds,
+        facilityGrantIds: identity.facilityGrantIds,
       },
     };
   }

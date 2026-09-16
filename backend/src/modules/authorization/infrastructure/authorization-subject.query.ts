@@ -9,7 +9,10 @@ export interface AuthorizationSubjectRow {
   regionIds: string[];
   regionGrantIds: string[];
   municipalityIds: string[];
+  municipalityScopeIds: string[];
+  municipalityGrantIds: string[];
   facilityIds: string[];
+  facilityGrantIds: string[];
 }
 
 /** Resolve fresh grants in one database round trip; never cache authorization. */
@@ -76,10 +79,28 @@ export function authorizationSubjectQuery(
         UNION SELECT municipio_id::text FROM direct_facilities
       ) AS "municipalityIds",
       ARRAY(
+        SELECT m.id::text
+        FROM current_assignments a
+        JOIN municipios m ON m.region_id = a.region_id
+        WHERE a.tipo_alcance = 'REGION'
+        UNION
+        SELECT municipio_id::text
+        FROM current_assignments
+        WHERE tipo_alcance = 'MUNICIPIO' AND municipio_id IS NOT NULL
+      ) AS "municipalityScopeIds",
+      ARRAY(
+        SELECT DISTINCT municipio_id::text FROM current_assignments
+        WHERE tipo_alcance = 'MUNICIPIO' AND municipio_id IS NOT NULL
+      ) AS "municipalityGrantIds",
+      ARRAY(
         SELECT f.id::text FROM municipality_grants m
         JOIN establecimientos_salud f ON f.municipio_id = m.id WHERE f.activo
         UNION SELECT id::text FROM direct_facilities
-      ) AS "facilityIds"
+      ) AS "facilityIds",
+      ARRAY(
+        SELECT DISTINCT establecimiento_id::text FROM current_assignments
+        WHERE tipo_alcance = 'ESTABLECIMIENTO' AND establecimiento_id IS NOT NULL
+      ) AS "facilityGrantIds"
     FROM identity_user u
   `;
 }

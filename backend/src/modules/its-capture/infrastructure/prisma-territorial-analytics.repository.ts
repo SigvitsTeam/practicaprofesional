@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { TerritorialAnalyticsRepository } from '../application/ports/territorial-analytics.repository';
 import type {
@@ -19,6 +20,14 @@ interface LocatedFacility {
   longitude: unknown;
   coordinatesValidated: boolean;
   municipality: { id: string; regionId: string };
+}
+
+interface LiveTerritorialAggregate {
+  entityId: string;
+  attentions: number;
+  newCases: number;
+  controls: number;
+  sourceUpdatedAt: Date | null;
 }
 
 export function deriveTerritorialCentroids<T extends TerritorialMapEntity>(
@@ -78,16 +87,18 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
       scope: TerritorialAnalyticsScope;
     },
   ): Promise<readonly TerritorialAnalyticsRow[]> {
-    const entities = await this.entities(input);
-    if (!entities.length) return [];
     const period = await this.prisma.client.reportingPeriod.findFirst({
       where: { type: 'MENSUAL', year: input.year, month: input.month },
-      select: { id: true },
+      select: { id: true, status: true, updatedAt: true },
     });
+    const entities = await this.entities(input, period?.id);
+    if (!entities.length) return [];
     if (!period)
       return entities.map((entity) => ({
         ...entity,
         status: 'SIN_REPORTE',
+        dataStatus: 'PRELIMINAR' as const,
+        dataSource: 'ITS1' as const,
         attentions: 0,
         newCases: 0,
         controls: 0,
@@ -109,40 +120,50 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
         facilityId: true,
         status: true,
         version: true,
-        sourceAttentionCount: true,
         sentAt: true,
         _count: { select: { observations: { where: { status: 'ABIERTA' } } } },
       },
     });
-    const detailTotals = reports.length
-      ? await this.prisma.client.itsReportDetail.groupBy({
-          by: ['reportId', 'caseType'],
-          where: { reportId: { in: reports.map((report) => report.id) }, caseType: { not: null } },
-          _sum: { total: true },
-        })
-      : [];
-    const cases = new Map<string, { newCases: number; controls: number }>();
-    for (const detail of detailTotals) {
-      const current = cases.get(detail.reportId) ?? { newCases: 0, controls: 0 };
-      if (detail.caseType === 'NUEVO') current.newCases += detail._sum.total ?? 0;
-      if (detail.caseType === 'CONTROL') current.controls += detail._sum.total ?? 0;
-      cases.set(detail.reportId, current);
-    }
+    const aggregates = await this.liveIts1Totals(period.id, input.level, entityIds);
+    const confirmedPeriod = await this.prisma.client.reportingPeriod.findUnique({
+      where: { id: period.id },
+      select: { status: true, updatedAt: true },
+    });
+    const dataStatus =
+      period.status === 'CERRADO' &&
+      confirmedPeriod?.status === 'CERRADO' &&
+      confirmedPeriod.updatedAt.getTime() === period.updatedAt.getTime()
+        ? ('OFICIAL' as const)
+        : ('PRELIMINAR' as const);
+    const liveTotals = new Map(
+      aggregates.map((aggregate) => [
+        aggregate.entityId,
+        {
+          attentions: Number(aggregate.attentions),
+          newCases: Number(aggregate.newCases),
+          controls: Number(aggregate.controls),
+          sourceUpdatedAt: aggregate.sourceUpdatedAt ?? undefined,
+        },
+      ]),
+    );
     const reportsByEntity = new Map(
       reports.map((report) => [this.reportEntityId(input.level, report), report]),
     );
     return entities.map((entity) => {
       const report = reportsByEntity.get(entity.id);
-      const totals = report ? cases.get(report.id) : undefined;
+      const totals = liveTotals.get(entity.id);
       return {
         ...entity,
         reportId: report?.id,
         reportVersion: report?.version,
         status: report?.status ?? 'SIN_REPORTE',
-        attentions: report?.sourceAttentionCount ?? 0,
+        dataStatus,
+        dataSource: 'ITS1' as const,
+        attentions: totals?.attentions ?? 0,
         newCases: totals?.newCases ?? 0,
         controls: totals?.controls ?? 0,
         alerts: report?._count.observations ?? 0,
+        sourceUpdatedAt: totals?.sourceUpdatedAt,
         sentAt: report?.sentAt ?? undefined,
       };
     });
@@ -150,6 +171,7 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
 
   private async entities(
     input: TerritorialAnalyticsQuery & { scope: TerritorialAnalyticsScope },
+    periodId?: string,
   ): Promise<
     {
       id: string;
@@ -162,23 +184,50 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
     }[]
   > {
     const { level, scope } = input;
+    const availability = periodId
+      ? {
+          OR: [
+            { active: true },
+            { attentions: { some: { monthlyPeriodId: periodId, status: 'ACTIVO' as const } } },
+          ],
+        }
+      : { active: true };
     if (level === 'REGION') {
       const regions = await this.prisma.client.region.findMany({
-        where: { active: true, ...(scope.national ? {} : { id: { in: [...scope.regionIds] } }) },
+        where: {
+          ...availability,
+          ...(scope.national ? {} : { id: { in: [...scope.regionIds] } }),
+        },
         select: { id: true, code: true, name: true },
         orderBy: { name: 'asc' },
       });
       return this.withDerivedCentroids(
         level,
         regions.map((region) => ({ ...region, parentId: 'HONDURAS' })),
+        periodId,
       );
     }
     if (level === 'MUNICIPIO') {
       const municipalities = await this.prisma.client.municipality.findMany({
         where: {
-          active: true,
           ...(input.regionId ? { regionId: input.regionId } : {}),
-          ...(scope.national ? {} : { id: { in: [...scope.municipalityIds] } }),
+          AND: [
+            availability,
+            ...(scope.national
+              ? []
+              : [
+                  {
+                    OR: [
+                      {
+                        id: {
+                          in: [...(scope.municipalityScopeIds ?? scope.municipalityGrantIds ?? [])],
+                        },
+                      },
+                      { regionId: { in: [...(scope.regionGrantIds ?? [])] } },
+                    ],
+                  },
+                ]),
+          ],
         },
         select: { id: true, regionId: true, officialCode: true, name: true },
         orderBy: { name: 'asc' },
@@ -190,14 +239,31 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
           parentId: regionId,
           code: officialCode,
         })),
+        periodId,
       );
     }
     return this.prisma.client.healthFacility
       .findMany({
         where: {
-          active: true,
           ...(input.municipalityId ? { municipalityId: input.municipalityId } : {}),
-          ...(scope.national ? {} : { id: { in: [...scope.facilityIds] } }),
+          AND: [
+            availability,
+            ...(scope.national
+              ? []
+              : [
+                  {
+                    OR: [
+                      { id: { in: [...scope.facilityIds] } },
+                      { municipalityId: { in: [...(scope.municipalityGrantIds ?? [])] } },
+                      {
+                        municipality: {
+                          regionId: { in: [...(scope.regionGrantIds ?? [])] },
+                        },
+                      },
+                    ],
+                  },
+                ]),
+          ],
         },
         select: {
           id: true,
@@ -222,12 +288,13 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
 
   /**
    * Regions and municipalities do not store an arbitrary hard-coded point.
-   * Their map location is derived from the facilities currently registered in
-   * that territory, so the aggregate remains useful as the catalog evolves.
+   * Their map location is derived from current facilities plus any historical
+   * facility that contributed active ITS-1 data to the requested period.
    */
   private async withDerivedCentroids<T extends { id: string; code: string; name: string }>(
     level: 'REGION' | 'MUNICIPIO',
     entities: T[],
+    periodId?: string,
   ): Promise<
     (T & {
       latitude?: number;
@@ -237,15 +304,20 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
   > {
     if (!entities.length) return entities;
     const ids = entities.map((entity) => entity.id);
+    const availability = periodId
+      ? {
+          OR: [
+            { active: true },
+            { attentions: { some: { monthlyPeriodId: periodId, status: 'ACTIVO' as const } } },
+          ],
+        }
+      : { active: true };
     const facilities = await this.prisma.client.healthFacility.findMany({
       where: {
-        active: true,
+        ...availability,
         latitude: { not: null },
         longitude: { not: null },
-        municipality:
-          level === 'REGION'
-            ? { regionId: { in: ids }, active: true }
-            : { id: { in: ids }, active: true },
+        municipality: level === 'REGION' ? { regionId: { in: ids } } : { id: { in: ids } },
       },
       select: {
         latitude: true,
@@ -265,6 +337,35 @@ export class PrismaTerritorialAnalyticsRepository extends TerritorialAnalyticsRe
       : level === 'MUNICIPIO'
         ? ('MUNICIPAL' as const)
         : ('ESTABLECIMIENTO' as const);
+  }
+
+  private liveIts1Totals(
+    periodId: string,
+    level: TerritorialAnalyticsLevel,
+    entityIds: readonly string[],
+  ): Promise<LiveTerritorialAggregate[]> {
+    const entityColumn = this.attentionTerritoryColumn(level);
+    const ids = Prisma.join(entityIds.map((id) => Prisma.sql`${id}::uuid`));
+    return this.prisma.client.$queryRaw<LiveTerritorialAggregate[]>(Prisma.sql`
+      SELECT
+        ${entityColumn} AS "entityId",
+        COUNT(DISTINCT a.id)::integer AS attentions,
+        COUNT(d.id) FILTER (WHERE d.tipo_caso = 'NUEVO')::integer AS "newCases",
+        COUNT(d.id) FILTER (WHERE d.tipo_caso = 'CONTROL')::integer AS controls,
+        MAX(a.updated_at) AS "sourceUpdatedAt"
+      FROM atenciones_its a
+      LEFT JOIN diagnosticos_atencion d ON d.atencion_id = a.id
+      WHERE a.periodo_mensual_id = ${periodId}::uuid
+        AND a.estado = 'ACTIVO'
+        AND ${entityColumn} IN (${ids})
+      GROUP BY ${entityColumn}
+    `);
+  }
+
+  private attentionTerritoryColumn(level: TerritorialAnalyticsLevel): Prisma.Sql {
+    if (level === 'REGION') return Prisma.sql`a.region_id`;
+    if (level === 'MUNICIPIO') return Prisma.sql`a.municipio_id`;
+    return Prisma.sql`a.establecimiento_atencion_id`;
   }
 
   private reportTerritory(

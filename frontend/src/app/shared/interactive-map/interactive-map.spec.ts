@@ -82,7 +82,7 @@ describe('Leaflet production module interoperability', () => {
     );
 
     const marker = host.querySelector<HTMLElement>('.leaflet-marker-icon');
-    expect(marker?.getAttribute('aria-label')).toBe('CIS Puerto Cortés: Casos totales 14');
+    expect(marker?.getAttribute('aria-label')).toBe('CIS Puerto Cortés: Atenciones 14');
     marker?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(selected).toHaveBeenCalledWith(report);
 

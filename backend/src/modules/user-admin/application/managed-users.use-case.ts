@@ -18,6 +18,7 @@ import {
   type ManagedUser,
   type ManagedUserContext,
 } from '../domain/managed-user';
+import { isRoleScopeCompatible } from '../domain/role-scope-compatibility';
 import { ManagedUserRepository } from './ports/managed-user.repository';
 import { IdentityInvitationGateway } from './ports/identity-invitation.gateway';
 
@@ -335,17 +336,7 @@ export class ManagedUsersUseCase {
   }
 
   private requireCompatibleScope(role: RoleCode, scope: TerritorialScopeType): void {
-    const allowed: Record<RoleCode, readonly TerritorialScopeType[]> = {
-      [RoleCode.SuperAdmin]: ['NACIONAL'],
-      [RoleCode.CentralAdmin]: ['NACIONAL'],
-      [RoleCode.RegionalSuperAdmin]: ['REGION'],
-      [RoleCode.RegionalAdmin]: ['REGION'],
-      [RoleCode.MunicipalCoordinator]: ['MUNICIPIO'],
-      [RoleCode.CoordinationDataEntry]: ['MUNICIPIO', 'ESTABLECIMIENTO'],
-      [RoleCode.FacilityManager]: ['ESTABLECIMIENTO'],
-      [RoleCode.ReadOnlySupervisor]: ['REGION', 'MUNICIPIO', 'ESTABLECIMIENTO'],
-    };
-    if (!allowed[role].includes(scope))
+    if (!isRoleScopeCompatible(role, scope))
       throw new ManagedUserRoleError('El tipo de alcance no es compatible con el rol solicitado.');
   }
 

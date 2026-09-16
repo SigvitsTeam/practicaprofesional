@@ -19,7 +19,7 @@ import {
 } from '../../core/territorial-api.service';
 
 type NetworkTab = 'summary' | 'municipalities' | 'consolidated' | 'history';
-type NetworkMetric = 'total' | 'newCases' | 'controls' | 'reports';
+type NetworkMetric = 'total' | 'newCases' | 'controls';
 type NetworkView = {
   scopeLimited?: boolean;
   id: string;
@@ -51,8 +51,12 @@ type MunicipalityView = {
   complementarySuppressedMetrics: ('total' | 'newCases' | 'controls' | 'alerts')[];
   smallCountThreshold: number;
   reports: string;
+  hasReport: boolean;
   associated: boolean;
 };
+
+const PRELIMINARY_NOTICE =
+  'Datos preliminares acumulados automáticamente desde ITS 1; están pendientes de depuración y aprobación institucional.';
 
 @Component({
   selector: 'app-networks',
@@ -91,12 +95,8 @@ export class Networks {
   protected statusReason = '';
   protected statusSubmitted = false;
   protected nextStatus = 'SUSPENDIDO';
-  protected readonly tabs: { id: NetworkTab; label: string }[] = [
-    { id: 'summary', label: 'Resumen' },
-    { id: 'municipalities', label: 'Municipios asociados' },
-    { id: 'consolidated', label: 'Consolidado' },
-    { id: 'history', label: 'Historial' },
-  ];
+  protected dataStatus: 'PRELIMINAR' | 'OFICIAL' = 'PRELIMINAR';
+  protected analyticsNotice = PRELIMINARY_NOTICE;
   protected history: TerritorialAuditEventRecord[] = [];
   protected historyLoading = false;
   protected historyUnavailable = false;
@@ -109,10 +109,11 @@ export class Networks {
   get canManage() {
     return ['superadmin', 'regional-superadmin'].includes(this.roleContext.activeRoleId());
   }
+  get isAdministrative() {
+    return this.canManage;
+  }
   get canReadAudit() {
-    return ['superadmin', 'regional-superadmin', 'regional-admin'].includes(
-      this.roleContext.activeRoleId(),
-    );
+    return this.isAdministrative;
   }
   get isGlobal() {
     return this.roleContext.activeRoleId() === 'superadmin';
@@ -139,6 +140,18 @@ export class Networks {
   }
   get activeNetworks() {
     return this.networks.filter((network) => network.active).length;
+  }
+  get tabs(): { id: NetworkTab; label: string }[] {
+    return this.isAdministrative
+      ? [
+          { id: 'summary', label: 'Resumen administrativo' },
+          { id: 'municipalities', label: 'Municipios asociados' },
+          { id: 'history', label: 'Historial' },
+        ]
+      : [
+          { id: 'summary', label: 'Resumen ITS 1' },
+          { id: 'consolidated', label: 'Detalle territorial' },
+        ];
   }
   get associatedMunicipalities() {
     return this.municipalities.filter((municipality) =>
@@ -171,12 +184,16 @@ export class Networks {
     return this.aggregateMetric('controls');
   }
   get selectedNetworkReports() {
-    return this.filteredAssociatedMunicipalities.filter(
-      (row) => row.reports === 'Consolidado disponible',
-    ).length;
+    return this.filteredAssociatedMunicipalities.filter((row) => row.hasReport).length;
   }
   get selectedNetworkAlerts() {
     return this.aggregateMetric('alerts');
+  }
+  get selectedNetworkFacilities() {
+    return this.associatedMunicipalities.reduce(
+      (total, municipality) => total + municipality.establishments,
+      0,
+    );
   }
   get metricLabel() {
     return (
@@ -184,7 +201,6 @@ export class Networks {
         total: 'Atenciones',
         newCases: 'Casos nuevos',
         controls: 'Controles',
-        reports: 'Consolidados disponibles',
       } as Record<NetworkMetric, string>
     )[this.selectedMetric];
   }
@@ -197,8 +213,12 @@ export class Networks {
 
   constructor() {
     effect(() => {
-      const periodKey = this.operationalPeriod.selectedEndKey();
-      if (periodKey) this.load();
+      const roleId = this.roleContext.activeRoleId();
+      if (['superadmin', 'regional-superadmin'].includes(roleId)) {
+        this.load();
+        return;
+      }
+      if (this.operationalPeriod.selectedEndKey()) this.load();
     });
   }
 
@@ -382,16 +402,16 @@ export class Networks {
     this.networks = [];
     this.municipalities = [];
     this.currentNetworks = [];
+    this.dataStatus = 'PRELIMINAR';
+    this.analyticsNotice = PRELIMINARY_NOTICE;
+    const administrative = this.isAdministrative;
     forkJoin({
       regions: this.api.listRegions(),
       catalog: this.api.listCatalog(),
-      networks: this.api.listNetworks(this.compositionDate),
-      currentNetworks: this.canManage ? this.api.listNetworks() : of([] as HealthNetworkRecord[]),
-      analytics: this.analyticsApi.getTerritorialAnalytics(
-        'MUNICIPIO',
-        this.periodYear,
-        this.periodMonth,
-      ),
+      networks: this.api.listNetworks(administrative ? undefined : this.compositionDate),
+      analytics: administrative
+        ? of(null)
+        : this.analyticsApi.getTerritorialAnalytics('MUNICIPIO', this.periodYear, this.periodMonth),
     })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
@@ -401,11 +421,13 @@ export class Networks {
         }),
       )
       .subscribe({
-        next: ({ regions, catalog, networks, currentNetworks, analytics }) => {
+        next: ({ regions, catalog, networks, analytics }) => {
           if (requestVersion !== this.loadRequestVersion) return;
           this.regions = regions;
-          this.currentNetworks = currentNetworks;
-          const metrics = new Map(analytics.rows.map((row) => [row.id, row]));
+          this.currentNetworks = administrative ? networks : [];
+          this.dataStatus = analytics?.dataStatus ?? 'PRELIMINAR';
+          this.analyticsNotice = analytics?.notice ?? PRELIMINARY_NOTICE;
+          const metrics = new Map((analytics?.rows ?? []).map((row) => [row.id, row]));
           this.municipalities = catalog.municipalities.map((row) => {
             const metric = metrics.get(row.id);
             return {
@@ -425,8 +447,11 @@ export class Networks {
               complementarySuppressedMetrics: (metric?.complementarySuppressedMetrics ?? []).map(
                 (name) => (name === 'attentions' ? ('total' as const) : name),
               ),
-              smallCountThreshold: analytics.privacy?.smallCountThreshold ?? 5,
-              reports: metric?.reportId ? 'Consolidado disponible' : 'Sin consolidado',
+              smallCountThreshold: analytics?.privacy?.smallCountThreshold ?? 5,
+              reports: metric?.reportId
+                ? this.reportStatusLabel(metric.status)
+                : 'Sin ITS 2 preparado',
+              hasReport: !!metric?.reportId,
               associated: false,
             };
           });
@@ -480,18 +505,31 @@ export class Networks {
       )[status] ?? status
     );
   }
+  private reportStatusLabel(status: string) {
+    return (
+      (
+        {
+          BORRADOR: 'Borrador',
+          ENVIADO_A_MUNICIPIO: 'Enviado a municipio',
+          DEVUELTO_POR_MUNICIPIO: 'Devuelto por municipio',
+          APROBADO_MUNICIPIO: 'Aprobado por municipio',
+          ENVIADO_A_REGION: 'Enviado a región',
+          DEVUELTO_POR_REGION: 'Devuelto por región',
+          APROBADO_REGION: 'Aprobado por región',
+          ENVIADO_A_CENTRAL: 'Enviado a Nivel Central',
+          DEVUELTO_POR_CENTRAL: 'Devuelto por Nivel Central',
+          APROBADO_CENTRAL: 'Aprobado por Nivel Central',
+          CERRADO_OFICIAL: 'Cerrado oficialmente',
+        } as Record<string, string>
+      )[status] ?? status.replaceAll('_', ' ')
+    );
+  }
   protected metricValue(row: MunicipalityView) {
-    return this.selectedMetric === 'reports'
-      ? row.reports === 'Consolidado disponible'
-        ? 1
-        : 0
-      : row[this.selectedMetric];
+    return row[this.selectedMetric];
   }
   protected metricDisplay(
     row: MunicipalityView,
-    metric: 'total' | 'newCases' | 'controls' | 'alerts' = this.selectedMetric === 'reports'
-      ? 'total'
-      : this.selectedMetric,
+    metric: 'total' | 'newCases' | 'controls' | 'alerts' = this.selectedMetric,
   ) {
     if (row.complementarySuppressedMetrics.includes(metric)) return 'Protegido';
     return row.suppressedMetrics.includes(metric)
@@ -503,7 +541,13 @@ export class Networks {
   }
 
   private aggregateMetric(metric: 'total' | 'newCases' | 'controls' | 'alerts') {
-    if (this.filteredAssociatedMunicipalities.some((row) => row.suppressedMetrics.includes(metric)))
+    if (
+      this.filteredAssociatedMunicipalities.some(
+        (row) =>
+          row.suppressedMetrics.includes(metric) ||
+          row.complementarySuppressedMetrics.includes(metric),
+      )
+    )
       return 'Protegido';
     return this.filteredAssociatedMunicipalities.reduce((total, row) => total + row[metric], 0);
   }

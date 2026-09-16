@@ -34,15 +34,9 @@ export class Maps {
   protected readonly liveReports = signal<Report[]>([]);
   protected readonly loading = signal(false);
   protected readonly loadError = signal('');
-  protected mapLevel: MapLevel = ['superadmin', 'central-validator'].includes(
-    this.roleContext.activeRoleId(),
-  )
-    ? 'national'
-    : ['regional-superadmin', 'regional-admin', 'supervisor'].includes(
-          this.roleContext.activeRoleId(),
-        )
-      ? 'regional'
-      : 'municipal';
+  protected readonly dataStatus = signal<'PRELIMINAR' | 'OFICIAL'>('PRELIMINAR');
+  protected readonly dataNotice = signal('');
+  protected mapLevel: MapLevel = this.defaultMapLevel(this.roleContext.activeRoleId());
   protected metric: MapMetric = 'total';
   protected selectedRegion?: { id: string; name: string };
   protected selectedMunicipality?: { id: string; name: string };
@@ -53,14 +47,18 @@ export class Maps {
     effect(() => {
       const role = this.roleContext.activeRoleId();
       const periodKey = this.operationalPeriod.selectedEndKey();
-      const query = `${role}:${periodKey}`;
+      const scope = this.roleContext.effectiveScope?.();
+      const query = `${role}:${scope?.level ?? 'demo'}:${scope?.territoryId ?? ''}:${periodKey}`;
       if (!periodKey || query === this.lastQuery) return;
       this.lastQuery = query;
-      this.mapLevel = ['superadmin', 'central-validator'].includes(role)
-        ? 'national'
-        : ['regional-superadmin', 'regional-admin', 'supervisor'].includes(role)
-          ? 'regional'
-          : 'municipal';
+      if (this.isAdministrativeSuperadmin) {
+        this.liveReports.set([]);
+        this.loading.set(false);
+        this.loadError.set('');
+        this.dataNotice.set('');
+        return;
+      }
+      this.mapLevel = this.defaultMapLevel(role);
       this.metric = 'total';
       this.selectedRegion = undefined;
       this.selectedMunicipality = undefined;
@@ -91,14 +89,17 @@ export class Maps {
     if (this.mapLevel === 'regional' && this.selectedRegion) return this.selectedRegion.name;
     if (this.mapLevel === 'municipal' && this.selectedMunicipality)
       return this.selectedMunicipality.name;
-    if (!this.auth.isDemo())
+    if (!this.auth.isDemo()) {
+      const scope = this.roleContext.effectiveScope?.();
       return this.mapLevel === 'national'
         ? 'Honduras'
         : this.mapLevel === 'regional'
           ? 'Región autorizada'
-          : this.roleContext.activeRoleId() === 'establishment-manager'
+          : scope?.level === 'ESTABLECIMIENTO' ||
+              this.roleContext.activeRoleId() === 'establishment-manager'
             ? 'Establecimiento autorizado'
             : 'Municipio autorizado';
+    }
     return this.mapLevel === 'national'
       ? 'Honduras'
       : this.mapLevel === 'regional'
@@ -108,15 +109,27 @@ export class Maps {
           : 'Puerto Cortés';
   }
   get allowNational() {
-    return ['superadmin', 'central-validator'].includes(this.roleContext.activeRoleId());
+    const scope = this.roleContext.effectiveScope?.();
+    return scope
+      ? scope.level === 'NACIONAL'
+      : this.roleContext.activeRoleId() === 'central-validator';
   }
   get allowRegional() {
-    return !['municipal-coordinator', 'establishment-manager'].includes(
-      this.roleContext.activeRoleId(),
-    );
+    const scope = this.roleContext.effectiveScope?.();
+    return scope
+      ? scope.level === 'NACIONAL' || scope.level === 'REGION'
+      : !['municipal-coordinator', 'establishment-manager'].includes(
+          this.roleContext.activeRoleId(),
+        );
   }
   get totalMetric() {
     return this.reports.reduce((sum, report) => sum + report[this.metric], 0);
+  }
+  get isAdministrativeSuperadmin() {
+    return ['superadmin', 'regional-superadmin'].includes(this.roleContext.activeRoleId());
+  }
+  get isLive() {
+    return !this.auth.isDemo();
   }
   get totalMetricDisplay() {
     if (
@@ -132,7 +145,7 @@ export class Maps {
   get metricLabel() {
     return (
       {
-        total: 'Casos totales',
+        total: 'Atenciones',
         newCases: 'Casos nuevos',
         controls: 'Controles',
         alerts: 'Alertas',
@@ -184,6 +197,14 @@ export class Maps {
     if (this.auth.isDemo()) {
       this.loading.set(false);
       this.loadError.set('');
+      this.dataNotice.set('');
+      return;
+    }
+    if (this.isAdministrativeSuperadmin) {
+      this.liveReports.set([]);
+      this.loading.set(false);
+      this.loadError.set('');
+      this.dataNotice.set('');
       return;
     }
     const level = (
@@ -191,6 +212,7 @@ export class Maps {
     )[this.mapLevel] satisfies TerritorialAnalyticsLevel;
     this.loading.set(true);
     this.loadError.set('');
+    this.dataNotice.set('');
     this.liveReports.set([]);
     const period = this.operationalPeriod.selected();
     if (!period) {
@@ -215,6 +237,8 @@ export class Maps {
       .subscribe({
         next: (result) => {
           if (requestVersion !== this.requestVersion) return;
+          this.dataStatus.set(result.dataStatus);
+          this.dataNotice.set(result.notice);
           this.liveReports.set(
             result.rows.map((row) => {
               const primary = (row.suppressedMetrics ?? []).map((metric) =>
@@ -259,7 +283,8 @@ export class Maps {
         error: () => {
           if (requestVersion !== this.requestVersion) return;
           this.liveReports.set([]);
-          this.loadError.set('No fue posible cargar los indicadores territoriales reales.');
+          this.dataNotice.set('');
+          this.loadError.set('No fue posible cargar los indicadores territoriales desde ITS 1.');
         },
       });
   }
@@ -279,5 +304,18 @@ export class Maps {
     metric: TerritorialAnalyticsMetric,
   ): NonNullable<Report['suppressedMetrics']>[number] {
     return metric === 'attentions' ? 'total' : metric;
+  }
+
+  private defaultMapLevel(role: string): MapLevel {
+    if (!this.auth.isDemo()) {
+      const scope = this.roleContext.effectiveScope?.();
+      if (scope?.level === 'NACIONAL') return 'national';
+      if (scope?.level === 'REGION') return 'regional';
+      if (scope) return 'municipal';
+    }
+    if (role === 'central-validator') return 'national';
+    return ['regional-superadmin', 'regional-admin', 'supervisor'].includes(role)
+      ? 'regional'
+      : 'municipal';
   }
 }

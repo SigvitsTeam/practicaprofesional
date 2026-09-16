@@ -54,12 +54,9 @@ export class ReportDrawer implements AfterViewInit {
   }
 
   get canReview() {
-    return [
-      'central-validator',
-      'regional-superadmin',
-      'regional-admin',
-      'municipal-coordinator',
-    ].includes(this.roleContext.activeRoleId());
+    return ['central-validator', 'regional-admin', 'municipal-coordinator'].includes(
+      this.roleContext.activeRoleId(),
+    );
   }
 
   get canAct() {

@@ -1,11 +1,17 @@
 import type {
   MunicipalConsolidationSummary,
   MunicipalConsolidationContext,
+  MunicipalPreliminaryReportSource,
   MunicipalReportTerritory,
 } from '../../domain/municipal-consolidation';
 
 export abstract class MunicipalConsolidationRepository {
   abstract getContext(municipalityIds?: readonly string[]): Promise<MunicipalConsolidationContext>;
+  abstract getPreliminaryReportSource(input: {
+    municipalityId: string;
+    year: number;
+    month: number;
+  }): Promise<MunicipalPreliminaryReportSource | undefined>;
   abstract prepare(input: {
     municipalityId: string;
     year: number;

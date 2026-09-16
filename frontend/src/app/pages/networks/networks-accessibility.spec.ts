@@ -72,7 +72,7 @@ describe('Networks accessibility', () => {
 
   it('connects every tab to its labelled panel and exposes only the active panel', () => {
     const tabs = element.querySelectorAll<HTMLButtonElement>('[role="tab"]');
-    expect(tabs.length).toBe(4);
+    expect(tabs.length).toBe(2);
     for (const tab of tabs) {
       const panel = element.querySelector<HTMLElement>(`#${tab.getAttribute('aria-controls')}`);
       expect(panel?.getAttribute('role')).toBe('tabpanel');
@@ -86,10 +86,10 @@ describe('Networks accessibility', () => {
     let currentTab = getTab('summary');
     currentTab.focus();
     const steps = [
-      ['ArrowRight', 'municipalities'],
-      ['End', 'history'],
+      ['ArrowRight', 'consolidated'],
+      ['End', 'consolidated'],
       ['ArrowRight', 'summary'],
-      ['ArrowLeft', 'history'],
+      ['ArrowLeft', 'consolidated'],
       ['Home', 'summary'],
     ];
     for (const [key, nextId] of steps) {
@@ -120,9 +120,9 @@ describe('Networks accessibility', () => {
     }
   });
 
-  it('provides descriptive captions and column scope for both network tables', () => {
+  it('provides a descriptive caption and column scope for the operational table', () => {
     const tables = element.querySelectorAll('table');
-    expect(tables.length).toBe(2);
+    expect(tables.length).toBe(1);
     for (const table of tables) {
       expect(table.caption?.textContent).toContain('Red uno');
       for (const header of table.querySelectorAll('thead th')) {

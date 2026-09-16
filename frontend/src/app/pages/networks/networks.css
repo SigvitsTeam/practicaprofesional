@@ -351,6 +351,9 @@
   gap: 13px;
   border-top: 1px solid var(--line);
 }
+.municipality-production.administrative-composition > article {
+  grid-template-columns: minmax(155px, 1fr) 150px;
+}
 .municipality-production article strong,
 .municipality-production article small {
   display: block;

@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { AuthorizationSubject } from '../../authorization/domain/authorization.types';
+import {
+  RoleCode,
+  type AuthorizationSubject,
+} from '../../authorization/domain/authorization.types';
 import {
   ItsReportAccessError,
   ItsReportNotFoundError,
@@ -16,14 +19,14 @@ export class ItsReportWorkflowUseCase {
     input: Omit<PrepareIts2ReportInput, 'userId'>,
     subject: AuthorizationSubject,
   ): Promise<Its2ReportSummary> {
-    if (!subject.territory.facilityIds.includes(input.facilityId))
+    if (!this.canAccessFacility(subject, input.facilityId))
       throw new ItsReportAccessError('El establecimiento está fuera del alcance autorizado.');
     return this.repository.prepare({ ...input, userId: subject.userId });
   }
 
   async submit(reportId: string, subject: AuthorizationSubject): Promise<Its2ReportSummary> {
     const territory = await this.requiredTerritory(reportId);
-    if (!territory.facilityId || !subject.territory.facilityIds.includes(territory.facilityId))
+    if (!territory.facilityId || !this.canAccessFacility(subject, territory.facilityId))
       throw new ItsReportAccessError('El reporte está fuera del alcance autorizado.');
     return this.repository.submit(reportId, subject.userId);
   }
@@ -62,7 +65,7 @@ export class ItsReportWorkflowUseCase {
     month: number,
     subject: AuthorizationSubject,
   ): Promise<Its2ReportSummary | undefined> {
-    if (!subject.territory.facilityIds.includes(facilityId))
+    if (!this.canAccessFacility(subject, facilityId))
       throw new ItsReportAccessError('El establecimiento está fuera del alcance autorizado.');
     return this.repository.getCurrent({ facilityId, year, month });
   }
@@ -86,5 +89,13 @@ export class ItsReportWorkflowUseCase {
     const territory = await this.repository.findTerritory(reportId);
     if (!territory) throw new ItsReportNotFoundError('El reporte ITS-2 no existe.');
     return territory;
+  }
+
+  private canAccessFacility(subject: AuthorizationSubject, facilityId: string): boolean {
+    if (subject.roles.includes(RoleCode.FacilityManager)) {
+      return (subject.territory.facilityGrantIds ?? []).includes(facilityId);
+    }
+
+    return subject.territory.facilityIds.includes(facilityId);
   }
 }

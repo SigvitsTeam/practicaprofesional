@@ -254,7 +254,7 @@ export class ReportIts2 implements OnInit {
           this.downloadBlob(
             blob,
             `ITS-2-${facility.code}-${year}-${String(month).padStart(2, '0')}.${format}`,
-            `ITS-2 oficial en ${format.toUpperCase()} generado y descargado.`,
+            `ITS-2 en formato ${format.toUpperCase()} generado y descargado.`,
           ),
         error: () => this.notify.emit(`No fue posible generar el ${format.toUpperCase()} ITS-2.`),
       });
@@ -294,7 +294,7 @@ export class ReportIts2 implements OnInit {
           this.downloadBlob(
             blob,
             `ITS-1-${facility.code}-${year}-${String(month).padStart(2, '0')}.${format}`,
-            `ITS-1 oficial en ${format.toUpperCase()} generado y descargado.`,
+            `ITS-1 en formato ${format.toUpperCase()} generado y descargado.`,
           ),
         error: () => this.notify.emit(`No fue posible generar el ${format.toUpperCase()} ITS-1.`),
       });

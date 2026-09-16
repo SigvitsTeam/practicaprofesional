@@ -14,4 +14,18 @@ describe('mapInstitutionalRoleCodes', () => {
       'regional-admin',
     ]);
   });
+
+  it.each([
+    [['RESPONSABLE_ESTABLECIMIENTO', 'SUPERADMIN', 'ADMIN_CENTRAL'], ['superadmin']],
+    [['ADMIN_REGIONAL', 'SUPERADMIN_REGIONAL', 'SUPERVISOR_CONSULTA'], ['regional-superadmin']],
+    [
+      ['SUPERADMIN_REGIONAL', 'COORDINADOR_MUNICIPAL', 'SUPERADMIN'],
+      ['regional-superadmin', 'superadmin'],
+    ],
+  ])(
+    'exposes only administrative profiles when a superadministrator role is present',
+    (codes, roles) => {
+      expect(mapInstitutionalRoleCodes(codes)).toEqual(roles);
+    },
+  );
 });

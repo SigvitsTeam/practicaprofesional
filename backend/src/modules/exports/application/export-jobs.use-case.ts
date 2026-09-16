@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type { AuthorizationSubject } from '../../authorization/domain/authorization.types';
+import {
+  RoleCode,
+  type AuthorizationSubject,
+} from '../../authorization/domain/authorization.types';
 import {
   ExportJobScopeError,
   InvalidExportJobError,
@@ -7,9 +10,9 @@ import {
   type AnnualComparisonParameters,
   type CreateExportJobInput,
   type ExportJob,
-  type ExportScopeLevel,
 } from '../domain/export-job';
 import { ExportJobRepository } from './ports/export-job.repository';
+import { defaultExportTerritory, isExportScopeAllowed } from './export-scope.policy';
 
 @Injectable()
 export class ExportJobsUseCase {
@@ -52,8 +55,11 @@ export class ExportJobsUseCase {
         : null;
     if (input.reportType !== 'ANNUAL_COMPARISON' && input.parameters)
       throw new InvalidExportJobError('Este tipo de reporte no admite parámetros adicionales.');
-    const territoryId = input.territoryId ?? this.defaultTerritory(input.scopeLevel, subject);
-    this.requireScope(input.scopeLevel, territoryId, subject);
+    const territoryId = input.territoryId ?? defaultExportTerritory(input.scopeLevel, subject);
+    if (!isExportScopeAllowed(input.scopeLevel, territoryId, subject))
+      throw new ExportJobScopeError(
+        'La exportación está fuera del alcance territorial asignado directamente.',
+      );
     return this.repository.create({
       ...input,
       parameters,
@@ -73,6 +79,16 @@ export class ExportJobsUseCase {
     },
     subject: AuthorizationSubject,
   ): Promise<ExportJob> {
+    const directlyAssignedManager =
+      subject.roles.includes(RoleCode.FacilityManager) &&
+      (subject.territory.facilityGrantIds ?? []).includes(input.facilityId);
+    const municipalOrFacilityDataEntry =
+      subject.roles.includes(RoleCode.CoordinationDataEntry) &&
+      subject.territory.facilityIds.includes(input.facilityId);
+    if (!directlyAssignedManager && !municipalOrFacilityDataEntry)
+      throw new ExportJobScopeError(
+        'La exportación ITS 1 requiere una asignación operativa al establecimiento.',
+      );
     return this.create(
       {
         idempotencyKey: input.idempotencyKey,
@@ -86,34 +102,6 @@ export class ExportJobsUseCase {
       },
       subject,
     );
-  }
-
-  private defaultTerritory(level: ExportScopeLevel, subject: AuthorizationSubject): string | null {
-    if (level === 'NACIONAL') return null;
-    if (level === 'REGION') return subject.territory.regionIds[0] ?? null;
-    if (level === 'MUNICIPIO') return subject.territory.municipalityIds[0] ?? null;
-    return subject.territory.facilityIds[0] ?? null;
-  }
-
-  private requireScope(
-    level: ExportScopeLevel,
-    territoryId: string | null,
-    subject: AuthorizationSubject,
-  ): void {
-    const allowed =
-      level === 'NACIONAL'
-        ? !territoryId && subject.territory.national
-        : level === 'REGION'
-          ? !!territoryId &&
-            (subject.territory.national || subject.territory.regionIds.includes(territoryId))
-          : level === 'MUNICIPIO'
-            ? !!territoryId &&
-              (subject.territory.national ||
-                subject.territory.municipalityIds.includes(territoryId))
-            : !!territoryId &&
-              (subject.territory.national || subject.territory.facilityIds.includes(territoryId));
-    if (!allowed)
-      throw new ExportJobScopeError('La exportación está fuera del alcance territorial asignado.');
   }
 
   private validateAnnualParameters(

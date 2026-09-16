@@ -17,6 +17,7 @@ describe('Maps hierarchical navigation and privacy', () => {
   let element: HTMLElement;
   let getTerritorialAnalytics: ReturnType<typeof vi.fn>;
   let isDemo: ReturnType<typeof vi.fn>;
+  let activeRoleId: ReturnType<typeof signal<string>>;
 
   const regionId = '11111111-1111-4111-8111-111111111111';
   const municipalityId = '22222222-2222-4222-8222-222222222222';
@@ -28,6 +29,8 @@ describe('Maps hierarchical navigation and privacy', () => {
       newCases: 8,
       controls: 5,
       alerts: 0,
+      dataStatus: 'PRELIMINAR',
+      dataSource: 'ITS1',
       suppressedMetrics: [],
       complementarySuppressedMetrics: [],
     } as const;
@@ -66,6 +69,9 @@ describe('Maps hierarchical navigation and privacy', () => {
       level,
       year: 2026,
       month: 8,
+      dataStatus: 'PRELIMINAR',
+      dataSource: 'ITS1',
+      notice: 'Datos preliminares acumulados automáticamente desde ITS 1.',
       privacy: { smallCountThreshold: 5, suppressedValue: null },
       rows: rows as TerritorialAnalyticsResponse['rows'],
     };
@@ -74,6 +80,7 @@ describe('Maps hierarchical navigation and privacy', () => {
   beforeEach(async () => {
     getTerritorialAnalytics = vi.fn((level: TerritorialAnalyticsLevel) => of(response(level)));
     isDemo = vi.fn(() => false);
+    activeRoleId = signal('central-validator');
     await TestBed.configureTestingModule({
       imports: [Maps],
       providers: [
@@ -81,7 +88,7 @@ describe('Maps hierarchical navigation and privacy', () => {
         { provide: AuthService, useValue: { isDemo } },
         {
           provide: RoleContext,
-          useValue: { activeRoleId: signal('central-validator') },
+          useValue: { activeRoleId },
         },
         {
           provide: OperationalPeriodService,
@@ -158,6 +165,49 @@ describe('Maps hierarchical navigation and privacy', () => {
     expect(element.querySelector('.ranking b')?.textContent?.trim()).toBe('<5');
     expect(element.querySelectorAll('.map-kpis strong')[2]?.textContent?.trim()).toBe('Protegido');
   });
+
+  it('identifies the ITS 1 aggregation as preliminary', () => {
+    expect(element.textContent).toContain('PRELIMINAR · Fuente ITS 1');
+    expect(element.textContent).toContain(
+      'Datos preliminares acumulados automáticamente desde ITS 1.',
+    );
+  });
+
+  it('does not describe officially closed data as preliminary', () => {
+    getTerritorialAnalytics.mockImplementation((level: TerritorialAnalyticsLevel) => {
+      const result = response(level);
+      return of({
+        ...result,
+        dataStatus: 'OFICIAL' as const,
+        notice: 'Datos oficiales del período cerrado.',
+        rows: result.rows.map((row) => ({ ...row, dataStatus: 'OFICIAL' as const })),
+      });
+    });
+
+    fixture.componentInstance.retryLoad();
+    fixture.detectChanges();
+
+    expect(element.textContent).toContain('OFICIAL · Fuente ITS 1');
+    expect(element.textContent).toContain(
+      'Los datos corresponden al período cerrado oficialmente.',
+    );
+    expect(element.textContent).not.toContain('Los datos preliminares pueden cambiar');
+  });
+
+  it.each(['superadmin', 'regional-superadmin'])(
+    'does not request or render case information for %s',
+    async (roleId) => {
+      const callsBeforeRoleChange = getTerritorialAnalytics.mock.calls.length;
+      activeRoleId.set(roleId);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(getTerritorialAnalytics).toHaveBeenCalledTimes(callsBeforeRoleChange);
+      expect(element.textContent).toContain('ALCANCE ADMINISTRATIVO');
+      expect(element.textContent).not.toContain('Casos totales');
+    },
+  );
 
   it('renders a complementary-suppressed value as protected', async () => {
     getTerritorialAnalytics.mockImplementation((level: TerritorialAnalyticsLevel) => {

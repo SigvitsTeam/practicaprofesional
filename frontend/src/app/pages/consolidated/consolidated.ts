@@ -6,10 +6,12 @@ import {
   filter,
   finalize,
   forkJoin,
+  of,
   throwError,
   type MonoTypeOperatorFunction,
 } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
+import { ExportJobsApiService } from '../../core/export-jobs-api.service';
 import { OperationalPeriodService } from '../../core/operational-period';
 import {
   Its2WorkflowReport,
@@ -17,6 +19,8 @@ import {
   MunicipalConsolidationReport,
   NationalConsolidationReport,
   RegionalConsolidationReport,
+  TerritorialAnalyticsMetric,
+  TerritorialAnalyticsResponse,
 } from '../../core/its-capture-api.service';
 import { RoleContext } from '../../core/role-context';
 
@@ -31,6 +35,7 @@ export class Consolidated {
   private readonly roleContext = inject(RoleContext);
   private readonly auth = inject(AuthService);
   private readonly api = inject(ItsCaptureApiService);
+  private readonly exportJobsApi = inject(ExportJobsApiService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly operationalPeriod = inject(OperationalPeriodService);
   protected readonly loading = signal(false);
@@ -41,6 +46,9 @@ export class Consolidated {
   protected readonly regionalConsolidation = signal<RegionalConsolidationReport | null>(null);
   protected readonly regionalReports = signal<RegionalConsolidationReport[]>([]);
   protected readonly nationalConsolidation = signal<NationalConsolidationReport | null>(null);
+  protected readonly analytics = signal<TerritorialAnalyticsResponse | null>(null);
+  protected readonly analyticsError = signal('');
+  protected readonly exporting = signal<'XLSX' | 'PDF' | null>(null);
   private requestVersion = 0;
   private municipalityId = '';
   private activeFacilities = 0;
@@ -71,11 +79,26 @@ export class Consolidated {
     return !this.auth.isDemo() && this.roleContext.activeRoleId() === 'municipal-coordinator';
   }
   get isLiveRegional() {
-    const role = this.roleContext.activeRoleId();
-    return !this.auth.isDemo() && (role === 'regional-admin' || role === 'regional-superadmin');
+    return !this.auth.isDemo() && this.roleContext.activeRoleId() === 'regional-admin';
   }
   get isLiveNational() {
     return !this.auth.isDemo() && this.roleContext.activeRoleId() === 'central-validator';
+  }
+  get isLiveScope() {
+    return this.isLiveMunicipal || this.isLiveRegional || this.isLiveNational;
+  }
+  get isAdministrativeSuperadmin() {
+    return ['superadmin', 'regional-superadmin'].includes(this.roleContext.activeRoleId());
+  }
+  get dataStatus() {
+    return this.analytics()?.dataStatus ?? 'PRELIMINAR';
+  }
+  get dataNotice() {
+    return (
+      this.analytics()?.notice ||
+      this.analyticsError() ||
+      'Los conteos se calculan directamente desde ITS 1 y pueden cambiar durante la depuración.'
+    );
   }
 
   reload() {
@@ -86,6 +109,8 @@ export class Consolidated {
     this.regionalConsolidation.set(null);
     this.regionalReports.set([]);
     this.nationalConsolidation.set(null);
+    this.analytics.set(null);
+    this.analyticsError.set('');
     this.activeFacilities = 0;
     this.activeMunicipalities = 0;
     this.activeRegions = 0;
@@ -120,8 +145,18 @@ export class Consolidated {
             this.loadError.set('No hay reportes del municipio para determinar el contexto activo.');
             return;
           }
-          this.api
-            .getCurrentMunicipalConsolidation(this.municipalityId, this.year, this.month)
+          forkJoin({
+            current: this.api.getCurrentMunicipalConsolidation(
+              this.municipalityId,
+              this.year,
+              this.month,
+            ),
+            analytics: this.api
+              .getTerritorialAnalytics('ESTABLECIMIENTO', this.year, this.month, {
+                municipalityId: this.municipalityId,
+              })
+              .pipe(catchError(() => this.analyticsUnavailable())),
+          })
             .pipe(
               takeUntilDestroyed(this.destroyRef),
               finalize(() => {
@@ -129,8 +164,10 @@ export class Consolidated {
               }),
             )
             .subscribe({
-              next: (report) => {
-                if (requestVersion === this.requestVersion) this.consolidation.set(report);
+              next: ({ current, analytics }) => {
+                if (requestVersion !== this.requestVersion) return;
+                this.consolidation.set(current);
+                this.analytics.set(analytics);
               },
               error: () => {
                 if (requestVersion === this.requestVersion)
@@ -153,6 +190,9 @@ export class Consolidated {
       context: this.api.getNationalConsolidationContext(),
       reports: this.api.getCentralConsolidationInbox(this.year, this.month),
       current: this.api.getCurrentNationalConsolidation(this.year, this.month),
+      analytics: this.api
+        .getTerritorialAnalytics('REGION', this.year, this.month)
+        .pipe(catchError(() => this.analyticsUnavailable())),
     })
       .pipe(
         takeUntilDestroyed(this.destroyRef),
@@ -161,11 +201,12 @@ export class Consolidated {
         }),
       )
       .subscribe({
-        next: ({ context, reports, current }) => {
+        next: ({ context, reports, current, analytics }) => {
           if (requestVersion !== this.requestVersion) return;
           this.activeRegions = context.activeRegions;
           this.regionalReports.set(reports);
           this.nationalConsolidation.set(current);
+          this.analytics.set(analytics);
         },
         error: () => {
           if (requestVersion === this.requestVersion)
@@ -194,8 +235,14 @@ export class Consolidated {
             this.loadError.set('No hay una región activa asignada.');
             return;
           }
-          this.api
-            .getCurrentRegionalConsolidation(this.regionId, this.year, this.month)
+          forkJoin({
+            current: this.api.getCurrentRegionalConsolidation(this.regionId, this.year, this.month),
+            analytics: this.api
+              .getTerritorialAnalytics('MUNICIPIO', this.year, this.month, {
+                regionId: this.regionId,
+              })
+              .pipe(catchError(() => this.analyticsUnavailable())),
+          })
             .pipe(
               takeUntilDestroyed(this.destroyRef),
               finalize(() => {
@@ -203,8 +250,10 @@ export class Consolidated {
               }),
             )
             .subscribe({
-              next: (report) => {
-                if (requestVersion === this.requestVersion) this.regionalConsolidation.set(report);
+              next: ({ current, analytics }) => {
+                if (requestVersion !== this.requestVersion) return;
+                this.regionalConsolidation.set(current);
+                this.analytics.set(analytics);
               },
               error: () => {
                 if (requestVersion === this.requestVersion)
@@ -217,6 +266,52 @@ export class Consolidated {
           this.loading.set(false);
           this.loadError.set('No fue posible consultar la cobertura regional.');
         },
+      });
+  }
+
+  queueDownload(format: 'XLSX' | 'PDF') {
+    if (this.exporting() || !this.isLiveScope) return;
+    const exportTarget = this.isLiveNational
+      ? { reportType: 'NATIONAL_CONSOLIDATED', scopeLevel: 'NACIONAL' }
+      : this.isLiveRegional
+        ? {
+            reportType: 'REGIONAL_CONSOLIDATED',
+            scopeLevel: 'REGION',
+            territoryId: this.regionId,
+          }
+        : {
+            reportType: 'MUNICIPAL_CONSOLIDATED',
+            scopeLevel: 'MUNICIPIO',
+            territoryId: this.municipalityId,
+          };
+    if (exportTarget.scopeLevel !== 'NACIONAL' && !exportTarget.territoryId) {
+      this.notify.emit('No se pudo determinar el territorio autorizado para la descarga.');
+      return;
+    }
+    this.exporting.set(format);
+    this.exportJobsApi
+      .create({
+        idempotencyKey: crypto.randomUUID(),
+        ...exportTarget,
+        format,
+        year: this.year,
+        month: this.month,
+      })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => this.exporting.set(null)),
+      )
+      .subscribe({
+        next: () => {
+          this.notify.emit(
+            `Descarga ${format} agregada a la cola. Puede obtenerla en Reportes y exportaciones aunque el flujo formal siga pendiente.`,
+          );
+          this.navigate.emit('Reportes y exportaciones');
+        },
+        error: (error) =>
+          this.notify.emit(
+            error.error?.detail ?? error.error?.message ?? 'No fue posible encolar la descarga.',
+          ),
       });
   }
 
@@ -240,47 +335,6 @@ export class Consolidated {
         error: (error) =>
           this.notify.emit(
             error.error?.detail ?? 'No fue posible preparar el consolidado municipal.',
-          ),
-      });
-  }
-
-  downloadMunicipal(format: 'XLSX' | 'PDF') {
-    const report = this.consolidation();
-    if (!report || this.loading()) return;
-    this.loading.set(true);
-    const request =
-      format === 'XLSX'
-        ? this.api.downloadMunicipalConsolidationXlsx(
-            report.municipality.id,
-            report.year,
-            report.month,
-          )
-        : this.api.downloadMunicipalConsolidationPdf(
-            report.municipality.id,
-            report.year,
-            report.month,
-          );
-    request
-      .pipe(
-        takeUntilDestroyed(this.destroyRef),
-        finalize(() => this.loading.set(false)),
-      )
-      .subscribe({
-        next: (blob) => {
-          const extension = format.toLowerCase();
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `ITS-2-Consolidado-Municipal-${report.municipality.code}-${report.year}-${String(report.month).padStart(2, '0')}.${extension}`;
-          link.click();
-          URL.revokeObjectURL(url);
-          this.notify.emit(`Consolidado municipal ${format} descargado.`);
-        },
-        error: (error) =>
-          this.notify.emit(
-            error.error?.detail ??
-              error.error?.message ??
-              'No fue posible descargar el consolidado municipal.',
           ),
       });
   }
@@ -392,6 +446,7 @@ export class Consolidated {
         next: (updated) => {
           this.nationalConsolidation.set(updated);
           this.notify.emit('Período cerrado oficialmente y auditado.');
+          this.reload();
         },
         error: (error) =>
           this.notify.emit(error.error?.detail ?? 'No fue posible cerrar el período.'),
@@ -414,6 +469,7 @@ export class Consolidated {
         next: (updated) => {
           this.nationalConsolidation.set(updated);
           this.notify.emit('Cierre reabierto excepcionalmente. Prepare una nueva versión.');
+          this.reload();
         },
         error: (error) =>
           this.notify.emit(error.error?.detail ?? 'No fue posible reabrir el cierre.'),
@@ -433,6 +489,36 @@ export class Consolidated {
           if (requestVersion === this.requestVersion) this.loading.set(false);
         }),
       );
+  }
+
+  private analyticsUnavailable() {
+    this.analyticsError.set(
+      'No fue posible calcular el recuento ITS 1. El flujo formal continúa disponible.',
+    );
+    return of(null);
+  }
+
+  private analyticsMetric(metric: TerritorialAnalyticsMetric): number | string {
+    const analytics = this.analytics();
+    if (!analytics) return 0;
+    if (
+      analytics.rows.some(
+        (row) =>
+          row[metric] === null ||
+          row.suppressedMetrics.includes(metric) ||
+          row.complementarySuppressedMetrics.includes(metric),
+      )
+    )
+      return 'Protegido';
+    return analytics.rows.reduce((total, row) => total + (row[metric] ?? 0), 0);
+  }
+
+  protected caseShare(metric: 'newCases' | 'controls'): number {
+    const { newCases, controls } = this.view;
+    if (typeof newCases !== 'number' || typeof controls !== 'number') return 0;
+    const total = newCases + controls;
+    if (!total) return 0;
+    return Math.round(((metric === 'newCases' ? newCases : controls) / total) * 100);
   }
 
   get view() {
@@ -459,13 +545,9 @@ export class Consolidated {
           returned,
           pending,
           blockers: expected - approved,
-          total:
-            current?.sourceAttentionCount ??
-            reports
-              .filter((report) => report.status === 'APROBADO_CENTRAL')
-              .reduce((sum, report) => sum + report.sourceAttentionCount, 0),
-          newCases: 0,
-          controls: 0,
+          total: this.analyticsMetric('attentions'),
+          newCases: this.analyticsMetric('newCases'),
+          controls: this.analyticsMetric('controls'),
           next: 'Publicación nacional',
           blocking:
             current?.status === 'CERRADO_OFICIAL'
@@ -530,13 +612,9 @@ export class Consolidated {
           returned,
           pending,
           blockers: expected - approved,
-          total:
-            current?.sourceAttentionCount ??
-            reports
-              .filter((report) => report.status === 'APROBADO_REGION')
-              .reduce((sum, report) => sum + report.sourceAttentionCount, 0),
-          newCases: 0,
-          controls: 0,
+          total: this.analyticsMetric('attentions'),
+          newCases: this.analyticsMetric('newCases'),
+          controls: this.analyticsMetric('controls'),
           next: 'Envío a Nivel Central',
           blocking:
             current?.status === 'ENVIADO_A_CENTRAL'
@@ -607,13 +685,9 @@ export class Consolidated {
         returned,
         pending,
         blockers: expected - approved,
-        total:
-          current?.sourceAttentionCount ??
-          reports
-            .filter((report) => report.status === 'APROBADO_MUNICIPIO')
-            .reduce((sum, report) => sum + report.totalAttentions, 0),
-        newCases: 0,
-        controls: 0,
+        total: this.analyticsMetric('attentions'),
+        newCases: this.analyticsMetric('newCases'),
+        controls: this.analyticsMetric('controls'),
         next: 'Envío a Región de Cortés',
         blocking:
           current?.status === 'ENVIADO_A_REGION'

@@ -33,6 +33,7 @@ const allowedSubject: AuthorizationSubject = {
     regionIds: [],
     municipalityIds: [],
     facilityIds: ['facility-1'],
+    facilityGrantIds: ['facility-1'],
   },
 };
 
@@ -61,5 +62,61 @@ describe('DownloadExportArtifactUseCase', () => {
     ).rejects.toBeInstanceOf(ExportArtifactAccessError);
     expect(read).not.toHaveBeenCalled();
     expect(recordDownloadServed).not.toHaveBeenCalled();
+  });
+
+  it('denies an old municipal artifact when the municipality is only parent context', async () => {
+    getOwnDownload.mockResolvedValueOnce({
+      storageKey: '11/municipal.xlsx',
+      format: 'XLSX',
+      filename: 'SIGVITS-MUNICIPAL.xlsx',
+      reportType: 'MUNICIPAL_CONSOLIDATED',
+      scopeLevel: 'MUNICIPIO',
+      territoryId: 'municipality-1',
+    });
+    const facilityOnly: AuthorizationSubject = {
+      ...allowedSubject,
+      territory: {
+        national: false,
+        regionIds: ['region-1'],
+        municipalityIds: ['municipality-1'],
+        municipalityScopeIds: [],
+        facilityIds: ['facility-1'],
+        facilityGrantIds: ['facility-1'],
+      },
+    };
+
+    await expect(useCase.execute('job-2', facilityOnly, 'request-3')).rejects.toBeInstanceOf(
+      ExportArtifactAccessError,
+    );
+    expect(read).not.toHaveBeenCalled();
+    expect(recordDownloadServed).not.toHaveBeenCalled();
+  });
+
+  it('denies aggregate artifacts to administrative superadmins even with residual permissions', async () => {
+    getOwnDownload.mockResolvedValueOnce({
+      storageKey: '11/national.xlsx',
+      format: 'XLSX',
+      filename: 'SIGVITS-NATIONAL.xlsx',
+      reportType: 'NATIONAL_CONSOLIDATED',
+      scopeLevel: 'NACIONAL',
+      territoryId: null,
+    });
+    const administrativeSubject: AuthorizationSubject = {
+      ...allowedSubject,
+      roles: [RoleCode.SuperAdmin],
+      permissions: ['*'],
+      territory: {
+        national: true,
+        regionIds: [],
+        municipalityIds: [],
+        municipalityScopeIds: [],
+        facilityIds: [],
+      },
+    };
+
+    await expect(
+      useCase.execute('job-3', administrativeSubject, 'request-4'),
+    ).rejects.toBeInstanceOf(ExportArtifactAccessError);
+    expect(read).not.toHaveBeenCalled();
   });
 });

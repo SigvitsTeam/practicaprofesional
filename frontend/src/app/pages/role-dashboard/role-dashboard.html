@@ -10,10 +10,26 @@
 </section>
 
 @if (loading()) {
-  <section class="dashboard-message">Cargando indicadores agregados del alcance…</section>
+  <section class="dashboard-message">
+    {{
+      isAdministrative()
+        ? 'Cargando estado administrativo del alcance…'
+        : 'Cargando indicadores del alcance…'
+    }}
+  </section>
 }
 @if (loadError()) {
   <section class="dashboard-message error">{{ loadError() }}</section>
+}
+
+@if (!isAdministrative()) {
+  <section class="data-maturity" [class.official]="dataStatus() === 'OFICIAL'" role="note">
+    <i>{{ dataStatus() === 'OFICIAL' ? '✓' : 'i' }}</i>
+    <div>
+      <strong>{{ dataStatus() === 'OFICIAL' ? 'Datos oficiales' : 'Datos preliminares' }}</strong>
+      <p>{{ dataNotice() }}</p>
+    </div>
+  </section>
 }
 
 <section class="role-kpis" aria-label="Indicadores del perfil">
@@ -27,69 +43,34 @@
   }
 </section>
 
-<section class="role-dashboard-grid">
-  <article class="panel role-priorities">
-    <div class="panel-heading">
-      <div>
-        <h2>Prioridades del perfil</h2>
-        <p>Calculadas desde reportes vigentes del alcance</p>
+@if (showPriorities()) {
+  <section class="role-dashboard-grid compact">
+    <article class="panel role-priorities full-width">
+      <div class="panel-heading">
+        <div>
+          <h2>
+            {{ isAdministrative() ? 'Pendientes administrativos' : 'Pendientes del período' }}
+          </h2>
+          <p>
+            {{
+              isAdministrative()
+                ? 'Configuración que requiere intervención dentro del alcance'
+                : 'Acciones derivadas del registro y del flujo de aprobación'
+            }}
+          </p>
+        </div>
+        <span class="role-count">{{ tasks().length }}</span>
       </div>
-      <span class="role-count">{{ tasks().length }}</span>
-    </div>
-    @for (task of tasks(); track task.title) {
-      <button type="button" (click)="openTask(task.target, task.title)">
-        <span class="task-dot"></span
-        ><span
-          ><strong>{{ task.title }}</strong
-          ><small>{{ task.detail }}</small></span
-        ><em>{{ task.status }}</em
-        ><b>›</b>
-      </button>
-    }
-  </article>
-
-  <article class="panel role-access">
-    <div class="panel-heading">
-      <div>
-        <h2>Permisos efectivos</h2>
-        <p>Resumen del perfil institucional activo</p>
-      </div>
-      <span class="shield">✓</span>
-    </div>
-    <div class="access-block allowed">
-      <h3>Puede realizar</h3>
-      @for (permission of role().permissions; track $index) {
-        <p><i>✓</i>{{ permission }}</p>
+      @for (task of tasks(); track task.title) {
+        <button type="button" (click)="openTask(task.target, task.title)">
+          <span class="task-dot"></span
+          ><span
+            ><strong>{{ task.title }}</strong
+            ><small>{{ task.detail }}</small></span
+          ><em>{{ task.status }}</em
+          ><b>›</b>
+        </button>
       }
-    </div>
-    <div class="access-block denied">
-      <h3>Límites del perfil</h3>
-      @for (restriction of role().restrictions; track $index) {
-        <p><i>—</i>{{ restriction }}</p>
-      }
-    </div>
-  </article>
-</section>
-
-<article class="panel role-flow">
-  <div class="panel-heading">
-    <div>
-      <h2>Flujo principal</h2>
-      <p>Responsabilidad institucional del usuario</p>
-    </div>
-    <button type="button" (click)="navigate.emit(role().primaryTarget)">
-      {{ role().primaryLabel }} →
-    </button>
-  </div>
-  <div class="role-steps">
-    @for (step of role().workflow; track $index; let index = $index) {
-      <div>
-        <i>{{ index + 1 }}</i
-        ><strong>{{ step }}</strong>
-        @if (!$last) {
-          <span></span>
-        }
-      </div>
-    }
-  </div>
-</article>
+    </article>
+  </section>
+}

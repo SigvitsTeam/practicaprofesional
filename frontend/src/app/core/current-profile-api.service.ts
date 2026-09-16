@@ -11,8 +11,12 @@ export interface CurrentInstitutionalProfile {
   territory: {
     national: boolean;
     regionIds: string[];
+    regionGrantIds?: string[];
     municipalityIds: string[];
+    municipalityScopeIds?: string[];
+    municipalityGrantIds?: string[];
     facilityIds: string[];
+    facilityGrantIds?: string[];
   };
 }
 

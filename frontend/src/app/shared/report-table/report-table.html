@@ -23,9 +23,11 @@
         <tr>
           <th scope="col">{{ entityLabel() }}</th>
           <th scope="col">Estado</th>
-          <th scope="col">Nuevos</th>
-          <th scope="col">Controles</th>
-          <th scope="col">Total ITS</th>
+          @if (showCaseBreakdown()) {
+            <th scope="col">Nuevos</th>
+            <th scope="col">Controles</th>
+          }
+          <th scope="col">{{ totalLabel() }}</th>
           <th scope="col">Alertas</th>
           <th scope="col">Último envío</th>
           <th scope="col"><span class="sr-only">Acciones</span></th>
@@ -41,8 +43,10 @@
             <td>
               <span class="status" [ngClass]="statusClass(report.status)">{{ report.status }}</span>
             </td>
-            <td>{{ report.caseBreakdownAvailable === false ? '—' : report.newCases }}</td>
-            <td>{{ report.caseBreakdownAvailable === false ? '—' : report.controls }}</td>
+            @if (showCaseBreakdown()) {
+              <td>{{ report.caseBreakdownAvailable === false ? '—' : report.newCases }}</td>
+              <td>{{ report.caseBreakdownAvailable === false ? '—' : report.controls }}</td>
+            }
             <td>
               <strong>{{ report.total }}</strong>
             </td>

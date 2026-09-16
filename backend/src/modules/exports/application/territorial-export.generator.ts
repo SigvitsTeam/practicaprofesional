@@ -2,16 +2,20 @@ import { Injectable } from '@nestjs/common';
 import ExcelJS from 'exceljs';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { TerritorialAnalyticsRepository } from '../../its-capture/application/ports/territorial-analytics.repository';
+import { TerritorialAnalyticsPrivacyPolicy } from '../../its-capture/application/territorial-analytics-privacy.policy';
 import type {
   TerritorialAnalyticsLevel,
-  TerritorialAnalyticsRow,
+  TerritorialAnalyticsPublicRow,
   TerritorialAnalyticsScope,
 } from '../../its-capture/domain/territorial-analytics';
 import type { ClaimedExportJob } from '../domain/export-job';
 
 @Injectable()
 export class TerritorialExportGenerator {
-  constructor(private readonly analytics: TerritorialAnalyticsRepository) {}
+  constructor(
+    private readonly analytics: TerritorialAnalyticsRepository,
+    private readonly privacy: TerritorialAnalyticsPrivacyPolicy,
+  ) {}
 
   async generate(job: ClaimedExportJob): Promise<Uint8Array> {
     if (job.reportType !== 'TERRITORIAL_SUMMARY') throw new Error('UNSUPPORTED_REPORT_TYPE');
@@ -20,29 +24,41 @@ export class TerritorialExportGenerator {
       level,
       year: job.year,
       month: job.month,
+      ...this.parent(job),
       scope: this.scope(job),
     });
-    return job.format === 'XLSX' ? this.xlsx(job, level, rows) : this.pdf(job, level, rows);
+    const protectedRows = this.privacy.protect(rows);
+    return job.format === 'XLSX'
+      ? this.xlsx(job, level, protectedRows.rows, protectedRows.smallCountThreshold)
+      : this.pdf(job, level, protectedRows.rows, protectedRows.smallCountThreshold);
   }
 
   private async xlsx(
     job: ClaimedExportJob,
     level: TerritorialAnalyticsLevel,
-    rows: readonly TerritorialAnalyticsRow[],
+    rows: readonly TerritorialAnalyticsPublicRow[],
+    smallCountThreshold: number,
   ): Promise<Uint8Array> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'SIGVITS';
     workbook.created = new Date();
     const sheet = workbook.addWorksheet('Resumen territorial', {
-      views: [{ state: 'frozen', ySplit: 4 }],
+      views: [{ state: 'frozen', ySplit: 6 }],
     });
+    const preliminary = rows.length === 0 || rows.some((row) => row.dataStatus === 'PRELIMINAR');
     sheet.addRow(['SIGVITS · Resumen territorial agregado']);
     sheet.addRow([`Período: ${String(job.month).padStart(2, '0')}/${job.year}`]);
     sheet.addRow([`Nivel: ${level}`]);
+    sheet.addRow([`Estado de los datos: ${preliminary ? 'PRELIMINAR' : 'OFICIAL'}`]);
+    sheet.addRow([
+      preliminary
+        ? `AVISO: cifras acumuladas automáticamente desde ITS 1, pendientes de depuración y aprobación institucional.${this.privacyNotice(smallCountThreshold)}`
+        : `Cifras correspondientes a un período cerrado oficialmente.${this.privacyNotice(smallCountThreshold)}`,
+    ]);
     sheet.addRow([
       'Código',
       'Territorio',
-      'Estado ITS-2',
+      'Estado de aprobación',
       'Atenciones',
       'Casos nuevos',
       'Controles',
@@ -53,14 +69,19 @@ export class TerritorialExportGenerator {
         this.safe(row.code),
         this.safe(row.name),
         this.safe(row.status),
-        row.attentions,
-        row.newCases,
-        row.controls,
-        row.alerts,
+        this.metric(row.attentions),
+        this.metric(row.newCases),
+        this.metric(row.controls),
+        this.metric(row.alerts),
       ]);
     sheet.getRow(1).font = { bold: true, size: 14, color: { argb: 'FF0C5447' } };
-    sheet.getRow(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    sheet.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0C6B5A' } };
+    sheet.getRow(4).font = {
+      bold: true,
+      color: { argb: preliminary ? 'FF8A5A00' : 'FF0C5447' },
+    };
+    sheet.getRow(5).font = { italic: true, color: { argb: 'FF6B5B2A' } };
+    sheet.getRow(6).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.getRow(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0C6B5A' } };
     sheet.columns = [
       { width: 18 },
       { width: 34 },
@@ -70,7 +91,7 @@ export class TerritorialExportGenerator {
       { width: 14 },
       { width: 12 },
     ];
-    sheet.autoFilter = { from: 'A4', to: `G${Math.max(4, rows.length + 4)}` };
+    sheet.autoFilter = { from: 'A6', to: `G${Math.max(6, rows.length + 6)}` };
     const buffer = await workbook.xlsx.writeBuffer();
     return new Uint8Array(buffer);
   }
@@ -78,7 +99,8 @@ export class TerritorialExportGenerator {
   private async pdf(
     job: ClaimedExportJob,
     level: TerritorialAnalyticsLevel,
-    rows: readonly TerritorialAnalyticsRow[],
+    rows: readonly TerritorialAnalyticsPublicRow[],
+    smallCountThreshold: number,
   ): Promise<Uint8Array> {
     const document = await PDFDocument.create();
     const regular = await document.embedFont(StandardFonts.Helvetica);
@@ -86,6 +108,7 @@ export class TerritorialExportGenerator {
     const pageSize: [number, number] = [792, 612];
     let page = document.addPage(pageSize);
     let y = 575;
+    const preliminary = rows.length === 0 || rows.some((row) => row.dataStatus === 'PRELIMINAR');
     const header = (): void => {
       page.drawText('SIGVITS - Resumen territorial agregado', {
         x: 36,
@@ -101,6 +124,19 @@ export class TerritorialExportGenerator {
         size: 9,
         font: regular,
       });
+      y -= 16;
+      page.drawText(
+        preliminary
+          ? `DATOS PRELIMINARES - PENDIENTES DE APROBACION${this.privacyNotice(smallCountThreshold)}`
+          : `DATOS OFICIALES - PERIODO CERRADO${this.privacyNotice(smallCountThreshold)}`,
+        {
+          x: 36,
+          y,
+          size: 9,
+          font: bold,
+          color: preliminary ? rgb(0.55, 0.35, 0) : rgb(0.05, 0.35, 0.29),
+        },
+      );
       y -= 24;
       page.drawText('Codigo', { x: 36, y, size: 8, font: bold });
       page.drawText('Territorio', { x: 110, y, size: 8, font: bold });
@@ -122,7 +158,7 @@ export class TerritorialExportGenerator {
       page.drawText(this.plain(row.name).slice(0, 38), { x: 110, y, size: 8, font: regular });
       page.drawText(this.plain(row.status).slice(0, 24), { x: 330, y, size: 8, font: regular });
       [row.attentions, row.newCases, row.controls, row.alerts].forEach((value, index) =>
-        page.drawText(String(value), {
+        page.drawText(String(this.metric(value)), {
           x: [490, 555, 615, 685][index]!,
           y,
           size: 8,
@@ -143,17 +179,39 @@ export class TerritorialExportGenerator {
   }
 
   private scope(job: ClaimedExportJob): TerritorialAnalyticsScope {
+    if (job.scopeLevel === 'NACIONAL')
+      return { national: true, regionIds: [], municipalityIds: [], facilityIds: [] };
+    if (job.scopeLevel === 'REGION' || job.scopeLevel === 'MUNICIPIO')
+      return { national: true, regionIds: [], municipalityIds: [], facilityIds: [] };
     return {
-      national: job.scopeLevel === 'NACIONAL',
-      regionIds: job.scopeLevel === 'REGION' && job.territoryId ? [job.territoryId] : [],
-      municipalityIds: job.scopeLevel === 'MUNICIPIO' && job.territoryId ? [job.territoryId] : [],
-      facilityIds: job.scopeLevel === 'ESTABLECIMIENTO' && job.territoryId ? [job.territoryId] : [],
+      national: false,
+      regionIds: [],
+      municipalityIds: [],
+      facilityIds: job.territoryId ? [job.territoryId] : [],
     };
+  }
+
+  private parent(job: ClaimedExportJob): { regionId?: string; municipalityId?: string } {
+    if (job.scopeLevel === 'REGION' && job.territoryId) return { regionId: job.territoryId };
+    if (job.scopeLevel === 'MUNICIPIO' && job.territoryId)
+      return { municipalityId: job.territoryId };
+    return {};
   }
 
   private safe(value: string): string {
     return /^[=+\-@]/.test(value) ? `'${value}` : value;
   }
+
+  private metric(value: number | null): number | string {
+    return value === null ? 'SUPRIMIDO' : value;
+  }
+
+  private privacyNotice(threshold: number): string {
+    return threshold > 0
+      ? ` Valores positivos menores a ${threshold} y supresiones complementarias se muestran como SUPRIMIDO.`
+      : '';
+  }
+
   private plain(value: string): string {
     return [...value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')]
       .map((character) => {

@@ -10,6 +10,7 @@ import { of, Subject } from 'rxjs';
 import { CurrentProfileApiService } from './core/current-profile-api.service';
 import { ItsCaptureApiService } from './core/its-capture-api.service';
 import type { MonthlyReportingPeriodResponse } from './core/its-capture-api.service';
+import type { RoleId } from './core/models';
 import { OperationalPeriodService } from './core/operational-period';
 
 const TEST_SESSION = 'sigvits-auth-session';
@@ -181,9 +182,12 @@ describe('App', () => {
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
 
-    expect(compiled.querySelector('h1')?.textContent).toContain('Gestión integral de la región');
+    expect(compiled.querySelector('h1')?.textContent).toContain('Administración de la región');
     expect(compiled.textContent).toContain('SuperAdmin Regional');
-    expect(compiled.textContent).toContain('No administra otras regiones');
+    expect(compiled.textContent).toContain('Configuración limitada a Cortés');
+    expect(compiled.textContent).not.toContain('Casos reportados');
+    expect(compiled.textContent).not.toContain('Bandeja de revisión');
+    expect(compiled.textContent).not.toContain('Reportes y exportaciones');
     expect(
       Array.from(compiled.querySelectorAll('.nav-item')).some((item) =>
         item.textContent?.includes('Administración'),
@@ -306,6 +310,45 @@ describe('App', () => {
     expect(fixture.nativeElement.textContent).toContain('Períodos mensuales');
   });
 
+  it('keeps regional superadministration available when no reporting period exists', async () => {
+    localStorage.setItem(
+      TEST_SESSION,
+      JSON.stringify({
+        provider: 'supabase',
+        remember: true,
+        accessToken: 'test-token',
+        expiresAt: Date.now() + 3_600_000,
+        user: { id: 'regional-admin-user', email: 'regional@example.test', name: 'Regional' },
+      }),
+    );
+    vi.spyOn(TestBed.inject(CurrentProfileApiService), 'get').mockReturnValue(
+      of({
+        userId: 'regional-admin-user',
+        displayName: 'SuperAdmin Regional QA',
+        roles: ['SUPERADMIN_REGIONAL'],
+        permissions: ['territorial:catalog:read', 'admin:users:read'],
+        territory: {
+          national: false,
+          regionIds: ['region-1'],
+          municipalityIds: ['municipality-1'],
+          facilityIds: [],
+        },
+      }),
+    );
+    vi.mocked(TestBed.inject(ItsCaptureApiService).getMonthlyReportingPeriods).mockReturnValue(
+      of([]),
+    );
+
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.profileReady()).toBe(true);
+    expect(fixture.componentInstance.role.id).toBe('regional-superadmin');
+    expect(fixture.componentInstance.active).toBe('Inicio');
+    fixture.componentInstance.navigate('Redes');
+    expect(fixture.componentInstance.active).toBe('Redes');
+  });
+
   it('cancels a pending period catalog when signing out', async () => {
     localStorage.setItem(
       TEST_SESSION,
@@ -353,7 +396,7 @@ describe('App', () => {
     expect(compiled.textContent).toContain('Nueva región');
     expect(compiled.textContent).toContain('Nuevo municipio');
     expect(compiled.querySelector('.page-heading .primary')?.textContent).toContain('Nueva región');
-    expect(compiled.querySelector<HTMLElement>('.global-filter-slot')?.hidden).toBe(true);
+    expect(compiled.querySelector<HTMLElement>('.global-filter-slot')).toBeNull();
     expect(compiled.querySelectorAll('.global-territory-table')).toHaveLength(2);
     expect(compiled.querySelector('.municipality-catalog')).toBeTruthy();
     expect(compiled.querySelector('.facility-admin')).toBeTruthy();
@@ -381,8 +424,10 @@ describe('App', () => {
 
     expect(compiled.querySelector('.network-catalog')).toBeTruthy();
     expect(compiled.textContent).toContain('＋ Nueva Red');
-    expect(compiled.textContent).toContain('Producción consolidada');
-    expect(compiled.textContent).toContain('Atenciones ·');
+    expect(compiled.textContent).toContain('Administración del catálogo de Redes');
+    expect(compiled.textContent).toContain('Establecimientos cubiertos');
+    expect(compiled.textContent).not.toContain('Atenciones desde ITS 1');
+    expect(compiled.textContent).not.toContain('Casos nuevos');
     expect(
       Array.from(compiled.querySelectorAll('.network-filterbar label')).some(
         (label) => label.querySelector('span')?.textContent?.trim() === 'Región',
@@ -407,12 +452,11 @@ describe('App', () => {
     compiled.querySelector<HTMLButtonElement>('.scope-toggle')!.click();
     fixture.detectChanges();
 
-    expect(compiled.textContent).toContain('SOLO CONSULTA');
+    expect(compiled.textContent).toContain('Datos preliminares desde ITS 1');
     expect(compiled.querySelector('h1')?.textContent).toContain('Consolidado por Redes');
     expect(compiled.textContent).not.toContain('＋ Nueva Red');
     expect(compiled.textContent).not.toContain('↓ Excel');
     expect(compiled.textContent).not.toContain('↓ PDF');
-    expect(compiled.textContent).toContain('Consolidados disponibles');
     expect(
       Array.from(compiled.querySelectorAll('.filters label')).some(
         (label) => label.querySelector('span')?.textContent?.trim() === 'Red',
@@ -420,17 +464,20 @@ describe('App', () => {
     ).toBe(true);
 
     expect(compiled.querySelector('.network-catalog')).toBeTruthy();
-    expect(compiled.textContent).toContain('Composición consultada al cierre de');
+    expect(compiled.textContent).toContain('Métrica ITS 1');
   });
 
-  it('should show the aggregated network consolidation without individual ITS 1 data', async () => {
+  it('should keep the regional superadmin network view administrative and case-free', async () => {
     const fixture = TestBed.createComponent(App);
     fixture.componentInstance.changeRole('regional-superadmin');
     fixture.componentInstance.navigate('Redes');
     fixture.detectChanges();
     await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Atenciones ·');
+    expect(compiled.textContent).toContain('Administración del catálogo de Redes');
+    expect(compiled.textContent).toContain('Establecimientos cubiertos');
+    expect(compiled.textContent).not.toContain('Atenciones desde ITS 1');
+    expect(compiled.textContent).not.toContain('Casos nuevos');
     expect(compiled.textContent).not.toContain('Número de expediente');
   });
 
@@ -503,7 +550,7 @@ describe('App', () => {
         .find((item) => item.querySelector('span')?.textContent?.trim() === label)
         ?.querySelector('select');
 
-    fixture.componentInstance.changeRole('superadmin');
+    fixture.componentInstance.changeRole('central-validator');
     fixture.detectChanges();
     compiled.querySelector<HTMLButtonElement>('.scope-toggle')!.click();
     fixture.detectChanges();
@@ -559,25 +606,28 @@ describe('App', () => {
   });
 
   it('should show global filters only on aggregated and analytical views', () => {
-    const expectFilters = (page: string, visible: boolean) => {
+    const expectFilters = (role: RoleId, page: string, visible: boolean) => {
       const pageFixture = TestBed.createComponent(App);
+      pageFixture.componentInstance.changeRole(role);
       pageFixture.componentInstance.navigate(page);
       pageFixture.detectChanges();
       const pageElement = pageFixture.nativeElement as HTMLElement;
       expect(pageFixture.componentInstance.active).toBe(page);
-      expect(pageElement.querySelector<HTMLElement>('.global-filter-slot')?.hidden).toBe(!visible);
+      expect(!!pageElement.querySelector<HTMLElement>('.global-filter-slot')).toBe(visible);
       pageFixture.destroy();
     };
 
-    expectFilters('Inicio', true);
-    expectFilters('Bandeja de revisión', true);
-    expectFilters('Consolidados', true);
-    expectFilters('Mapas', true);
-    expectFilters('Redes', true);
-    expectFilters('Reportes y exportaciones', true);
-    expectFilters('Captura ITS 1', false);
-    expectFilters('Reporte ITS 2', true);
-    expectFilters('Administración', false);
+    expectFilters('superadmin', 'Inicio', false);
+    expectFilters('superadmin', 'Redes', false);
+    expectFilters('central-validator', 'Inicio', true);
+    expectFilters('central-validator', 'Bandeja de revisión', true);
+    expectFilters('central-validator', 'Consolidados', true);
+    expectFilters('central-validator', 'Mapas', true);
+    expectFilters('regional-admin', 'Redes', true);
+    expectFilters('central-validator', 'Reportes y exportaciones', true);
+    expectFilters('coordination-digitizer', 'Captura ITS 1', false);
+    expectFilters('establishment-manager', 'Reporte ITS 2', true);
+    expectFilters('superadmin', 'Administración', false);
   });
 
   it('should adapt review entities and totals to each approval level', async () => {
@@ -636,15 +686,21 @@ describe('App', () => {
       'Honduras · seleccione una región para ver sus municipios',
     );
 
-    fixture.componentInstance.changeRole('establishment-manager');
+    fixture.componentInstance.changeRole('municipal-coordinator');
     fixture.componentInstance.navigate('Mapas');
     fixture.detectChanges();
     await settleDeferred(fixture);
-    expect(compiled.querySelectorAll('.ranking button')).toHaveLength(1);
+    expect(compiled.querySelectorAll('.ranking button')).toHaveLength(12);
     expect(compiled.textContent).not.toContain('← Región de Cortés');
+
+    fixture.componentInstance.changeRole('establishment-manager');
+    fixture.componentInstance.navigate('Mapas');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.active).toBe('Inicio');
+    expect(compiled.querySelector('app-interactive-map')).toBeNull();
   });
 
-  it('should expose only role-appropriate exports and authors', async () => {
+  it('should expose only role-appropriate exports without a redundant requester column', async () => {
     const fixture = TestBed.createComponent(App);
     const compiled = fixture.nativeElement as HTMLElement;
 
@@ -653,7 +709,8 @@ describe('App', () => {
     fixture.detectChanges();
     await settleDeferred(fixture);
     expect(compiled.textContent).toContain('Consolidado nacional');
-    expect(compiled.textContent).toContain('Dra. Elena Pineda');
+    expect(compiled.textContent).toContain('Preliminar desde ITS 1');
+    expect(compiled.textContent).not.toContain('Solicitado por');
 
     fixture.componentInstance.changeRole('establishment-manager');
     fixture.componentInstance.navigate('Reportes y exportaciones');

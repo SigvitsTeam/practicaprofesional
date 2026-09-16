@@ -539,6 +539,9 @@ model ItsAttention {
   @@index([facilityId, year, month, status, attentionDate, id], map: "idx_atenciones_lista_mensual")
   @@index([patientRecordNumber, attentionDate, facilityId], map: "idx_atenciones_posible_duplicado")
   @@index([regionId, municipalityId, year, month], map: "idx_atenciones_territorio_periodo")
+  @@index([monthlyPeriodId, status, regionId], map: "idx_atenciones_periodo_estado_region")
+  @@index([monthlyPeriodId, status, municipalityId], map: "idx_atenciones_periodo_estado_municipio")
+  @@index([monthlyPeriodId, status, facilityId], map: "idx_atenciones_periodo_estado_establecimiento")
   @@map("atenciones_its")
 }
 

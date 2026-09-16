@@ -9,30 +9,34 @@
     <div><strong>SIGVITS</strong><span>Vigilancia en salud</span></div>
   </div>
   <nav aria-label="Navegación principal">
-    <p class="nav-label">OPERACIÓN</p>
-    @for (item of items('Operación'); track item.label) {
-      <button
-        class="nav-item"
-        [class.active]="active() === item.label"
-        (click)="navigate.emit(item.label)"
-      >
-        <span class="nav-icon">{{ item.icon }}</span
-        >{{ item.label }}
-        @if (countFor(item.label); as count) {
-          <span class="nav-count">{{ count }}</span>
-        }
-      </button>
+    @if (items('Operación').length) {
+      <p class="nav-label">OPERACIÓN</p>
+      @for (item of items('Operación'); track item.label) {
+        <button
+          class="nav-item"
+          [class.active]="active() === item.label"
+          (click)="navigate.emit(item.label)"
+        >
+          <span class="nav-icon">{{ item.icon }}</span
+          >{{ item.label }}
+          @if (countFor(item.label); as count) {
+            <span class="nav-count">{{ count }}</span>
+          }
+        </button>
+      }
     }
-    <p class="nav-label nav-second">GESTIÓN</p>
-    @for (item of items('Gestión'); track item.label) {
-      <button
-        class="nav-item"
-        [class.active]="active() === item.label"
-        (click)="navigate.emit(item.label)"
-      >
-        <span class="nav-icon">{{ item.icon }}</span
-        >{{ item.label }}
-      </button>
+    @if (items('Gestión').length) {
+      <p class="nav-label nav-second">GESTIÓN</p>
+      @for (item of items('Gestión'); track item.label) {
+        <button
+          class="nav-item"
+          [class.active]="active() === item.label"
+          (click)="navigate.emit(item.label)"
+        >
+          <span class="nav-icon">{{ item.icon }}</span
+          >{{ item.label }}
+        </button>
+      }
     }
   </nav>
   <div class="privacy-card">

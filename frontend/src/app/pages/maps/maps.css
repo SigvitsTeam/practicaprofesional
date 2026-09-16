@@ -44,6 +44,28 @@
 .map-message.error {
   color: var(--red);
 }
+.map-message.data-maturity {
+  border-left: 4px solid var(--amber);
+}
+.map-message.data-maturity.official {
+  border-left-color: var(--green);
+}
+.map-message.data-maturity strong {
+  color: var(--text, #18313d);
+}
+.map-administrative-only {
+  padding: 18px;
+}
+.map-administrative-only h2 {
+  margin: 4px 0;
+  font-size: 1rem;
+}
+.map-administrative-only p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
 .map-privacy-note {
   margin: 18px 14px;
   padding: 11px;

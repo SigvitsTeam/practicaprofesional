@@ -1,6 +1,43 @@
 :host {
   display: block;
 }
+.data-maturity,
+.administrative-only {
+  margin-bottom: 14px;
+  padding: 16px 18px;
+}
+.data-maturity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  border-left: 4px solid var(--amber);
+}
+.data-maturity.official {
+  border-left-color: var(--green);
+}
+.data-maturity > div:first-child {
+  flex: 1;
+}
+.data-maturity h2,
+.administrative-only h2 {
+  margin: 4px 0;
+  font-size: 1rem;
+}
+.data-maturity p,
+.administrative-only p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+.download-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.administrative-only .btn {
+  margin-top: 14px;
+}
 .national-actions input {
   width: min(520px, 100%);
   min-height: 38px;
@@ -58,6 +95,9 @@
 .completion-stats strong {
   font-size: 1.05rem;
 }
+.ring {
+  background: conic-gradient(var(--green) 0 var(--completion, 0%), #e6ecee var(--completion, 0%));
+}
 .blocking strong {
   font-size: 0.78rem;
 }
@@ -77,4 +117,15 @@
 }
 .timeline-horizontal span {
   font-size: 0.65rem;
+}
+@media (max-width: 760px) {
+  .data-maturity,
+  .live-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .download-actions,
+  .live-actions > div:last-child {
+    flex-wrap: wrap;
+  }
 }
