@@ -188,7 +188,7 @@ describe('Territory user role and scope form', () => {
     form.dispatchEvent(new Event('submit', { cancelable: true }));
     fixture.detectChanges();
     expect(invite).toHaveBeenCalledTimes(1);
-    pending.error({ error: { message: 'Configure SMTP propio' } });
+    pending.error({ error: { detail: 'Configure SMTP propio' } });
     fixture.detectChanges();
     expect(
       host.querySelector('[aria-label="Invitar usuario"] [role="alert"]')?.textContent,

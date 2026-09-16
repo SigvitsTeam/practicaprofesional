@@ -877,7 +877,9 @@ export class Territory implements OnInit {
           this.invitationStatusErrors.update((errors) => ({
             ...errors,
             [user.id]:
-              error.error?.message ?? 'No fue posible consultar la confirmación en Supabase.',
+              error.error?.detail ??
+              error.error?.message ??
+              'No fue posible consultar la confirmación en Supabase.',
           })),
       });
   }
@@ -915,7 +917,7 @@ export class Territory implements OnInit {
           error: (error) => {
             this.clearInvitationStatus(user.id);
             this.invitationError.set(
-              `${error.error?.message ?? 'No fue posible confirmar el resultado del reenvío.'} Cierre este diálogo y consulte de nuevo el estado antes de intentar otro correo.`,
+              `${error.error?.detail ?? error.error?.message ?? 'No fue posible confirmar el resultado del reenvío.'} Cierre este diálogo y consulte de nuevo el estado antes de intentar otro correo.`,
             );
           },
         });
@@ -942,7 +944,9 @@ export class Territory implements OnInit {
         },
         error: (error) =>
           this.invitationError.set(
-            error.error?.message ?? 'No fue posible enviar la invitación institucional.',
+            error.error?.detail ??
+              error.error?.message ??
+              'No fue posible enviar la invitación institucional.',
           ),
       });
   }
