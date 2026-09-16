@@ -186,7 +186,10 @@ describe('Optimized access reads (isolated PostgreSQL)', () => {
       regionIds: [regionIds[0]],
       regionGrantIds: [],
       municipalityIds: [municipalityIds[0]],
+      municipalityScopeIds: [],
+      municipalityGrantIds: [],
       facilityIds: [facilityIds[index]],
+      facilityGrantIds: [facilityIds[index]],
     });
   });
 
