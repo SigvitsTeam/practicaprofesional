@@ -33,6 +33,7 @@ export interface FacilityRecord {
   type: string;
   address?: string;
   operationalStatus: string;
+  hasCoordinates: boolean;
   coordinatesValidated: boolean;
   active: boolean;
   updatedAt: string;

@@ -6,6 +6,7 @@ import {
 import {
   ItsReportAccessError,
   ItsReportNotFoundError,
+  type Its2ReportContext,
   type Its2ReportSummary,
   type PrepareIts2ReportInput,
 } from '../domain/its-report-workflow';
@@ -14,6 +15,13 @@ import { ItsReportWorkflowRepository } from './ports/its-report-workflow.reposit
 @Injectable()
 export class ItsReportWorkflowUseCase {
   constructor(private readonly repository: ItsReportWorkflowRepository) {}
+
+  getContext(subject: AuthorizationSubject): Promise<Its2ReportContext> {
+    const facilityIds = subject.territory.national
+      ? undefined
+      : [...new Set(subject.territory.facilityIds)];
+    return this.repository.getContext(facilityIds);
+  }
 
   prepare(
     input: Omit<PrepareIts2ReportInput, 'userId'>,
@@ -92,6 +100,8 @@ export class ItsReportWorkflowUseCase {
   }
 
   private canAccessFacility(subject: AuthorizationSubject, facilityId: string): boolean {
+    if (subject.territory.national) return true;
+
     if (subject.roles.includes(RoleCode.FacilityManager)) {
       return (subject.territory.facilityGrantIds ?? []).includes(facilityId);
     }

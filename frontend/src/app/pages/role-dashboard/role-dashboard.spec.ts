@@ -80,7 +80,7 @@ describe('RoleDashboard', () => {
             officialCode: '0506',
             name: 'Puerto Cortés',
             operationalStatus: 'ACTIVO',
-            mapValidated: false,
+            mapValidated: true,
             active: true,
             facilityCount: 1,
             updatedAt: '2026-08-01T00:00:00.000Z',
@@ -95,6 +95,7 @@ describe('RoleDashboard', () => {
             name: 'Centro activo',
             type: 'CIS',
             operationalStatus: 'ACTIVO',
+            hasCoordinates: true,
             coordinatesValidated: false,
             active: true,
             updatedAt: '2026-08-01T00:00:00.000Z',
@@ -155,6 +156,9 @@ describe('RoleDashboard', () => {
     expect(text).toContain('Usuarios habilitados');
     expect(text).toContain('Configuración pendiente');
     expect(text).toContain('usuario sin identidad vinculada');
+    expect(text).toContain('ubicación de referencia pendiente de validación GPS');
+    expect(text).not.toContain('establecimiento sin coordenadas');
+    expect(text).not.toContain('Validación de límite pendiente');
     expect(text).not.toContain('Atenciones registradas');
     expect(text).not.toContain('Casos nuevos');
   });

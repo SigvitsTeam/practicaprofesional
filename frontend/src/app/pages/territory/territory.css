@@ -715,6 +715,13 @@
 .tree > button {
   font-size: 0.72rem;
 }
+.coordinate-state {
+  min-width: 18px;
+  text-align: center;
+}
+.reference-text {
+  color: #2c709f;
+}
 .badge {
   font-size: 0.65rem;
 }
@@ -897,6 +904,13 @@
   height: 100%;
   border-radius: inherit;
   background: var(--green);
+}
+.geo-reference-note {
+  margin-top: 8px;
+  display: block;
+  color: var(--muted);
+  font-size: 0.62rem;
+  line-height: 1.45;
 }
 .tab-section-title {
   padding: 18px;

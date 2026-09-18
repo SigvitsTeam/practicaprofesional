@@ -22,6 +22,7 @@ import {
   ItsReportAccessError,
   ItsReportNotFoundError,
   ItsReportWorkflowError,
+  type Its2ReportContext,
   type Its2ReportSummary,
 } from '../domain/its-report-workflow';
 import {
@@ -35,6 +36,16 @@ import {
 @Controller('its2/reports')
 export class ItsReportsController {
   constructor(private readonly workflow: ItsReportWorkflowUseCase) {}
+
+  @Get('context')
+  @RequireAccess({
+    permission: 'its2:reports:read',
+    dataLevel: DataLevel.Configuration,
+    scope: 'OWN',
+  })
+  context(@CurrentSubject() subject: AuthorizationSubject): Promise<Its2ReportContext> {
+    return this.workflow.getContext(subject);
+  }
 
   @Get('current')
   @RequireAccess({

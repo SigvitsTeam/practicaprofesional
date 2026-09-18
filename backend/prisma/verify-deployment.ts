@@ -270,11 +270,13 @@ async function verify(): Promise<void> {
       total: number;
       located: number;
       validated: number;
+      mapValidated: boolean;
     }>(
       `SELECT
          count(*)::int AS total,
          count(*) FILTER (WHERE e.latitud IS NOT NULL AND e.longitud IS NOT NULL)::int AS located,
-         count(*) FILTER (WHERE e.coordenadas_validadas)::int AS validated
+         count(*) FILTER (WHERE e.coordenadas_validadas)::int AS validated,
+         bool_and(m.mapa_validado) AS "mapValidated"
        FROM establecimientos_salud e
        JOIN municipios m ON m.id = e.municipio_id
        WHERE m.codigo_oficial = '0506' AND e.activo = true`,
@@ -282,6 +284,8 @@ async function verify(): Promise<void> {
     const geography = pilotGeography.rows[0];
     if (!geography || geography.total !== 12 || geography.located !== geography.total)
       throw new Error('El catálogo piloto no tiene coordenadas para sus 12 establecimientos.');
+    if (!geography.mapValidated)
+      throw new Error('El límite municipal oficial 0506 no está marcado como validado.');
 
     await runtimeClient.connect();
     await runtimeClient.query('SELECT 1');

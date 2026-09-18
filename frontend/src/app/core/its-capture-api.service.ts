@@ -20,6 +20,10 @@ export interface CaptureContextResponse {
   }[];
 }
 
+export interface Its2ReportContextResponse {
+  facilities: CaptureContextResponse['facilities'];
+}
+
 export interface MonthlyReportingPeriodResponse {
   id: string;
   year: number;
@@ -324,6 +328,9 @@ export class ItsCaptureApiService {
     return this.http.get<Its2WorkflowReport | null>(`${this.reportsEndpoint}/current`, {
       params: { facilityId, year, month },
     });
+  }
+  getIts2ReportContext() {
+    return this.http.get<Its2ReportContextResponse>(`${this.reportsEndpoint}/context`);
   }
   prepareIts2Report(input: {
     facilityId: string;

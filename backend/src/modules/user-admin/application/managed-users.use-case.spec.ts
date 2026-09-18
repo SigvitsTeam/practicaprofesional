@@ -233,6 +233,147 @@ describe('ManagedUsersUseCase', () => {
     expect(repository.created?.actorUserId).toBe('admin-1');
   });
 
+  it('permite a un SuperAdmin nacional crear otro SuperAdmin pendiente', async () => {
+    const result = await useCase.create(
+      {
+        ...base,
+        roleCode: RoleCode.SuperAdmin,
+        scopeType: 'NACIONAL',
+        municipalityId: undefined,
+      },
+      national,
+    );
+
+    expect(result).toMatchObject({
+      active: false,
+      hasExternalIdentity: false,
+      role: { code: RoleCode.SuperAdmin },
+      assignment: { scopeType: 'NACIONAL' },
+    });
+  });
+
+  it('rechaza la excepción entre pares si el actor SuperAdmin no tiene alcance nacional', async () => {
+    const malformedSuperAdmin: AuthorizationSubject = {
+      ...national,
+      territory: {
+        national: false,
+        regionIds: ['region-cortes'],
+        municipalityIds: [],
+        facilityIds: [],
+      },
+    };
+
+    await expect(
+      useCase.create(
+        {
+          ...base,
+          roleCode: RoleCode.SuperAdmin,
+          scopeType: 'NACIONAL',
+          municipalityId: undefined,
+        },
+        malformedSuperAdmin,
+      ),
+    ).rejects.toBeInstanceOf(ManagedUserRoleError);
+
+    repository.context = {
+      ...repository.context,
+      roleCode: RoleCode.SuperAdmin,
+      active: false,
+      hasExternalIdentity: false,
+    };
+    await expect(
+      useCase.invite(
+        'superadmin-2',
+        {
+          activate: true,
+          expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+          reason: 'Invitación desde alcance mal configurado',
+          requestId: 'request-malformed-superadmin',
+        },
+        malformedSuperAdmin,
+      ),
+    ).rejects.toBeInstanceOf(ManagedUserRoleError);
+    expect(invite).not.toHaveBeenCalled();
+  });
+
+  it('permite invitar al nuevo SuperAdmin pendiente sin habilitar administración entre pares', async () => {
+    repository.context = {
+      ...repository.context,
+      roleCode: RoleCode.SuperAdmin,
+      active: false,
+      hasExternalIdentity: false,
+    };
+
+    await expect(
+      useCase.invite(
+        'superadmin-2',
+        {
+          activate: true,
+          expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+          reason: 'Invitación del segundo SuperAdmin nacional',
+          requestId: 'request-superadmin-invite',
+        },
+        national,
+      ),
+    ).resolves.toMatchObject({ active: true, hasExternalIdentity: true });
+    expect(invite).toHaveBeenCalledWith('maria@example.org');
+  });
+
+  it.each(['status', 'access'] as const)(
+    'mantiene bloqueada la administración de %s entre SuperAdmin pares',
+    async (operation) => {
+      repository.context = {
+        ...repository.context,
+        roleCode: RoleCode.SuperAdmin,
+        active: true,
+        hasExternalIdentity: true,
+      };
+      const result =
+        operation === 'status'
+          ? useCase.updateStatus(
+              'superadmin-2',
+              {
+                active: false,
+                expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+                reason: 'Intento de suspensión entre pares',
+                requestId: 'request-peer-status',
+              },
+              national,
+            )
+          : useCase.changeAccess(
+              'superadmin-2',
+              {
+                ...base,
+                roleCode: RoleCode.CentralAdmin,
+                scopeType: 'NACIONAL',
+                municipalityId: undefined,
+                expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+              },
+              national,
+            );
+
+      await expect(result).rejects.toBeInstanceOf(ManagedUserRoleError);
+      expect(repository.created).toBeUndefined();
+    },
+  );
+
+  it('no permite convertir un perfil existente en SuperAdmin mediante cambio de acceso', async () => {
+    await expect(
+      useCase.changeAccess(
+        'user-2',
+        {
+          ...base,
+          roleCode: RoleCode.SuperAdmin,
+          scopeType: 'NACIONAL',
+          municipalityId: undefined,
+          expectedUpdatedAt: repository.context.updatedAt.toISOString(),
+        },
+        national,
+      ),
+    ).rejects.toBeInstanceOf(ManagedUserRoleError);
+    expect(repository.created).toBeUndefined();
+  });
+
   describe.each(['create', 'changeAccess'] as const)('%s scope compatibility', (operation) => {
     it.each(compatibilityCases)(
       '$role with $scope: allowed=$allowed',

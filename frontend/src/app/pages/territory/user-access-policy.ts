@@ -9,6 +9,7 @@ interface UserRoleOption {
 
 // Mirrors ManagedUsersUseCase. The API remains authoritative for permission and territory checks.
 export const USER_ROLE_OPTIONS: readonly UserRoleOption[] = [
+  { code: 'SUPERADMIN', label: 'SuperAdmin', scopes: ['NACIONAL'], globalOnly: true },
   { code: 'ADMIN_CENTRAL', label: 'Admin Central', scopes: ['NACIONAL'], globalOnly: true },
   {
     code: 'SUPERADMIN_REGIONAL',

@@ -143,13 +143,18 @@ async function seed(): Promise<void> {
       });
       const municipality = await transaction.municipality.upsert({
         where: { officialCode: '0506' },
-        update: { regionId: region.id, name: 'Puerto Cortés', active: true },
+        update: {
+          regionId: region.id,
+          name: 'Puerto Cortés',
+          mapValidated: true,
+          active: true,
+        },
         create: {
           regionId: region.id,
           officialCode: '0506',
           name: 'Puerto Cortés',
           operationalStatus: 'EN_PILOTAJE',
-          mapValidated: false,
+          mapValidated: true,
         },
       });
 

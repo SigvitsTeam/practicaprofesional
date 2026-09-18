@@ -64,6 +64,7 @@ class Repository extends TerritorialCatalogRepository {
       type: input.type,
       address: input.address,
       operationalStatus: OperationalStatus.Created,
+      hasCoordinates: false,
       coordinatesValidated: false,
       active: true,
       updatedAt: new Date('2026-08-19T12:00:00.000Z'),
@@ -175,6 +176,39 @@ describe('TerritorialCatalogUseCase', () => {
     const result = await useCase.list(subject);
     expect(result.municipalities).toHaveLength(1);
     expect(result.facilities).toHaveLength(1);
+    expect(result.facilities[0]).toMatchObject({
+      hasCoordinates: false,
+      coordinatesValidated: false,
+    });
+  });
+
+  it('distingue una ubicación registrada de una coordenada GPS validada', async () => {
+    const municipality = await repository.createMunicipality({
+      regionId,
+      officialCode: '0506',
+      name: 'Puerto Cortés',
+      audit,
+    });
+    const facility = await repository.createFacility({
+      municipalityId: municipality.id,
+      code: 'UAPS-01',
+      name: 'UAPS con referencia comunitaria',
+      type: 'UAPS',
+      address: 'Puerto Cortés',
+      audit,
+    });
+    repository.facilities[0] = {
+      ...facility,
+      hasCoordinates: true,
+      coordinatesValidated: false,
+    };
+
+    const result = await useCase.list(subject);
+
+    expect(result.facilities[0]).toMatchObject({
+      hasCoordinates: true,
+      coordinatesValidated: false,
+    });
   });
 
   it('permite una transición territorial válida con control de versión', async () => {

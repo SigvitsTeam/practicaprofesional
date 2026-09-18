@@ -61,7 +61,7 @@ export class ReportIts2 implements OnInit {
     if (this.auth.isDemo()) return;
     this.loading.set(true);
     this.api
-      .getContext()
+      .getIts2ReportContext()
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (context) => {
@@ -85,7 +85,13 @@ export class ReportIts2 implements OnInit {
   }
 
   protected get canSelectEstablishment() {
-    return this.roleContext.activeRoleId() === 'coordination-digitizer';
+    return this.roleContext.activeRoleId() === 'coordination-digitizer' || this.readOnlyPreliminary;
+  }
+
+  protected get readOnlyPreliminary() {
+    return ['municipal-coordinator', 'regional-admin', 'central-validator'].includes(
+      this.roleContext.activeRoleId(),
+    );
   }
 
   protected get total() {
@@ -111,6 +117,7 @@ export class ReportIts2 implements OnInit {
     )[this.workflowReport()?.status ?? 'BORRADOR'];
   }
   protected get canPrepare() {
+    if (this.readOnlyPreliminary) return false;
     const status = this.workflowReport()?.status;
     return (
       !this.loading() &&
@@ -122,6 +129,7 @@ export class ReportIts2 implements OnInit {
     );
   }
   protected get canSubmit() {
+    if (this.readOnlyPreliminary) return false;
     return (
       !this.loading() &&
       !this.loadError() &&
@@ -156,6 +164,7 @@ export class ReportIts2 implements OnInit {
   }
 
   protected prepareWorkflow() {
+    if (this.readOnlyPreliminary) return;
     this.prepareAttempted = true;
     if (!this.canPrepare) return;
     const facilityId = this.context.selected().id;
@@ -194,6 +203,7 @@ export class ReportIts2 implements OnInit {
   }
 
   protected submitWorkflow() {
+    if (this.readOnlyPreliminary) return;
     if (!this.canSubmit) return;
     const current = this.workflowReport();
     if (!current) return;
@@ -269,6 +279,10 @@ export class ReportIts2 implements OnInit {
   }
 
   private downloadIts1(format: 'xlsx' | 'pdf') {
+    if (this.readOnlyPreliminary) {
+      this.notify.emit('Esta vista permite consultar y descargar únicamente el reporte ITS-2.');
+      return;
+    }
     if (this.loading()) return;
     const requestVersion = this.requestVersion;
     const facility = this.context.selected();

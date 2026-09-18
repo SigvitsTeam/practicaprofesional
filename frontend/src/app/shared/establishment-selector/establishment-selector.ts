@@ -1,4 +1,4 @@
-import { Component, inject, output } from '@angular/core';
+import { Component, inject, input, output } from '@angular/core';
 import { EstablishmentContext } from '../../core/establishment-context';
 
 @Component({
@@ -7,6 +7,7 @@ import { EstablishmentContext } from '../../core/establishment-context';
   styleUrl: './establishment-selector.css',
 })
 export class EstablishmentSelector {
+  readonly readOnlyView = input(false);
   readonly selected = output<void>();
   protected readonly context = inject(EstablishmentContext);
 

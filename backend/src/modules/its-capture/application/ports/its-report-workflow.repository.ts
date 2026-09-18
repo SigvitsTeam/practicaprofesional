@@ -1,10 +1,12 @@
 import type {
+  Its2ReportContext,
   Its2ReportSummary,
   PrepareIts2ReportInput,
   ReportTerritory,
 } from '../../domain/its-report-workflow';
 
 export abstract class ItsReportWorkflowRepository {
+  abstract getContext(facilityIds?: readonly string[]): Promise<Its2ReportContext>;
   abstract prepare(input: PrepareIts2ReportInput): Promise<Its2ReportSummary>;
   abstract findTerritory(reportId: string): Promise<ReportTerritory | undefined>;
   abstract submit(reportId: string, userId: string): Promise<Its2ReportSummary>;

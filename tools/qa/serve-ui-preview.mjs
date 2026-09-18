@@ -47,6 +47,7 @@ const facility = {
   type: "CIS",
   operationalStatus: "ACTIVO",
   active: true,
+  hasCoordinates: true,
   coordinatesValidated: false,
   updatedAt: stamp,
 };

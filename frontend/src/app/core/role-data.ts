@@ -90,6 +90,7 @@ export const ROLE_PROFILES: RoleProfile[] = [
     },
     navItems: [
       'Inicio',
+      'Reporte ITS 2',
       'Bandeja de revisión',
       'Consolidados',
       'Redes',
@@ -230,6 +231,7 @@ export const ROLE_PROFILES: RoleProfile[] = [
     },
     navItems: [
       'Inicio',
+      'Reporte ITS 2',
       'Bandeja de revisión',
       'Consolidados',
       'Redes',
@@ -300,6 +302,7 @@ export const ROLE_PROFILES: RoleProfile[] = [
     },
     navItems: [
       'Inicio',
+      'Reporte ITS 2',
       'Bandeja de revisión',
       'Consolidados',
       'Mapas',

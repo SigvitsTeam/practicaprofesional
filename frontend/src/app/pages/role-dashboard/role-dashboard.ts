@@ -116,7 +116,8 @@ export class RoleDashboard {
           (municipality) => municipality.active && !municipality.mapValidated,
         ).length +
         administrative.facilities.filter(
-          (facility) => facility.active && !facility.coordinatesValidated,
+          (facility) =>
+            facility.active && (!facility.hasCoordinates || !facility.coordinatesValidated),
         ).length +
         administrative.users.filter((user) => user.active && !user.hasExternalIdentity).length;
       return [
@@ -141,7 +142,7 @@ export class RoleDashboard {
         {
           label: 'Configuración pendiente',
           value: String(pendingConfiguration),
-          detail: 'Identidades y validación territorial',
+          detail: 'Identidades, ubicaciones y validación territorial',
           tone: 'amber',
         },
       ];
@@ -318,8 +319,11 @@ export class RoleDashboard {
   private administrativeTasks(snapshot: AdministrativeSnapshot): RoleTask[] {
     const tasks: RoleTask[] = [];
     const identities = snapshot.users.filter((user) => user.active && !user.hasExternalIdentity);
-    const coordinates = snapshot.facilities.filter(
-      (facility) => facility.active && !facility.coordinatesValidated,
+    const missingCoordinates = snapshot.facilities.filter(
+      (facility) => facility.active && !facility.hasCoordinates,
+    );
+    const coordinateReferences = snapshot.facilities.filter(
+      (facility) => facility.active && facility.hasCoordinates && !facility.coordinatesValidated,
     );
     const maps = snapshot.municipalities.filter(
       (municipality) => municipality.active && !municipality.mapValidated,
@@ -331,10 +335,17 @@ export class RoleDashboard {
         status: 'Usuarios',
         target: 'Administración',
       });
-    if (coordinates.length)
+    if (missingCoordinates.length)
       tasks.push({
-        title: `${coordinates.length} ${coordinates.length === 1 ? 'establecimiento sin coordenadas validadas' : 'establecimientos sin coordenadas validadas'}`,
-        detail: this.sampleAdministrative(coordinates),
+        title: `${missingCoordinates.length} ${missingCoordinates.length === 1 ? 'establecimiento sin coordenadas' : 'establecimientos sin coordenadas'}`,
+        detail: this.sampleAdministrative(missingCoordinates),
+        status: 'Territorio',
+        target: 'Administración',
+      });
+    if (coordinateReferences.length)
+      tasks.push({
+        title: `${coordinateReferences.length} ${coordinateReferences.length === 1 ? 'ubicación de referencia pendiente de validación GPS' : 'ubicaciones de referencia pendientes de validación GPS'}`,
+        detail: this.sampleAdministrative(coordinateReferences),
         status: 'Territorio',
         target: 'Administración',
       });

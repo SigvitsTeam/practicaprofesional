@@ -39,10 +39,10 @@ const catalog: TerritorialCatalog = {
       id: 'municipality-1',
       regionId: 'region-1',
       regionName: 'Cortés',
-      officialCode: '0501',
-      name: 'Municipio QA',
+      officialCode: '0506',
+      name: 'Puerto Cortés',
       operationalStatus: 'ACTIVO',
-      mapValidated: false,
+      mapValidated: true,
       active: true,
       facilityCount: 2,
       updatedAt: '2026-09-02T12:00:00Z',
@@ -57,6 +57,7 @@ const catalog: TerritorialCatalog = {
       name: 'Centro QA',
       type: 'CIS',
       operationalStatus: 'ACTIVO',
+      hasCoordinates: true,
       coordinatesValidated: false,
       active: true,
       updatedAt: '2026-09-02T12:00:00Z',
@@ -69,7 +70,8 @@ const catalog: TerritorialCatalog = {
       name: 'Centro inactivo',
       type: 'CIS',
       operationalStatus: 'INACTIVO',
-      coordinatesValidated: false,
+      hasCoordinates: true,
+      coordinatesValidated: true,
       active: false,
       updatedAt: '2026-09-02T12:00:00Z',
     },
@@ -141,6 +143,42 @@ describe('Territory user role and scope form', () => {
         button.textContent?.includes('Nuevo usuario'),
       )?.disabled,
     ).toBe(false);
+  });
+
+  it('separa coordenadas presentes de referencias pendientes de validación GPS', async () => {
+    await render();
+    await clickButton('Territorios');
+    await clickButton('Geografía');
+
+    expect(host.textContent).toContain('2 de 2 establecimientos con coordenadas registradas');
+    expect(host.textContent).toContain('1 referencia(s) pendiente(s) de validación GPS');
+    expect(host.textContent).not.toContain('establecimiento(s) sin coordenadas');
+    expect(host.textContent).toContain('0506 · Límite municipal validado');
+    expect(
+      host.querySelector('[aria-label="Referencia pendiente de validación GPS"]'),
+    ).not.toBeNull();
+  });
+
+  it('reserva la alerta sin coordenadas para establecimientos que no tienen latitud/longitud', async () => {
+    vi.spyOn(TestBed.inject(TerritorialApiService), 'listCatalog').mockReturnValue(
+      of({
+        ...catalog,
+        facilities: [
+          {
+            ...catalog.facilities[0],
+            hasCoordinates: false,
+            coordinatesValidated: false,
+          },
+        ],
+      }),
+    );
+
+    await render();
+    await clickButton('Territorios');
+
+    expect(host.textContent).toContain('1 establecimiento(s) sin coordenadas');
+    expect(host.textContent).not.toContain('referencia(s) pendiente(s) de validación GPS');
+    expect(host.querySelector('[aria-label="Sin coordenadas registradas"]')).not.toBeNull();
   });
 
   function pendingUser(): ManagedUserRecord {
@@ -374,6 +412,7 @@ describe('Territory user role and scope form', () => {
   }
 
   it.each([
+    ['SUPERADMIN', 'NACIONAL'],
     ['ADMIN_CENTRAL', 'NACIONAL'],
     ['SUPERADMIN_REGIONAL', 'REGION'],
     ['ADMIN_REGIONAL', 'REGION'],
@@ -493,9 +532,54 @@ describe('Territory user role and scope form', () => {
     TestBed.inject(RoleContext).select('regional-superadmin');
     await render();
     await clickButton('Nuevo usuario');
+    expect(options('userRole')).not.toContain('SUPERADMIN');
     expect(options('userRole')).not.toContain('ADMIN_CENTRAL');
     expect(options('userRole')).not.toContain('SUPERADMIN_REGIONAL');
     expect(options('userScope')).toEqual(['REGION']);
+  });
+
+  it('offers invitation but not status or access changes for a SuperAdmin peer', async () => {
+    users.push({
+      id: 'superadmin-2',
+      fullName: 'Segundo SuperAdmin',
+      email: 'superadmin2@example.org',
+      active: false,
+      hasExternalIdentity: false,
+      role: { code: 'SUPERADMIN', name: 'SuperAdmin', startDate: '2026-09-17' },
+      assignment: { scopeType: 'NACIONAL', label: 'Honduras', startDate: '2026-09-17' },
+      updatedAt: '2026-09-17T12:00:00Z',
+    });
+
+    await render();
+    const actions = Array.from(
+      host.querySelectorAll<HTMLButtonElement>('td.user-actions button'),
+    ).map((button) => button.textContent?.trim());
+
+    expect(actions).toContain('Invitar por correo');
+    expect(actions).toContain('Vincular manualmente');
+    expect(actions).not.toContain('Cambiar acceso');
+    expect(actions).not.toContain('Suspender');
+    expect(actions).not.toContain('Reactivar');
+  });
+
+  it('offers SuperAdmin only while creating a new profile, never while changing access', async () => {
+    users.push({
+      id: 'user-2',
+      fullName: 'Persona central',
+      email: 'central@example.org',
+      active: false,
+      hasExternalIdentity: false,
+      role: { code: 'ADMIN_CENTRAL', name: 'Admin Central', startDate: '2026-09-01' },
+      assignment: { scopeType: 'NACIONAL', label: 'Honduras', startDate: '2026-09-01' },
+      updatedAt: '2026-09-02T12:00:00Z',
+    });
+    await render();
+
+    await clickButton('Nuevo usuario');
+    expect(options('userRole')).toContain('SUPERADMIN');
+    await clickButton('Cancelar');
+    await clickButton('Cambiar acceso');
+    expect(options('userRole')).not.toContain('SUPERADMIN');
   });
 
   it('requires an explicit territory and only submits the matching territorial identifier', async () => {

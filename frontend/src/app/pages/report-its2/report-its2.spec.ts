@@ -3,9 +3,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Subject } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import {
-  CaptureContextResponse,
   Its2WorkflowReport,
   ItsCaptureApiService,
+  Its2ReportContextResponse,
   ItsMonthlyReportResponse,
 } from '../../core/its-capture-api.service';
 import { OperationalPeriod, OperationalPeriodService } from '../../core/operational-period';
@@ -76,14 +76,17 @@ describe('ReportIts2 period and request isolation', () => {
   let getCurrentIts2Report: ReturnType<typeof vi.fn>;
   let downloadMonthlyReportXlsx: ReturnType<typeof vi.fn>;
   let downloadIts1RegisterXlsx: ReturnType<typeof vi.fn>;
+  let submitIts2Report: ReturnType<typeof vi.fn>;
+  let activeRoleId: string;
   const selectedPeriod = signal(period(8));
 
   beforeEach(async () => {
     selectedPeriod.set(period(8));
+    activeRoleId = 'establishment-manager';
     requests = [];
     preparation = new Subject<Its2WorkflowReport>();
     pdf = new Subject<Blob>();
-    const context = new Subject<CaptureContextResponse>();
+    const context = new Subject<Its2ReportContextResponse>();
     getMonthlyReport = vi.fn((_facilityId: string, _year: number, month: number) => {
       const request = {
         month,
@@ -95,13 +98,14 @@ describe('ReportIts2 period and request isolation', () => {
     });
     getCurrentIts2Report = vi.fn(() => latestRequest().workflow);
     prepareIts2Report = vi.fn(() => preparation);
+    submitIts2Report = vi.fn(() => new Subject<Its2WorkflowReport>());
     downloadMonthlyReportXlsx = vi.fn(() => pdf);
     downloadIts1RegisterXlsx = vi.fn(() => pdf);
     await TestBed.configureTestingModule({
       imports: [ReportIts2],
       providers: [
         { provide: AuthService, useValue: { isDemo: () => false } },
-        { provide: RoleContext, useValue: { activeRoleId: () => 'establishment-manager' } },
+        { provide: RoleContext, useValue: { activeRoleId: () => activeRoleId } },
         {
           provide: OperationalPeriodService,
           useValue: {
@@ -112,10 +116,11 @@ describe('ReportIts2 period and request isolation', () => {
         {
           provide: ItsCaptureApiService,
           useValue: {
-            getContext: () => context,
+            getIts2ReportContext: () => context,
             getMonthlyReport,
             getCurrentIts2Report,
             prepareIts2Report,
+            submitIts2Report,
             downloadMonthlyReportPdf: () => pdf,
             downloadMonthlyReportXlsx,
             downloadIts1RegisterPdf: () => pdf,
@@ -138,8 +143,6 @@ describe('ReportIts2 period and request isolation', () => {
           region: { id: 'region-1', code: 'R1', name: 'Región QA' },
         },
       ],
-      populationTypes: [],
-      classifications: [],
     });
     context.complete();
     fixture.detectChanges();
@@ -230,6 +233,27 @@ describe('ReportIts2 period and request isolation', () => {
     component['downloadFilledIts2Xlsx']();
     expect(downloadMonthlyReportXlsx).toHaveBeenCalledWith(facility.id, 2026, 8);
   });
+
+  it.each(['municipal-coordinator', 'regional-admin', 'central-validator'])(
+    'keeps %s in preliminary read-only mode with establishment selection',
+    (roleId) => {
+      resolve();
+      activeRoleId = roleId;
+
+      expect(component['readOnlyPreliminary']).toBe(true);
+      expect(component['canSelectEstablishment']).toBe(true);
+      expect(component['canPrepare']).toBe(false);
+      expect(component['canSubmit']).toBe(false);
+
+      component['prepareWorkflow']();
+      component['submitWorkflow']();
+      component['downloadFilledIts1Xlsx']();
+
+      expect(prepareIts2Report).not.toHaveBeenCalled();
+      expect(submitIts2Report).not.toHaveBeenCalled();
+      expect(downloadIts1RegisterXlsx).not.toHaveBeenCalled();
+    },
+  );
 
   it.each(['success', 'error'])(
     'ignores a late %s from the old period without releasing the current loading state',

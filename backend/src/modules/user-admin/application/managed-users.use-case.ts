@@ -64,7 +64,7 @@ export class ManagedUsersUseCase {
     },
     subject: AuthorizationSubject,
   ): Promise<ManagedUser> {
-    this.requireAssignableRole(input.roleCode, subject);
+    this.requireAssignableRole(input.roleCode, subject, true);
     this.requireCompatibleScope(input.roleCode, input.scopeType);
     const fullName = input.fullName.trim().replace(/\s+/g, ' ');
     const email = input.email.trim().toLowerCase();
@@ -158,7 +158,7 @@ export class ManagedUsersUseCase {
     },
     subject: AuthorizationSubject,
   ): Promise<ManagedUser> {
-    await this.requiredManageableUser(userId, subject);
+    const current = await this.requiredManageableUser(userId, subject);
     if (userId === subject.userId)
       throw new ManagedUserInvariantError('No puede modificar su propio rol o alcance.');
     this.requireAssignableRole(input.roleCode, subject);
@@ -178,6 +178,15 @@ export class ManagedUsersUseCase {
       (!target.regionId || !subject.territory.regionIds.includes(target.regionId))
     )
       throw new ManagedUserScopeError('No puede asignar un alcance fuera de su región.');
+    if (
+      current.active &&
+      current.roleCode === RoleCode.SuperAdmin &&
+      input.roleCode !== RoleCode.SuperAdmin &&
+      (await this.repository.countActiveSuperAdmins()) <= 1
+    )
+      throw new ManagedUserInvariantError(
+        'No se puede cambiar el rol del último SuperAdmin activo.',
+      );
     return this.repository.changeAccess({
       userId,
       fullName: '',
@@ -207,7 +216,7 @@ export class ManagedUsersUseCase {
     },
     subject: AuthorizationSubject,
   ): Promise<ManagedUser> {
-    await this.requiredManageableUser(userId, subject);
+    await this.requiredInvitationTarget(userId, subject, 'UNLINKED');
     if (userId === subject.userId)
       throw new ManagedUserInvariantError('No puede modificar su propia identidad externa.');
     const issuer = this.authentication.issuer?.trim();
@@ -243,7 +252,7 @@ export class ManagedUsersUseCase {
     input: { activate: boolean; expectedUpdatedAt: string; reason: string; requestId: string },
     subject: AuthorizationSubject,
   ): Promise<ManagedUser> {
-    const context = await this.requiredManageableUser(userId, subject);
+    const context = await this.requiredInvitationTarget(userId, subject, 'UNLINKED');
     if (userId === subject.userId)
       throw new ManagedUserInvariantError('No puede modificar su propia identidad externa.');
     if (context.hasExternalIdentity)
@@ -277,7 +286,7 @@ export class ManagedUsersUseCase {
     userId: string,
     subject: AuthorizationSubject,
   ): Promise<IdentityInvitationStatus> {
-    const context = await this.requiredManageableUser(userId, subject);
+    const context = await this.requiredInvitationTarget(userId, subject, 'LINKED');
     const identity = await this.requiredInvitationIdentity(userId);
     return {
       ...(await this.invitations.getStatus(identity.subject)),
@@ -290,7 +299,7 @@ export class ManagedUsersUseCase {
     input: { expectedUpdatedAt: string; reason: string; requestId: string },
     subject: AuthorizationSubject,
   ): Promise<IdentityInvitationStatus> {
-    const context = await this.requiredManageableUser(userId, subject);
+    const context = await this.requiredInvitationTarget(userId, subject, 'LINKED');
     if (userId === subject.userId)
       throw new ManagedUserInvariantError('No puede reenviar una invitación a su propia cuenta.');
     const expectedUpdatedAt = this.timestamp(input.expectedUpdatedAt);
@@ -325,9 +334,18 @@ export class ManagedUsersUseCase {
     return { ...current, profileUpdatedAt };
   }
 
-  private requireAssignableRole(role: RoleCode, subject: AuthorizationSubject): void {
+  private requireAssignableRole(
+    role: RoleCode,
+    subject: AuthorizationSubject,
+    allowSuperAdminPeerCreation = false,
+  ): void {
     const actorLevel = Math.max(0, ...subject.roles.map((code) => HIERARCHY[code]));
-    if (HIERARCHY[role] >= actorLevel)
+    const superAdminCreatingPeer =
+      allowSuperAdminPeerCreation &&
+      role === RoleCode.SuperAdmin &&
+      subject.roles.includes(RoleCode.SuperAdmin) &&
+      subject.territory.national;
+    if (HIERARCHY[role] >= actorLevel && !superAdminCreatingPeer)
       throw new ManagedUserRoleError('No puede asignar un rol igual o superior al propio.');
     if (!subject.territory.national && HIERARCHY[role] >= HIERARCHY[RoleCode.RegionalSuperAdmin])
       throw new ManagedUserRoleError(
@@ -349,6 +367,40 @@ export class ManagedUsersUseCase {
       throw new ManagedUserNotFoundError('El usuario no existe o no tiene acceso vigente.');
     const actorLevel = Math.max(0, ...subject.roles.map((code) => HIERARCHY[code]));
     if (HIERARCHY[context.roleCode] >= actorLevel && userId !== subject.userId)
+      throw new ManagedUserRoleError(
+        'No puede administrar un usuario de jerarquía igual o superior.',
+      );
+    if (
+      !subject.territory.national &&
+      (!context.regionId || !subject.territory.regionIds.includes(context.regionId))
+    )
+      throw new ManagedUserScopeError('El usuario está fuera de su alcance administrativo.');
+    return context;
+  }
+
+  /**
+   * Allows a national SuperAdmin to finish only the identity/invitation lifecycle of a newly
+   * created SuperAdmin peer. Status and access changes continue to use requiredManageableUser.
+   */
+  private async requiredInvitationTarget(
+    userId: string,
+    subject: AuthorizationSubject,
+    expectedIdentityState: 'UNLINKED' | 'LINKED',
+  ): Promise<ManagedUserContext> {
+    const context = await this.repository.findContext(userId);
+    if (!context)
+      throw new ManagedUserNotFoundError('El usuario no existe o no tiene acceso vigente.');
+    const actorLevel = Math.max(0, ...subject.roles.map((code) => HIERARCHY[code]));
+    const hasExpectedIdentityState =
+      expectedIdentityState === 'UNLINKED'
+        ? !context.active && !context.hasExternalIdentity
+        : context.hasExternalIdentity;
+    const isSuperAdminPeer =
+      context.roleCode === RoleCode.SuperAdmin &&
+      subject.roles.includes(RoleCode.SuperAdmin) &&
+      subject.territory.national &&
+      hasExpectedIdentityState;
+    if (HIERARCHY[context.roleCode] >= actorLevel && userId !== subject.userId && !isSuperAdminPeer)
       throw new ManagedUserRoleError(
         'No puede administrar un usuario de jerarquía igual o superior.',
       );

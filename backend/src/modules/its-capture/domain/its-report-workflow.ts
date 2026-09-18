@@ -32,6 +32,17 @@ export interface Its2ReportSummary {
   openObservations: { id: string; comment: string; createdAt: Date }[];
 }
 
+export interface Its2ReportContext {
+  facilities: {
+    id: string;
+    code: string;
+    name: string;
+    type: string;
+    municipality: { id: string; code: string; name: string };
+    region: { id: string; code: string; name: string };
+  }[];
+}
+
 export interface ReportTerritory {
   facilityId?: string;
   municipalityId?: string;

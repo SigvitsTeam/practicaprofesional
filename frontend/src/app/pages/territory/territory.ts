@@ -93,6 +93,7 @@ export class Territory implements OnInit {
     type: string;
     status: string;
     rawStatus: string;
+    hasCoordinates: boolean;
     coordinatesValidated: boolean;
     active: boolean;
     updatedAt: string;
@@ -182,6 +183,12 @@ export class Territory implements OnInit {
   get globalScope() {
     return this.roleContext.activeRoleId() === 'superadmin';
   }
+  protected canChangeUserAdministration(user: ManagedUserRecord) {
+    return user.role.code !== 'SUPERADMIN';
+  }
+  protected canHandleUserInvitation(user: ManagedUserRecord) {
+    return user.id !== this.roleContext.institutionalProfile()?.userId;
+  }
   get selectedMunicipality() {
     return (
       this.municipalities.find((row) => row.id === this.selectedMunicipalityId) ??
@@ -197,9 +204,16 @@ export class Territory implements OnInit {
   get validatedFacilityCount() {
     return this.selectedFacilities.filter((row) => row.coordinatesValidated).length;
   }
+  get locatedFacilityCount() {
+    return this.selectedFacilities.filter((row) => row.hasCoordinates).length;
+  }
+  get pendingCoordinateValidationCount() {
+    return this.selectedFacilities.filter((row) => row.hasCoordinates && !row.coordinatesValidated)
+      .length;
+  }
   get coordinateProgress() {
     return this.selectedFacilities.length
-      ? Math.round((this.validatedFacilityCount * 100) / this.selectedFacilities.length)
+      ? Math.round((this.locatedFacilityCount * 100) / this.selectedFacilities.length)
       : 0;
   }
   get responsibles() {
@@ -239,13 +253,13 @@ export class Territory implements OnInit {
       this.selectedMunicipality?.mapValidated,
       this.selectedFacilities.length > 0,
       this.selectedFacilities.length > 0 &&
-        this.validatedFacilityCount === this.selectedFacilities.length,
+        this.locatedFacilityCount === this.selectedFacilities.length,
       this.responsibles.some((row) => row.status === 'Activo'),
     ];
     return Math.round((checks.filter(Boolean).length * 100) / checks.length);
   }
   get pendingCoordinates() {
-    return this.selectedFacilities.length - this.validatedFacilityCount;
+    return this.selectedFacilities.filter((row) => !row.hasCoordinates).length;
   }
   get activeRegionCount() {
     return this.regions.filter((row) => row.active).length;
@@ -1083,7 +1097,8 @@ export class Territory implements OnInit {
   }
   protected readonly userScopeLabels = USER_SCOPE_LABELS;
   protected get assignableUserRoles() {
-    return userRoleOptions(this.globalScope);
+    const roles = userRoleOptions(this.globalScope);
+    return this.editingUser ? roles.filter((role) => role.code !== 'SUPERADMIN') : roles;
   }
   protected get allowedUserScopes() {
     return userScopeOptions(this.userForm.roleCode, this.globalScope);
@@ -1193,6 +1208,7 @@ export class Territory implements OnInit {
             type: row.type,
             status: this.statusLabel(row.operationalStatus),
             rawStatus: row.operationalStatus,
+            hasCoordinates: row.hasCoordinates,
             coordinatesValidated: row.coordinatesValidated,
             active: row.active,
             updatedAt: row.updatedAt,

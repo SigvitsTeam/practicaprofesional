@@ -23,6 +23,8 @@ export interface FacilitySummary {
   type: string;
   address: string | null;
   operationalStatus: OperationalStatus;
+  /** True when both latitude and longitude are present, regardless of GPS validation status. */
+  hasCoordinates: boolean;
   coordinatesValidated: boolean;
   active: boolean;
   updatedAt: Date;

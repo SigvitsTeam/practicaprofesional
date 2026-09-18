@@ -5,6 +5,7 @@ import { ItsReportWorkflowRepository } from '../application/ports/its-report-wor
 import {
   ItsReportNotFoundError,
   ItsReportWorkflowError,
+  type Its2ReportContext,
   type Its2ReportSummary,
   type PrepareIts2ReportInput,
   type ReportTerritory,
@@ -56,6 +57,44 @@ type ReportRecord = {
 export class PrismaItsReportWorkflowRepository extends ItsReportWorkflowRepository {
   constructor(private readonly prisma: PrismaService) {
     super();
+  }
+
+  async getContext(facilityIds?: readonly string[]): Promise<Its2ReportContext> {
+    const facilities = await this.prisma.client.healthFacility.findMany({
+      where: {
+        active: true,
+        ...(facilityIds ? { id: { in: [...facilityIds] } } : {}),
+      },
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        type: true,
+        municipality: {
+          select: {
+            id: true,
+            officialCode: true,
+            name: true,
+            region: { select: { id: true, code: true, name: true } },
+          },
+        },
+      },
+    });
+    return {
+      facilities: facilities.map((facility) => ({
+        id: facility.id,
+        code: facility.code,
+        name: facility.name,
+        type: facility.type,
+        municipality: {
+          id: facility.municipality.id,
+          code: facility.municipality.officialCode,
+          name: facility.municipality.name,
+        },
+        region: facility.municipality.region,
+      })),
+    };
   }
 
   async prepare(input: PrepareIts2ReportInput): Promise<Its2ReportSummary> {

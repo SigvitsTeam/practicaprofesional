@@ -298,29 +298,33 @@
               }
             </td>
             <td class="user-actions">
-              <button type="button" (click)="openUserEdit(user)">Cambiar acceso</button>
-              @if (!user.hasExternalIdentity) {
-                <button type="button" (click)="openInvitation(user)">Invitar por correo</button
-                ><button type="button" (click)="openIdentityLink(user)">
-                  Vincular manualmente
-                </button>
-              } @else {
-                <button
-                  type="button"
-                  (click)="checkInvitationStatus(user)"
-                  [disabled]="loading || !!checkingInvitationId()"
-                >
-                  {{
-                    checkingInvitationId() === user.id ? 'Consultando…' : 'Consultar confirmación'
-                  }}
-                </button>
-                @if (invitationStatuses()[user.id]?.status === 'PENDING') {
-                  <button type="button" (click)="openInvitationResend(user)" [disabled]="loading">
-                    Reenviar invitación
+              @if (canChangeUserAdministration(user)) {
+                <button type="button" (click)="openUserEdit(user)">Cambiar acceso</button>
+              }
+              @if (canHandleUserInvitation(user)) {
+                @if (!user.hasExternalIdentity) {
+                  <button type="button" (click)="openInvitation(user)">Invitar por correo</button
+                  ><button type="button" (click)="openIdentityLink(user)">
+                    Vincular manualmente
                   </button>
+                } @else {
+                  <button
+                    type="button"
+                    (click)="checkInvitationStatus(user)"
+                    [disabled]="loading || !!checkingInvitationId()"
+                  >
+                    {{
+                      checkingInvitationId() === user.id ? 'Consultando…' : 'Consultar confirmación'
+                    }}
+                  </button>
+                  @if (invitationStatuses()[user.id]?.status === 'PENDING') {
+                    <button type="button" (click)="openInvitationResend(user)" [disabled]="loading">
+                      Reenviar invitación
+                    </button>
+                  }
                 }
               }
-              @if (user.active || user.hasExternalIdentity) {
+              @if (canChangeUserAdministration(user) && (user.active || user.hasExternalIdentity)) {
                 <button type="button" (click)="openStatus(user)">
                   {{ user.active ? 'Suspender' : 'Reactivar' }}
                 </button>
@@ -1370,8 +1374,20 @@
             @for (facility of selectedFacilities; track facility.id) {
               <button class="level-3">
                 <span>•</span><strong>{{ facility.name }}</strong>
-                @if (!facility.coordinatesValidated) {
-                  <b class="warning-text" title="Coordenadas pendientes">!</b>
+                @if (!facility.hasCoordinates) {
+                  <b
+                    class="warning-text coordinate-state"
+                    title="Sin coordenadas registradas"
+                    aria-label="Sin coordenadas registradas"
+                    >!</b
+                  >
+                } @else if (!facility.coordinatesValidated) {
+                  <b
+                    class="reference-text coordinate-state"
+                    title="Referencia pendiente de validación GPS"
+                    aria-label="Referencia pendiente de validación GPS"
+                    >i</b
+                  >
                 }
               </button>
             }
@@ -1496,12 +1512,17 @@
                 </dl>
                 <div class="geo-readiness">
                   <span
-                    ><strong
-                      >{{ validatedFacilityCount }} de {{ selectedFacilities.length }}</strong
-                    >
-                    establecimientos con coordenadas validadas</span
+                    ><strong>{{ locatedFacilityCount }} de {{ selectedFacilities.length }}</strong>
+                    establecimientos con coordenadas registradas</span
                   >
                   <div class="progress"><i [style.width.%]="coordinateProgress"></i></div>
+                  @if (pendingCoordinateValidationCount > 0) {
+                    <small class="geo-reference-note"
+                      >{{ validatedFacilityCount }} punto(s) GPS validado(s) ·
+                      {{ pendingCoordinateValidationCount }} referencia(s) pendiente(s) de
+                      validación GPS</small
+                    >
+                  }
                 </div>
               </div>
             </section>
@@ -1632,10 +1653,21 @@
           <i>!</i><span>{{ pendingCoordinates }} establecimiento(s) sin coordenadas</span><b>›</b>
         </button>
       }
+      @if (pendingCoordinateValidationCount > 0) {
+        <button>
+          <i>i</i
+          ><span
+            >{{ pendingCoordinateValidationCount }} referencia(s) pendiente(s) de validación
+            GPS</span
+          ><b>›</b>
+        </button>
+      }
       @if (!responsibles.length) {
         <button><i>i</i><span>Sin responsables visibles asignados</span><b>›</b></button>
       }
-      @if (pendingCoordinates === 0 && responsibles.length) {
+      @if (
+        pendingCoordinates === 0 && pendingCoordinateValidationCount === 0 && responsibles.length
+      ) {
         <p>Sin alertas territoriales de configuración.</p>
       }
     </article>

@@ -24,9 +24,11 @@ describe('ItsReportWorkflowUseCase', () => {
   const findTerritory = jest.fn();
   const approveMunicipally = jest.fn();
   const listMunicipalInbox = jest.fn();
+  const getContext = jest.fn();
   const getCurrent = jest.fn();
   const submit = jest.fn();
   const repository = {
+    getContext,
     prepare,
     findTerritory,
     submit,
@@ -38,6 +40,39 @@ describe('ItsReportWorkflowUseCase', () => {
   const useCase = new ItsReportWorkflowUseCase(repository);
 
   beforeEach(() => jest.clearAllMocks());
+
+  it('loads only assigned facilities for municipal and regional report contexts', async () => {
+    getContext.mockResolvedValue({ facilities: [] });
+
+    await useCase.getContext(subject);
+
+    expect(getContext).toHaveBeenCalledWith(['facility-1']);
+  });
+
+  it('expands a national report context to every active facility and reads any facility', async () => {
+    const national: AuthorizationSubject = {
+      ...subject,
+      roles: [RoleCode.CentralAdmin],
+      territory: {
+        national: true,
+        regionIds: [],
+        municipalityIds: [],
+        facilityIds: [],
+      },
+    };
+    getContext.mockResolvedValue({ facilities: [] });
+    getCurrent.mockResolvedValue({});
+
+    await expect(useCase.getContext(national)).resolves.toEqual({ facilities: [] });
+    await expect(useCase.getCurrent('facility-anywhere', 2026, 8, national)).resolves.toEqual({});
+
+    expect(getContext).toHaveBeenCalledWith(undefined);
+    expect(getCurrent).toHaveBeenCalledWith({
+      facilityId: 'facility-anywhere',
+      year: 2026,
+      month: 8,
+    });
+  });
 
   it('prepares only facilities assigned to the authenticated user', () => {
     expect(() =>
