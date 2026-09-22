@@ -33,6 +33,16 @@ export interface MonthlyReportingPeriodResponse {
   status: 'ABIERTO' | 'CERRADO' | 'BLOQUEADO';
 }
 
+export interface EpidemiologicalWeekResponse {
+  id: string;
+  year: number;
+  weekNumber: number;
+  startDate: string;
+  endDate: string;
+  active: boolean;
+  label: string;
+}
+
 export interface CreateAttentionRequest {
   facilityId: string;
   attentionDate: string;
@@ -275,6 +285,12 @@ export class ItsCaptureApiService {
   getMonthlyReportingPeriods() {
     return this.http.get<MonthlyReportingPeriodResponse[]>(
       `${this.runtimeConfig.apiUrl}/v1/reporting-periods/monthly`,
+    );
+  }
+  getEpidemiologicalWeeks(startYear: number, endYear: number) {
+    return this.http.get<EpidemiologicalWeekResponse[]>(
+      `${this.runtimeConfig.apiUrl}/v1/reporting-periods/epidemiological-weeks`,
+      { params: { startYear, endYear } },
     );
   }
   createAttention(input: CreateAttentionRequest) {

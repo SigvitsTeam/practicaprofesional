@@ -258,7 +258,7 @@ export class PrismaExportJobRepository extends ExportJobRepository {
     return {
       storageKey: job.outputStorageKey,
       format: job.format,
-      filename: `SIGVITS-${job.reportType}-${job.year}-${String(job.month).padStart(2, '0')}.${job.format.toLowerCase()}`,
+      filename: this.downloadFilename(job),
       reportType: job.reportType,
       scopeLevel: job.scopeLevel,
       territoryId: job.territoryId,
@@ -357,5 +357,35 @@ export class PrismaExportJobRepository extends ExportJobRepository {
         .map(([key, item]) => `${JSON.stringify(key)}:${this.canonicalJson(item)}`)
         .join(',')}}`;
     return JSON.stringify(value) ?? 'null';
+  }
+
+  private downloadFilename(job: {
+    reportType: string;
+    year: number;
+    month: number;
+    format: string;
+    parameters: Prisma.JsonValue | null;
+  }): string {
+    let period = `${job.year}-${String(job.month).padStart(2, '0')}`;
+    if (
+      job.reportType === 'MUNICIPAL_CONSOLIDATED' &&
+      job.parameters &&
+      typeof job.parameters === 'object' &&
+      !Array.isArray(job.parameters)
+    ) {
+      const timeUnit = job.parameters['timeUnit'];
+      const start = job.parameters['startPeriod'];
+      const end = job.parameters['endPeriod'];
+      const monthPattern = /^(20\d{2}|2100)-(0[1-9]|1[0-2])$/;
+      const weekPattern = /^(20\d{2}|2100)-W(0[1-9]|[1-4]\d|5[0-3])$/;
+      if (
+        typeof start === 'string' &&
+        typeof end === 'string' &&
+        ((timeUnit === 'MONTH' && monthPattern.test(start) && monthPattern.test(end)) ||
+          (timeUnit === 'EPIDEMIOLOGICAL_WEEK' && weekPattern.test(start) && weekPattern.test(end)))
+      )
+        period = `${timeUnit === 'MONTH' ? 'MES' : 'SE'}-${start}_a_${end}`;
+    }
+    return `SIGVITS-${job.reportType}-${period}.${job.format.toLowerCase()}`;
   }
 }

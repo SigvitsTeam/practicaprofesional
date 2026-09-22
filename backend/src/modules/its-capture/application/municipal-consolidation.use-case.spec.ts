@@ -31,6 +31,7 @@ const regionalReviewer: AuthorizationSubject = {
     regionIds: ['region-1'],
     regionGrantIds: ['region-1'],
     municipalityIds: ['municipality-1'],
+    municipalityScopeIds: ['municipality-1'],
     facilityIds: [],
   },
 };
@@ -72,6 +73,45 @@ describe('MunicipalConsolidationUseCase', () => {
     expect(getContext).toHaveBeenCalledWith(['municipality-1']);
   });
 
+  it('allows a read-only regional supervisor to list only municipalities in scope', async () => {
+    const supervisor: AuthorizationSubject = {
+      ...regionalReviewer,
+      roles: [RoleCode.ReadOnlySupervisor],
+      permissions: ['its2:reports:read'],
+      territory: {
+        ...regionalReviewer.territory,
+        municipalityScopeIds: ['municipality-1', 'municipality-2'],
+      },
+    };
+    getContext.mockResolvedValue({ municipalities: [] });
+
+    await useCase.getContext(supervisor);
+
+    expect(getContext).toHaveBeenCalledWith(['municipality-1', 'municipality-2']);
+    expect(() =>
+      useCase.prepare({ municipalityId: 'municipality-1', year: 2026, month: 8 }, supervisor),
+    ).toThrow(MunicipalConsolidationAccessError);
+    expect(prepare).not.toHaveBeenCalled();
+  });
+
+  it('allows a national read-only supervisor to list the national municipality catalog', async () => {
+    const supervisor: AuthorizationSubject = {
+      ...regionalReviewer,
+      roles: [RoleCode.ReadOnlySupervisor],
+      permissions: ['its2:reports:read'],
+      territory: {
+        ...regionalReviewer.territory,
+        national: true,
+        municipalityScopeIds: [],
+      },
+    };
+    getContext.mockResolvedValue({ municipalities: [] });
+
+    await useCase.getContext(supervisor);
+
+    expect(getContext).toHaveBeenCalledWith();
+  });
+
   it('prepares only municipalities assigned to the authenticated user', () => {
     expect(() =>
       useCase.prepare({ municipalityId: 'municipality-2', year: 2026, month: 8 }, subject),
@@ -100,15 +140,14 @@ describe('MunicipalConsolidationUseCase', () => {
     expect(prepare).not.toHaveBeenCalled();
   });
 
-  it('requires the exact municipal permission for preparation and submission', async () => {
+  it('allows read-only context without granting preparation or submission', async () => {
     const readOnlyCoordinator: AuthorizationSubject = {
       ...subject,
       permissions: ['its2:reports:read'],
     };
+    getContext.mockResolvedValue({ municipalities: [] });
 
-    expect(() => useCase.getContext(readOnlyCoordinator)).toThrow(
-      MunicipalConsolidationAccessError,
-    );
+    await useCase.getContext(readOnlyCoordinator);
     expect(() =>
       useCase.prepare(
         { municipalityId: 'municipality-1', year: 2026, month: 8 },
@@ -118,9 +157,19 @@ describe('MunicipalConsolidationUseCase', () => {
     await expect(
       useCase.submitToRegion('report-1', undefined, readOnlyCoordinator),
     ).rejects.toBeInstanceOf(MunicipalConsolidationAccessError);
-    expect(getContext).not.toHaveBeenCalled();
+    expect(getContext).toHaveBeenCalledWith(['municipality-1']);
     expect(findTerritory).not.toHaveBeenCalled();
     expect(submitToRegion).not.toHaveBeenCalled();
+  });
+
+  it('requires read permission for the municipality catalog', () => {
+    const withoutRead: AuthorizationSubject = {
+      ...subject,
+      permissions: ['its2:municipal:prepare'],
+    };
+
+    expect(() => useCase.getContext(withoutRead)).toThrow(MunicipalConsolidationAccessError);
+    expect(getContext).not.toHaveBeenCalled();
   });
 
   it('submits only a consolidation owned by the municipal scope', async () => {
@@ -309,6 +358,8 @@ describe('MunicipalConsolidationUseCase', () => {
       await expect(
         useCase.getCurrent('municipality-1', 2026, 8, administrator),
       ).rejects.toBeInstanceOf(MunicipalConsolidationAccessError);
+      expect(() => useCase.getContext(administrator)).toThrow(MunicipalConsolidationAccessError);
+      expect(getContext).not.toHaveBeenCalled();
     },
   );
 });

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { ReportingPeriodRepository } from '../application/ports/reporting-period.repository';
-import type { MonthlyReportingPeriod } from '../domain/reporting-period';
+import type { EpidemiologicalWeekPeriod, MonthlyReportingPeriod } from '../domain/reporting-period';
 
 @Injectable()
 export class PrismaReportingPeriodRepository extends ReportingPeriodRepository {
@@ -27,5 +27,31 @@ export class PrismaReportingPeriodRepository extends ReportingPeriodRepository {
     return periods
       .filter((period): period is typeof period & { month: number } => period.month !== null)
       .reverse();
+  }
+
+  async listEpidemiologicalWeeks(
+    startYear: number,
+    endYear: number,
+  ): Promise<readonly EpidemiologicalWeekPeriod[]> {
+    const weeks = await this.prisma.client.epidemiologicalWeek.findMany({
+      where: { year: { gte: startYear, lte: endYear }, active: true },
+      orderBy: [{ startDate: 'asc' }, { weekNumber: 'asc' }],
+      select: {
+        id: true,
+        year: true,
+        weekNumber: true,
+        startDate: true,
+        endDate: true,
+        active: true,
+      },
+    });
+    return weeks.map((week) => ({
+      ...week,
+      label: `SE ${String(week.weekNumber).padStart(2, '0')} · ${this.dateLabel(week.startDate)}–${this.dateLabel(week.endDate)}`,
+    }));
+  }
+
+  private dateLabel(value: Date): string {
+    return `${String(value.getUTCDate()).padStart(2, '0')}/${String(value.getUTCMonth() + 1).padStart(2, '0')}/${value.getUTCFullYear()}`;
   }
 }

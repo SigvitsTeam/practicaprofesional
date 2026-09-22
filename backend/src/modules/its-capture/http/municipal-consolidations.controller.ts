@@ -51,8 +51,8 @@ export class MunicipalConsolidationsController {
 
   @Get('context')
   @RequireAccess({
-    permission: 'its2:municipal:prepare',
-    dataLevel: DataLevel.Configuration,
+    permission: 'its2:reports:read',
+    dataLevel: DataLevel.Aggregated,
     scope: 'OWN',
   })
   context(@CurrentSubject() subject: AuthorizationSubject): Promise<MunicipalConsolidationContext> {

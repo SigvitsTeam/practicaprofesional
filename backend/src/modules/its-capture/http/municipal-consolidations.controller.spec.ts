@@ -1,4 +1,6 @@
 import { StreamableFile } from '@nestjs/common';
+import { DataLevel } from '../../authorization/domain/authorization.types';
+import { ACCESS_REQUIREMENT_KEY } from '../../authorization/http/require-access.decorator';
 import type { ItsMonthlyReport } from '../domain/its-monthly-report';
 import type { MunicipalPreliminaryReport } from '../domain/municipal-consolidation';
 import { MunicipalConsolidationsController } from './municipal-consolidations.controller';
@@ -34,6 +36,18 @@ const preliminaryReport: MunicipalPreliminaryReport = {
 };
 
 describe('MunicipalConsolidationsController downloads', () => {
+  it('protects the municipality context as aggregated report data for read-only users', () => {
+    const contextHandler = Object.getOwnPropertyDescriptor(
+      MunicipalConsolidationsController.prototype,
+      'context',
+    )?.value as object;
+    expect(Reflect.getMetadata(ACCESS_REQUIREMENT_KEY, contextHandler)).toMatchObject({
+      permission: 'its2:reports:read',
+      dataLevel: DataLevel.Aggregated,
+      scope: 'OWN',
+    });
+  });
+
   it('keeps the detailed ITS-2 template only for a regionally approved consolidation', async () => {
     const workflow = {
       getCurrent: jest.fn().mockResolvedValue({

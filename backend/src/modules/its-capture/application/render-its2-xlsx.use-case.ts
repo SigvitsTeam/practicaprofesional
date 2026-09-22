@@ -1,13 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import type { ItsMonthlyReport } from '../domain/its-monthly-report';
 import { loadOfficialWorkbook } from './official-form-workbook';
+import type { Its2RenderOptions } from './its2-matrix-privacy.policy';
 
 const ITS2_FIRST_DATA_ROW = 14;
 const ITS2_LAST_DATA_ROW = 31;
 
 @Injectable()
 export class RenderIts2XlsxUseCase {
-  async execute(report: ItsMonthlyReport, protectionKey = 'SIGVITS'): Promise<Uint8Array> {
+  async execute(
+    report: ItsMonthlyReport,
+    protectionKey = 'SIGVITS',
+    options: Its2RenderOptions = {},
+  ): Promise<Uint8Array> {
     if (report.rows.length > ITS2_LAST_DATA_ROW - ITS2_FIRST_DATA_ROW + 1)
       throw new Error('ITS2_OFFICIAL_TEMPLATE_DISEASE_LIMIT_EXCEEDED');
     if (report.ageGroups.length > 9)
@@ -18,10 +23,23 @@ export class RenderIts2XlsxUseCase {
 
     sheet.getCell('D7').value = this.safe(report.facility.regionName);
     sheet.getCell('M7').value = this.safe(report.facility.municipalityName);
-    sheet.getCell('AA7').value = this.safe(report.facility.name);
-    sheet.getCell('C9').value = String(report.month).padStart(2, '0');
-    sheet.getCell('K9').value = report.year;
+    sheet.getCell('AA7').value = this.safe(
+      options.preliminaryConsultation
+        ? `${report.facility.name} · PRELIMINAR · CONSULTA`
+        : report.facility.name,
+    );
+    sheet.getCell('C9').value = options.periodLabel ?? String(report.month).padStart(2, '0');
+    sheet.getCell('K9').value = options.yearLabel ?? report.year;
     sheet.getCell('AA9').value = this.safe(report.facility.code);
+    if (options.preliminaryConsultation) {
+      sheet.getCell('A5').value = 'INFORME ITS 2 ACUMULADO · PRELIMINAR · CONSULTA (NO OFICIAL)';
+      sheet.mergeCells('A6:AL6');
+      sheet.getCell('A6').value = options.protection?.smallCountThreshold
+        ? `PROTEGIDO: fila completa y totales ocultos cuando alguna celda positiva es menor a ${options.protection.smallCountThreshold}.`
+        : 'Consulta acumulada preliminar; no corresponde a un cierre mensual oficial.';
+      sheet.getCell('A6').font = { bold: true, size: 7, color: { argb: 'FF8A5A00' } };
+      sheet.getCell('A6').alignment = { horizontal: 'center', vertical: 'middle' };
+    }
 
     const ageGroups = [...report.ageGroups].sort(
       (left, right) => left.formatOrder - right.formatOrder,
@@ -62,18 +80,37 @@ export class RenderIts2XlsxUseCase {
           ]
         : Array.from({ length: 36 }, () => 0);
       dataRows.push(values);
-      for (let offset = 0; offset < 36; offset += 1)
-        sheet.getCell(rowNumber, 3 + offset).value = values[offset] ?? 0;
+      const protectedRow = options.protection?.protectedRowIndexes.includes(index) ?? false;
+      for (let offset = 0; offset < 36; offset += 1) {
+        const cell = sheet.getCell(rowNumber, 3 + offset);
+        cell.value = protectedRow ? 'PROTEGIDO' : (values[offset] ?? 0);
+        if (protectedRow) {
+          cell.font = { ...cell.font, bold: true, size: 5, color: { argb: 'FF8A5A00' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', shrinkToFit: true };
+        }
+      }
     }
 
     for (let offset = 0; offset < 36; offset += 1) {
       const column = 3 + offset;
       const total = dataRows.reduce((sum, row) => sum + (row[offset] ?? 0), 0);
       const address = sheet.getCell(ITS2_FIRST_DATA_ROW, column).address.replace(/\d+$/, '');
-      sheet.getCell(32, column).value = {
-        formula: `SUM(${address}${ITS2_FIRST_DATA_ROW}:${address}${ITS2_LAST_DATA_ROW})`,
-        result: total,
-      };
+      const totalCell = sheet.getCell(32, column);
+      totalCell.value = options.protection?.protectTotals
+        ? 'PROTEGIDO'
+        : {
+            formula: `SUM(${address}${ITS2_FIRST_DATA_ROW}:${address}${ITS2_LAST_DATA_ROW})`,
+            result: total,
+          };
+      if (options.protection?.protectTotals) {
+        totalCell.font = {
+          ...totalCell.font,
+          bold: true,
+          size: 5,
+          color: { argb: 'FF8A5A00' },
+        };
+        totalCell.alignment = { horizontal: 'center', vertical: 'middle', shrinkToFit: true };
+      }
     }
     sheet.pageSetup.orientation = 'landscape';
     sheet.pageSetup.fitToPage = true;

@@ -26,11 +26,18 @@ export class MunicipalConsolidationUseCase {
   ) {}
 
   getContext(subject: AuthorizationSubject): Promise<MunicipalConsolidationContext> {
-    this.requireMunicipalOperator(subject, 'its2:municipal:prepare');
-    const municipalityIds = subject.territory.municipalityGrantIds ?? [];
+    this.rejectAdministrativeRole(subject);
+    if (!this.hasPermission(subject, 'its2:reports:read'))
+      throw new MunicipalConsolidationAccessError(
+        'La consulta requiere permiso de lectura de reportes ITS-2.',
+      );
+    if (subject.territory.national) return this.repository.getContext();
+
+    const municipalityIds =
+      subject.territory.municipalityScopeIds ?? subject.territory.municipalityGrantIds ?? [];
     if (!municipalityIds.length)
       throw new MunicipalConsolidationAccessError(
-        'La operación requiere una asignación municipal directa.',
+        'La consulta requiere un alcance municipal o regional asignado.',
       );
     return this.repository.getContext(municipalityIds);
   }

@@ -8,3 +8,15 @@ export interface MonthlyReportingPeriod {
   endDate: Date;
   status: ReportingPeriodStatus;
 }
+
+export interface EpidemiologicalWeekPeriod {
+  id: string;
+  year: number;
+  weekNumber: number;
+  startDate: Date;
+  endDate: Date;
+  active: boolean;
+  label: string;
+}
+
+export class InvalidReportingPeriodRangeError extends Error {}

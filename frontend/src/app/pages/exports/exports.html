@@ -243,44 +243,163 @@
   @if (showMunicipalDownload) {
     <div class="annual-backdrop">
       <section
-        class="annual-dialog scoped-export-dialog"
+        class="annual-dialog scoped-export-dialog municipal-export-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label="Generar resumen municipal"
+        aria-labelledby="municipal-export-title"
+        aria-describedby="municipal-export-description"
+        [attr.aria-busy]="loading() || municipalWeeksLoading()"
       >
         <header>
           <div>
-            <span class="eyebrow">RESUMEN DESCARGABLE</span>
-            <h2>Resumen municipal</h2>
-            <p>
-              Período: {{ municipalPeriod?.label }}. Se sumará automáticamente la captura ITS 1 de
-              los establecimientos. Si el consolidado aún no está aprobado, el archivo indicará que
-              los datos son preliminares.
+            <span class="eyebrow">EXPORTACIÓN ITS-2 MUNICIPAL</span>
+            <h2 id="municipal-export-title">Consolidado municipal ITS-2</h2>
+            <p id="municipal-export-description">
+              Suma todos los establecimientos del municipio autorizado en el intervalo inclusivo
+              seleccionado. Si el flujo aún no está aprobado, el archivo quedará identificado como
+              preliminar.
             </p>
           </div>
           <button
             type="button"
             aria-label="Cerrar"
-            [disabled]="loading()"
+            [disabled]="loading() || municipalWeeksLoading()"
             (click)="closeMunicipalDownload()"
           >
             ×
           </button>
         </header>
         <div class="scoped-export-form municipal-download-form">
+          <label class="municipal-territory-field">
+            <span>Municipio autorizado</span>
+            <select
+              name="municipalTerritory"
+              [(ngModel)]="municipalForm.municipalityId"
+              [disabled]="loading() || municipalTargets.length <= 1"
+              [class.invalid]="municipalFormSubmitted && !municipalForm.municipalityId"
+              [attr.aria-invalid]="municipalFormSubmitted && !municipalForm.municipalityId"
+            >
+              <option value="">Seleccione un municipio</option>
+              @for (target of municipalTargets; track target.id) {
+                <option [value]="target.id">{{ target.code }} · {{ target.name }}</option>
+              }
+            </select>
+          </label>
+
+          <fieldset class="municipal-time-unit">
+            <legend>Unidad del rango</legend>
+            <div>
+              <label [class.selected]="municipalForm.timeUnit === 'MONTH'">
+                <input
+                  type="radio"
+                  name="municipalTimeUnit"
+                  value="MONTH"
+                  [checked]="municipalForm.timeUnit === 'MONTH'"
+                  [disabled]="loading() || municipalWeeksLoading()"
+                  (change)="setMunicipalTimeUnit('MONTH')"
+                />
+                <span>Meses</span>
+              </label>
+              <label [class.selected]="municipalForm.timeUnit === 'EPIDEMIOLOGICAL_WEEK'">
+                <input
+                  type="radio"
+                  name="municipalTimeUnit"
+                  value="EPIDEMIOLOGICAL_WEEK"
+                  [checked]="municipalForm.timeUnit === 'EPIDEMIOLOGICAL_WEEK'"
+                  [disabled]="loading() || municipalWeeksLoading()"
+                  (change)="setMunicipalTimeUnit('EPIDEMIOLOGICAL_WEEK')"
+                />
+                <span>Semanas epidemiológicas</span>
+              </label>
+            </div>
+          </fieldset>
+
           <label>
+            <span>Desde (inclusivo)</span>
+            <select
+              name="municipalStartPeriod"
+              aria-label="Inicio del rango municipal"
+              [ngModel]="municipalForm.startPeriod"
+              [disabled]="loading() || municipalWeeksLoading()"
+              [class.invalid]="municipalFormSubmitted && !municipalForm.startPeriod"
+              [attr.aria-invalid]="municipalFormSubmitted && !municipalForm.startPeriod"
+              (ngModelChange)="setMunicipalStartPeriod($event)"
+            >
+              <option value="">Seleccione el inicio</option>
+              @for (period of municipalStartPeriods; track period.key) {
+                <option [value]="period.key">{{ period.label }}</option>
+              }
+            </select>
+            @if (municipalFormSubmitted && !municipalForm.startPeriod) {
+              <small class="field-error">Seleccione el inicio del rango.</small>
+            }
+          </label>
+
+          <label>
+            <span>Hasta (inclusivo)</span>
+            <select
+              name="municipalEndPeriod"
+              aria-label="Fin del rango municipal"
+              [ngModel]="municipalForm.endPeriod"
+              [disabled]="loading() || municipalWeeksLoading() || !municipalForm.startPeriod"
+              [class.invalid]="municipalFormSubmitted && !municipalForm.endPeriod"
+              [attr.aria-invalid]="municipalFormSubmitted && !municipalForm.endPeriod"
+              (ngModelChange)="setMunicipalEndPeriod($event)"
+            >
+              <option value="">Seleccione el fin</option>
+              @for (period of municipalEndPeriods; track period.key) {
+                <option [value]="period.key">{{ period.label }}</option>
+              }
+            </select>
+            @if (municipalFormSubmitted && !municipalForm.endPeriod) {
+              <small class="field-error">Seleccione el fin del rango.</small>
+            }
+          </label>
+
+          <label class="municipal-format-field">
             <span>Formato</span>
-            <select [(ngModel)]="municipalFormat" [disabled]="loading()">
+            <select
+              name="municipalFormat"
+              [(ngModel)]="municipalForm.format"
+              [disabled]="loading() || municipalWeeksLoading()"
+            >
               <option value="XLSX">Excel</option>
               <option value="PDF">PDF</option>
             </select>
           </label>
+
+          <div class="municipal-range-summary" role="status">
+            <span>Intervalo que contendrá el archivo</span>
+            <strong>{{ municipalPeriodLabel }}</strong>
+            <small>El rango se acumula en el formato ITS-2 y conserva su alcance municipal.</small>
+          </div>
+
+          @if (municipalWeeksLoading()) {
+            <p class="municipal-form-status" role="status">
+              Cargando calendario epidemiológico institucional…
+            </p>
+          }
+          @if (municipalLoadError || municipalWeekError) {
+            <p class="municipal-form-status error" role="alert">
+              {{ municipalLoadError || municipalWeekError }}
+            </p>
+          }
+          @if (
+            municipalFormSubmitted &&
+            municipalForm.startPeriod &&
+            municipalForm.endPeriod &&
+            municipalForm.startPeriod > municipalForm.endPeriod
+          ) {
+            <p class="municipal-form-status error" role="alert">
+              El inicio no puede ser posterior al fin.
+            </p>
+          }
         </div>
         <footer>
           <button
             class="btn secondary"
             type="button"
-            [disabled]="loading()"
+            [disabled]="loading() || municipalWeeksLoading()"
             (click)="closeMunicipalDownload()"
           >
             Cancelar
@@ -288,10 +407,10 @@
           <button
             class="btn primary"
             type="button"
-            [disabled]="loading()"
+            [disabled]="loading() || municipalWeeksLoading() || municipalRangeInvalid"
             (click)="downloadMunicipalConsolidation()"
           >
-            {{ loading() ? 'Solicitando…' : 'Generar archivo' }}
+            {{ loading() ? 'Solicitando…' : 'Generar ITS-2 municipal' }}
           </button>
         </footer>
       </section>

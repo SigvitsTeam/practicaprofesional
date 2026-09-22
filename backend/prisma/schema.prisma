@@ -536,6 +536,8 @@ model ItsAttention {
   diagnoses             AttentionDiagnosis[]
 
   @@index([facilityId, attentionDate, status], map: "idx_atenciones_establecimiento_fecha")
+  @@index([municipalityId, attentionDate, status], map: "idx_atenciones_municipio_fecha_estado")
+  @@index([municipalityId, epidemiologicalWeekId, status], map: "idx_atenciones_municipio_semana_estado")
   @@index([facilityId, year, month, status, attentionDate, id], map: "idx_atenciones_lista_mensual")
   @@index([patientRecordNumber, attentionDate, facilityId], map: "idx_atenciones_posible_duplicado")
   @@index([regionId, municipalityId, year, month], map: "idx_atenciones_territorio_periodo")

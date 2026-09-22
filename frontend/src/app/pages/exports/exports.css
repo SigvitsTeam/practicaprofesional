@@ -395,10 +395,139 @@ td {
   width: 100%;
 }
 .municipal-download-form {
-  grid-template-columns: minmax(220px, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.municipal-export-dialog {
+  max-width: 720px;
+}
+.municipal-download-form > label,
+.municipal-download-form > fieldset,
+.municipal-download-form > div,
+.municipal-download-form > p {
+  min-width: 0;
+}
+.municipal-territory-field,
+.municipal-time-unit,
+.municipal-range-summary,
+.municipal-form-status {
+  grid-column: 1/-1;
+}
+.municipal-time-unit {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.municipal-time-unit legend {
+  margin-bottom: 7px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.municipal-time-unit > div {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.municipal-time-unit label {
+  min-height: 42px;
+  padding: 9px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  cursor: pointer;
+}
+.municipal-time-unit label.selected {
+  border-color: var(--green);
+  background: #eff8f5;
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.municipal-time-unit input {
+  width: auto;
+  margin: 0;
+  accent-color: var(--green);
+}
+.municipal-time-unit label > span {
+  margin: 0;
+  color: var(--ink);
+  font-size: 0.72rem;
+}
+.municipal-download-form select.invalid {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px #bc4a5229;
+}
+.scoped-export-form .field-error {
+  margin-top: 5px;
+  color: var(--red);
+  font-size: 0.66rem;
+  line-height: 1.35;
+}
+.municipal-range-summary {
+  padding: 12px 14px;
+  border: 1px solid #c9dfeb;
+  border-radius: 8px;
+  background: #f1f7fa;
+}
+.municipal-range-summary span,
+.municipal-range-summary strong,
+.municipal-range-summary small {
+  display: block;
+}
+.municipal-range-summary span {
+  margin: 0;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+}
+.municipal-range-summary strong {
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+.municipal-range-summary small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+.municipal-form-status {
+  margin: 0;
+  padding: 10px 12px;
+  color: #35637a;
+  border: 1px solid #c9dfeb;
+  border-radius: 7px;
+  background: #f1f7fa;
+  font-size: 0.68rem;
+}
+.municipal-form-status.error {
+  color: #9a333b;
+  border-color: #edc8cb;
+  background: #fff1f2;
+}
+:host-context([data-theme='dark']) .municipal-time-unit label.selected {
+  background: #173b36;
+}
+:host-context([data-theme='dark']) .municipal-range-summary,
+:host-context([data-theme='dark']) .municipal-form-status {
+  color: #91c9f1;
+  border-color: #294958;
+  background: #142c37;
+}
+:host-context([data-theme='dark']) .municipal-form-status.error {
+  color: #f1a0a6;
+  border-color: #64333a;
+  background: #3b2429;
 }
 @media (max-width: 560px) {
   .scoped-export-form {
+    grid-template-columns: 1fr;
+  }
+  .municipal-territory-field,
+  .municipal-time-unit,
+  .municipal-range-summary,
+  .municipal-form-status {
+    grid-column: auto;
+  }
+  .municipal-time-unit > div {
     grid-template-columns: 1fr;
   }
 }

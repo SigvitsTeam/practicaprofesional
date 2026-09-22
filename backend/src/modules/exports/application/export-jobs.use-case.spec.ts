@@ -7,9 +7,12 @@ import {
   InvalidExportJobError,
   type CreateExportJobInput,
   type ExportJob,
+  type MunicipalConsolidatedExportParameters,
+  type ResolvedMunicipalExportRange,
 } from '../domain/export-job';
 import { ExportJobsUseCase } from './export-jobs.use-case';
 import { ExportJobRepository } from './ports/export-job.repository';
+import { MunicipalIts2ExportRepository } from './ports/municipal-its2-export.repository';
 
 class Repository extends ExportJobRepository {
   created?: CreateExportJobInput;
@@ -62,6 +65,39 @@ class Repository extends ExportJobRepository {
   }
 }
 
+class MunicipalRepository extends MunicipalIts2ExportRepository {
+  requested?: MunicipalConsolidatedExportParameters;
+
+  resolveRange(
+    parameters: MunicipalConsolidatedExportParameters,
+  ): Promise<ResolvedMunicipalExportRange> {
+    this.requested = parameters;
+    const epidemiological = parameters.timeUnit === 'EPIDEMIOLOGICAL_WEEK';
+    return Promise.resolve({
+      parameters,
+      startDate: new Date('2026-01-01T00:00:00.000Z'),
+      endDate: new Date('2026-03-31T00:00:00.000Z'),
+      anchorYear: 2026,
+      anchorMonth: 3,
+      periodLabel: epidemiological ? 'SE01–SE08' : '01–03',
+      yearLabel: '2026',
+      filenameLabel: epidemiological ? 'SE-2026-W01_a_2026-W08' : 'MES-2026-01_a_2026-03',
+      epidemiologicalWeekIds: epidemiological ? ['week-1', 'week-8'] : undefined,
+    });
+  }
+
+  getReportSource(): Promise<never> {
+    return Promise.reject(new Error('not implemented'));
+  }
+}
+
+function useCase(
+  repository: Repository = new Repository(),
+  municipal: MunicipalRepository = new MunicipalRepository(),
+): ExportJobsUseCase {
+  return new ExportJobsUseCase(repository, municipal);
+}
+
 const subject: AuthorizationSubject = {
   userId: 'user-1',
   roles: [RoleCode.CoordinationDataEntry],
@@ -90,21 +126,18 @@ const base = {
 describe('ExportJobsUseCase', () => {
   it('queues a bounded export inside the authorized scope', async () => {
     const repository = new Repository();
-    const result = await new ExportJobsUseCase(repository).create(base, subject);
+    const result = await useCase(repository).create(base, subject);
     expect(result.status).toBe('PENDIENTE');
     expect(repository.created?.requestedByUserId).toBe('user-1');
   });
 
-  it('rejects a territory outside the subject scope', () => {
-    expect(() =>
-      new ExportJobsUseCase(new Repository()).create(
-        { ...base, territoryId: 'municipality-2' },
-        subject,
-      ),
-    ).toThrow(ExportJobScopeError);
+  it('rejects a territory outside the subject scope', async () => {
+    await expect(
+      useCase().create({ ...base, territoryId: 'municipality-2' }, subject),
+    ).rejects.toThrow(ExportJobScopeError);
   });
 
-  it('does not elevate contextual parent IDs from a facility assignment', () => {
+  it('does not elevate contextual parent IDs from a facility assignment', async () => {
     const facilityOnly: AuthorizationSubject = {
       ...subject,
       roles: [RoleCode.FacilityManager],
@@ -119,10 +152,10 @@ describe('ExportJobsUseCase', () => {
         facilityGrantIds: ['facility-1'],
       },
     };
-    const jobs = new ExportJobsUseCase(new Repository());
+    const jobs = useCase();
 
-    expect(() => jobs.create(base, facilityOnly)).toThrow(ExportJobScopeError);
-    expect(() =>
+    await expect(jobs.create(base, facilityOnly)).rejects.toThrow(ExportJobScopeError);
+    await expect(
       jobs.create(
         {
           ...base,
@@ -132,7 +165,7 @@ describe('ExportJobsUseCase', () => {
         },
         facilityOnly,
       ),
-    ).toThrow(ExportJobScopeError);
+    ).rejects.toThrow(ExportJobScopeError);
   });
 
   it('does not elevate a direct municipality assignment to its contextual region', async () => {
@@ -150,13 +183,13 @@ describe('ExportJobsUseCase', () => {
         facilityGrantIds: [],
       },
     };
-    const jobs = new ExportJobsUseCase(new Repository());
+    const jobs = useCase();
 
     await expect(jobs.create(base, municipalOnly)).resolves.toMatchObject({
       scopeLevel: 'MUNICIPIO',
       territoryId: 'municipality-1',
     });
-    expect(() =>
+    await expect(
       jobs.create(
         {
           ...base,
@@ -166,10 +199,10 @@ describe('ExportJobsUseCase', () => {
         },
         municipalOnly,
       ),
-    ).toThrow(ExportJobScopeError);
+    ).rejects.toThrow(ExportJobScopeError);
   });
 
-  it('denies case exports to administrative superadmins even with residual permissions', () => {
+  it('denies case exports to administrative superadmins even with residual permissions', async () => {
     const administrative: AuthorizationSubject = {
       ...subject,
       roles: [RoleCode.SuperAdmin],
@@ -183,8 +216,8 @@ describe('ExportJobsUseCase', () => {
       },
     };
 
-    expect(() =>
-      new ExportJobsUseCase(new Repository()).create(
+    await expect(
+      useCase().create(
         {
           ...base,
           reportType: 'NATIONAL_CONSOLIDATED',
@@ -193,12 +226,12 @@ describe('ExportJobsUseCase', () => {
         },
         administrative,
       ),
-    ).toThrow(ExportJobScopeError);
+    ).rejects.toThrow(ExportJobScopeError);
   });
 
   it('queues ITS-2 only for an authorized establishment', async () => {
     const repository = new Repository();
-    const result = await new ExportJobsUseCase(repository).create(
+    const result = await useCase(repository).create(
       {
         ...base,
         reportType: 'ITS2_MONTHLY',
@@ -210,36 +243,30 @@ describe('ExportJobsUseCase', () => {
     expect(result.reportType).toBe('ITS2_MONTHLY');
   });
 
-  it('rejects ITS-2 with a broader territorial scope', () => {
-    expect(() =>
-      new ExportJobsUseCase(new Repository()).create(
-        { ...base, reportType: 'ITS2_MONTHLY' },
-        subject,
-      ),
-    ).toThrow(InvalidExportJobError);
+  it('rejects ITS-2 with a broader territorial scope', async () => {
+    await expect(
+      useCase().create({ ...base, reportType: 'ITS2_MONTHLY' }, subject),
+    ).rejects.toThrow(InvalidExportJobError);
   });
 
   it('queues a municipal consolidation only at municipal scope', async () => {
     const repository = new Repository();
-    const result = await new ExportJobsUseCase(repository).create(
+    const result = await useCase(repository).create(
       { ...base, reportType: 'MUNICIPAL_CONSOLIDATED' },
       subject,
     );
     expect(result.reportType).toBe('MUNICIPAL_CONSOLIDATED');
   });
 
-  it('rejects a consolidation whose type and scope do not match', () => {
-    expect(() =>
-      new ExportJobsUseCase(new Repository()).create(
-        { ...base, reportType: 'NATIONAL_CONSOLIDATED' },
-        subject,
-      ),
-    ).toThrow(InvalidExportJobError);
+  it('rejects a consolidation whose type and scope do not match', async () => {
+    await expect(
+      useCase().create({ ...base, reportType: 'NATIONAL_CONSOLIDATED' }, subject),
+    ).rejects.toThrow(InvalidExportJobError);
   });
 
   it('creates an ITS-1 job only through the individual-data command', async () => {
     const repository = new Repository();
-    const result = await new ExportJobsUseCase(repository).createIts1(
+    const result = await useCase(repository).createIts1(
       {
         idempotencyKey: base.idempotencyKey,
         format: 'XLSX',
@@ -256,7 +283,7 @@ describe('ExportJobsUseCase', () => {
 
   it('queues a bounded annual comparison with normalized parameters', async () => {
     const repository = new Repository();
-    const result = await new ExportJobsUseCase(repository).create(
+    const result = await useCase(repository).create(
       {
         ...base,
         reportType: 'ANNUAL_COMPARISON',
@@ -276,9 +303,9 @@ describe('ExportJobsUseCase', () => {
     expect(repository.created?.parameters?.['rangeAStart']).toBe('2025-01');
   });
 
-  it('rejects annual ranges that could monopolize the export worker', () => {
-    expect(() =>
-      new ExportJobsUseCase(new Repository()).create(
+  it('rejects annual ranges that could monopolize the export worker', async () => {
+    await expect(
+      useCase().create(
         {
           ...base,
           reportType: 'ANNUAL_COMPARISON',
@@ -294,6 +321,76 @@ describe('ExportJobsUseCase', () => {
         },
         subject,
       ),
-    ).toThrow(InvalidExportJobError);
+    ).rejects.toThrow(InvalidExportJobError);
+  });
+
+  it('derives the persisted anchor from a validated inclusive monthly range', async () => {
+    const repository = new Repository();
+    const municipal = new MunicipalRepository();
+
+    await useCase(repository, municipal).create(
+      {
+        ...base,
+        reportType: 'MUNICIPAL_CONSOLIDATED',
+        year: undefined,
+        month: undefined,
+        parameters: {
+          timeUnit: 'MONTH',
+          startPeriod: '2026-01',
+          endPeriod: '2026-03',
+        },
+      },
+      subject,
+    );
+
+    expect(municipal.requested).toEqual({
+      timeUnit: 'MONTH',
+      startPeriod: '2026-01',
+      endPeriod: '2026-03',
+    });
+    expect(repository.created).toMatchObject({
+      year: 2026,
+      month: 3,
+      parameters: municipal.requested,
+    });
+  });
+
+  it('accepts an epidemiological-week range without legacy year and month', async () => {
+    const repository = new Repository();
+
+    await useCase(repository).create(
+      {
+        ...base,
+        reportType: 'MUNICIPAL_CONSOLIDATED',
+        year: undefined,
+        month: undefined,
+        parameters: {
+          timeUnit: 'EPIDEMIOLOGICAL_WEEK',
+          startPeriod: '2026-W01',
+          endPeriod: '2026-W08',
+        },
+      },
+      subject,
+    );
+
+    expect(repository.created).toMatchObject({ year: 2026, month: 3 });
+  });
+
+  it('rejects unexpected municipal range parameters', async () => {
+    await expect(
+      useCase().create(
+        {
+          ...base,
+          reportType: 'MUNICIPAL_CONSOLIDATED',
+          parameters: {
+            timeUnit: 'MONTH',
+            startPeriod: '2026-01',
+            endPeriod: '2026-03',
+            exposeExactSmallCounts: true,
+          },
+        },
+        subject,
+      ),
+    ).rejects.toThrow(InvalidExportJobError);
   });
 });

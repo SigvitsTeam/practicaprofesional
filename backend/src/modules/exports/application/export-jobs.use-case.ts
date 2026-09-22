@@ -8,24 +8,26 @@ import {
   InvalidExportJobError,
   type AnnualComparisonIndicator,
   type AnnualComparisonParameters,
-  type CreateExportJobInput,
+  type CreateExportJobCommand,
   type ExportJob,
+  type MunicipalConsolidatedExportParameters,
 } from '../domain/export-job';
+import { MunicipalIts2ExportRepository } from './ports/municipal-its2-export.repository';
 import { ExportJobRepository } from './ports/export-job.repository';
 import { defaultExportTerritory, isExportScopeAllowed } from './export-scope.policy';
 
 @Injectable()
 export class ExportJobsUseCase {
-  constructor(private readonly repository: ExportJobRepository) {}
+  constructor(
+    private readonly repository: ExportJobRepository,
+    private readonly municipalExports: MunicipalIts2ExportRepository,
+  ) {}
 
   listOwn(subject: AuthorizationSubject): Promise<ExportJob[]> {
     return this.repository.listOwn(subject.userId, 50);
   }
 
-  create(
-    input: Omit<CreateExportJobInput, 'requestedByUserId'>,
-    subject: AuthorizationSubject,
-  ): Promise<ExportJob> {
+  async create(input: CreateExportJobCommand, subject: AuthorizationSubject): Promise<ExportJob> {
     if (
       ![
         'TERRITORIAL_SUMMARY',
@@ -47,14 +49,20 @@ export class ExportJobsUseCase {
     }[input.reportType];
     if (requiredScope && input.scopeLevel !== requiredScope)
       throw new InvalidExportJobError('El tipo de reporte no corresponde al alcance solicitado.');
-    if (input.year < 2000 || input.year > 2100 || input.month < 1 || input.month > 12)
-      throw new InvalidExportJobError('El período solicitado no es válido.');
-    const parameters =
-      input.reportType === 'ANNUAL_COMPARISON'
-        ? this.validateAnnualParameters(input.parameters)
-        : null;
-    if (input.reportType !== 'ANNUAL_COMPARISON' && input.parameters)
+    let year = input.year;
+    let month = input.month;
+    let parameters: Record<string, unknown> | null = null;
+    if (input.reportType === 'ANNUAL_COMPARISON')
+      parameters = this.validateAnnualParameters(input.parameters);
+    else if (input.reportType === 'MUNICIPAL_CONSOLIDATED' && input.parameters) {
+      const municipalParameters = this.validateMunicipalParameters(input.parameters);
+      const range = await this.municipalExports.resolveRange(municipalParameters);
+      year = range.anchorYear;
+      month = range.anchorMonth;
+      parameters = municipalParameters;
+    } else if (input.parameters)
       throw new InvalidExportJobError('Este tipo de reporte no admite parámetros adicionales.');
+    this.requireLegacyPeriod(year, month);
     const territoryId = input.territoryId ?? defaultExportTerritory(input.scopeLevel, subject);
     if (!isExportScopeAllowed(input.scopeLevel, territoryId, subject))
       throw new ExportJobScopeError(
@@ -62,6 +70,8 @@ export class ExportJobsUseCase {
       );
     return this.repository.create({
       ...input,
+      year: year!,
+      month: month!,
       parameters,
       territoryId,
       requestedByUserId: subject.userId,
@@ -168,6 +178,34 @@ export class ExportJobsUseCase {
       indicatorA: value.indicatorA as AnnualComparisonIndicator,
       indicatorB: value.indicatorB as AnnualComparisonIndicator,
     };
+  }
+
+  private validateMunicipalParameters(
+    value: Record<string, unknown>,
+  ): MunicipalConsolidatedExportParameters {
+    const allowedKeys = new Set(['timeUnit', 'startPeriod', 'endPeriod']);
+    if (Object.keys(value).some((key) => !allowedKeys.has(key)))
+      throw new InvalidExportJobError('El rango municipal contiene parámetros no admitidos.');
+    const { timeUnit, startPeriod, endPeriod } = value;
+    if (timeUnit !== 'MONTH' && timeUnit !== 'EPIDEMIOLOGICAL_WEEK')
+      throw new InvalidExportJobError('La unidad temporal municipal no es válida.');
+    if (typeof startPeriod !== 'string' || typeof endPeriod !== 'string')
+      throw new InvalidExportJobError('El rango municipal debe indicar inicio y fin.');
+    return { timeUnit, startPeriod, endPeriod };
+  }
+
+  private requireLegacyPeriod(year: number | undefined, month: number | undefined): void {
+    if (
+      year === undefined ||
+      month === undefined ||
+      !Number.isInteger(year) ||
+      !Number.isInteger(month) ||
+      year < 2000 ||
+      year > 2100 ||
+      month < 1 ||
+      month > 12
+    )
+      throw new InvalidExportJobError('El período solicitado no es válido.');
   }
 
   private monthCount(start: string, end: string): number {

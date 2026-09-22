@@ -133,4 +133,32 @@ describe('PrismaExportJobRepository attempt fencing', () => {
     const statement = queryRaw.mock.calls[0][0] as Prisma.Sql;
     expect(statement.text).toContain('WHERE "intentos" < "max_intentos"');
   });
+
+  it('uses the real inclusive range in municipal artifact filenames', async () => {
+    const findFirst = jest.fn().mockResolvedValue({
+      id: claim.id,
+      requestedByUserId: 'user-1',
+      reportType: 'MUNICIPAL_CONSOLIDATED',
+      format: 'XLSX',
+      scopeLevel: 'MUNICIPIO',
+      territoryId: 'municipality-1',
+      year: 2026,
+      month: 3,
+      parameters: {
+        timeUnit: 'EPIDEMIOLOGICAL_WEEK',
+        startPeriod: '2026-W01',
+        endPeriod: '2026-W08',
+      },
+      status: 'COMPLETADO',
+      outputStorageKey: 'exports/range.xlsx',
+      outputExpiresAt: new Date(Date.now() + 60_000),
+    });
+    const repository = new PrismaExportJobRepository({
+      client: { exportJob: { findFirst } },
+    } as never);
+
+    await expect(repository.getOwnDownload(claim.id, 'user-1')).resolves.toMatchObject({
+      filename: 'SIGVITS-MUNICIPAL_CONSOLIDATED-SE-2026-W01_a_2026-W08.xlsx',
+    });
+  });
 });

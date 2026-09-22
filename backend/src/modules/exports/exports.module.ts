@@ -16,6 +16,10 @@ import { ExportJobsController } from './http/export-jobs.controller';
 import { PrismaExportJobRepository } from './infrastructure/prisma-export-job.repository';
 import { FilesystemExportArtifactStorage } from './infrastructure/filesystem-export-artifact.storage';
 import { AnnualComparisonExportGenerator } from './application/annual-comparison-export.generator';
+import { MunicipalIts2ExportGenerator } from './application/municipal-its2-export.generator';
+import { MunicipalIts2ExportRepository } from './application/ports/municipal-its2-export.repository';
+import { PrismaMunicipalIts2ExportRepository } from './infrastructure/prisma-municipal-its2-export.repository';
+import { Its2MatrixPrivacyPolicy } from '../its-capture/application/its2-matrix-privacy.policy';
 
 @Module({
   imports: [DatabaseModule, ItsCaptureModule, AuthorizationModule],
@@ -30,7 +34,13 @@ import { AnnualComparisonExportGenerator } from './application/annual-comparison
     Its2ExportGenerator,
     Its1ExportGenerator,
     AnnualComparisonExportGenerator,
+    MunicipalIts2ExportGenerator,
+    Its2MatrixPrivacyPolicy,
     { provide: ExportJobRepository, useClass: PrismaExportJobRepository },
+    {
+      provide: MunicipalIts2ExportRepository,
+      useClass: PrismaMunicipalIts2ExportRepository,
+    },
     { provide: ExportArtifactStorage, useClass: FilesystemExportArtifactStorage },
   ],
   exports: [ExportWorkerService],

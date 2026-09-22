@@ -5,6 +5,26 @@ export type ExportJobStatus = 'PENDIENTE' | 'PROCESANDO' | 'COMPLETADO' | 'FALLI
 export type AnnualComparisonIndicator =
   'TOTAL_CASES' | 'NEW_CASES' | 'CONTROLS' | 'RATE_PER_1000' | 'ALERTS';
 
+export type MunicipalExportTimeUnit = 'MONTH' | 'EPIDEMIOLOGICAL_WEEK';
+
+export interface MunicipalConsolidatedExportParameters extends Record<string, unknown> {
+  timeUnit: MunicipalExportTimeUnit;
+  startPeriod: string;
+  endPeriod: string;
+}
+
+export interface ResolvedMunicipalExportRange {
+  parameters: MunicipalConsolidatedExportParameters;
+  startDate: Date;
+  endDate: Date;
+  anchorYear: number;
+  anchorMonth: number;
+  periodLabel: string;
+  yearLabel: string;
+  filenameLabel: string;
+  epidemiologicalWeekIds?: readonly string[];
+}
+
 export interface AnnualComparisonParameters extends Record<string, unknown> {
   dimension: 'periods' | 'indicators';
   rangeAStart: string;
@@ -45,6 +65,14 @@ export interface CreateExportJobInput {
   parameters?: Record<string, unknown> | null;
   requestId: string;
 }
+
+export type CreateExportJobCommand = Omit<
+  CreateExportJobInput,
+  'requestedByUserId' | 'year' | 'month'
+> & {
+  year?: number;
+  month?: number;
+};
 
 export interface ClaimedExportJob extends ExportJob {
   requestedByUserId: string;
