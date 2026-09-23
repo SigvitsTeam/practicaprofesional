@@ -29,15 +29,14 @@ export class TerritorialExportGenerator {
     });
     const protectedRows = this.privacy.protect(rows);
     return job.format === 'XLSX'
-      ? this.xlsx(job, level, protectedRows.rows, protectedRows.smallCountThreshold)
-      : this.pdf(job, level, protectedRows.rows, protectedRows.smallCountThreshold);
+      ? this.xlsx(job, level, protectedRows.rows)
+      : this.pdf(job, level, protectedRows.rows);
   }
 
   private async xlsx(
     job: ClaimedExportJob,
     level: TerritorialAnalyticsLevel,
     rows: readonly TerritorialAnalyticsPublicRow[],
-    smallCountThreshold: number,
   ): Promise<Uint8Array> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'SIGVITS';
@@ -52,8 +51,8 @@ export class TerritorialExportGenerator {
     sheet.addRow([`Estado de los datos: ${preliminary ? 'PRELIMINAR' : 'OFICIAL'}`]);
     sheet.addRow([
       preliminary
-        ? `AVISO: cifras acumuladas automáticamente desde ITS 1, pendientes de depuración y aprobación institucional.${this.privacyNotice(smallCountThreshold)}`
-        : `Cifras correspondientes a un período cerrado oficialmente.${this.privacyNotice(smallCountThreshold)}`,
+        ? 'AVISO: cifras acumuladas automáticamente desde ITS 1, pendientes de depuración y aprobación institucional.'
+        : 'Cifras correspondientes a un período cerrado oficialmente.',
     ]);
     sheet.addRow([
       'Código',
@@ -69,10 +68,10 @@ export class TerritorialExportGenerator {
         this.safe(row.code),
         this.safe(row.name),
         this.safe(row.status),
-        this.metric(row.attentions),
-        this.metric(row.newCases),
-        this.metric(row.controls),
-        this.metric(row.alerts),
+        row.attentions,
+        row.newCases,
+        row.controls,
+        row.alerts,
       ]);
     sheet.getRow(1).font = { bold: true, size: 14, color: { argb: 'FF0C5447' } };
     sheet.getRow(4).font = {
@@ -100,7 +99,6 @@ export class TerritorialExportGenerator {
     job: ClaimedExportJob,
     level: TerritorialAnalyticsLevel,
     rows: readonly TerritorialAnalyticsPublicRow[],
-    smallCountThreshold: number,
   ): Promise<Uint8Array> {
     const document = await PDFDocument.create();
     const regular = await document.embedFont(StandardFonts.Helvetica);
@@ -127,8 +125,8 @@ export class TerritorialExportGenerator {
       y -= 16;
       page.drawText(
         preliminary
-          ? `DATOS PRELIMINARES - PENDIENTES DE APROBACION${this.privacyNotice(smallCountThreshold)}`
-          : `DATOS OFICIALES - PERIODO CERRADO${this.privacyNotice(smallCountThreshold)}`,
+          ? 'DATOS PRELIMINARES - PENDIENTES DE APROBACION'
+          : 'DATOS OFICIALES - PERIODO CERRADO',
         {
           x: 36,
           y,
@@ -158,7 +156,7 @@ export class TerritorialExportGenerator {
       page.drawText(this.plain(row.name).slice(0, 38), { x: 110, y, size: 8, font: regular });
       page.drawText(this.plain(row.status).slice(0, 24), { x: 330, y, size: 8, font: regular });
       [row.attentions, row.newCases, row.controls, row.alerts].forEach((value, index) =>
-        page.drawText(String(this.metric(value)), {
+        page.drawText(String(value), {
           x: [490, 555, 615, 685][index]!,
           y,
           size: 8,
@@ -200,16 +198,6 @@ export class TerritorialExportGenerator {
 
   private safe(value: string): string {
     return /^[=+\-@]/.test(value) ? `'${value}` : value;
-  }
-
-  private metric(value: number | null): number | string {
-    return value === null ? 'SUPRIMIDO' : value;
-  }
-
-  private privacyNotice(threshold: number): string {
-    return threshold > 0
-      ? ` Valores positivos menores a ${threshold} y supresiones complementarias se muestran como SUPRIMIDO.`
-      : '';
   }
 
   private plain(value: string): string {

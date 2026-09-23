@@ -38,7 +38,6 @@ if [ -z "$map_attribution" ]; then
   map_attribution='© OpenStreetMap contributors'
 fi
 map_max_zoom="${SIGVITS_MAP_MAX_ZOOM:-18}"
-map_small_count_threshold="${SIGVITS_MAP_SMALL_COUNT_THRESHOLD:-5}"
 case "$map_tile_url" in
   https://*) ;;
   *) echo "SIGVITS_MAP_TILE_URL debe ser una URL HTTPS." >&2; exit 65 ;;
@@ -64,14 +63,6 @@ if [ "$map_max_zoom" -lt 5 ] || [ "$map_max_zoom" -gt 22 ]; then
   echo "SIGVITS_MAP_MAX_ZOOM debe estar entre 5 y 22." >&2
   exit 65
 fi
-case "$map_small_count_threshold" in
-  ''|*[!0-9]*) echo "SIGVITS_MAP_SMALL_COUNT_THRESHOLD debe ser un entero entre 0 y 100." >&2; exit 65 ;;
-esac
-if [ "$map_small_count_threshold" -lt 0 ] || [ "$map_small_count_threshold" -gt 100 ]; then
-  echo "SIGVITS_MAP_SMALL_COUNT_THRESHOLD debe estar entre 0 y 100." >&2
-  exit 65
-fi
-
 umask 027
 target=/usr/share/nginx/html/config/runtime-config.json
 temporary="${target}.tmp"
@@ -82,7 +73,6 @@ jq -n \
   --arg mapTileUrl "$map_tile_url" \
   --arg mapAttribution "$map_attribution" \
   --argjson mapMaxZoom "$map_max_zoom" \
-  --argjson mapSmallCountThreshold "$map_small_count_threshold" \
   '{
     apiUrl: $apiUrl,
     auth: {
@@ -95,8 +85,7 @@ jq -n \
     maps: {
       tileUrl: $mapTileUrl,
       attribution: $mapAttribution,
-      maxZoom: $mapMaxZoom,
-      smallCountThreshold: $mapSmallCountThreshold
+      maxZoom: $mapMaxZoom
     }
   }' \
   > "$temporary"

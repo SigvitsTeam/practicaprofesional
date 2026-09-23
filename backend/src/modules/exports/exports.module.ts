@@ -19,7 +19,6 @@ import { AnnualComparisonExportGenerator } from './application/annual-comparison
 import { MunicipalIts2ExportGenerator } from './application/municipal-its2-export.generator';
 import { MunicipalIts2ExportRepository } from './application/ports/municipal-its2-export.repository';
 import { PrismaMunicipalIts2ExportRepository } from './infrastructure/prisma-municipal-its2-export.repository';
-import { Its2MatrixPrivacyPolicy } from '../its-capture/application/its2-matrix-privacy.policy';
 
 @Module({
   imports: [DatabaseModule, ItsCaptureModule, AuthorizationModule],
@@ -35,7 +34,6 @@ import { Its2MatrixPrivacyPolicy } from '../its-capture/application/its2-matrix-
     Its1ExportGenerator,
     AnnualComparisonExportGenerator,
     MunicipalIts2ExportGenerator,
-    Its2MatrixPrivacyPolicy,
     { provide: ExportJobRepository, useClass: PrismaExportJobRepository },
     {
       provide: MunicipalIts2ExportRepository,

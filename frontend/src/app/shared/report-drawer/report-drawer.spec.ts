@@ -84,4 +84,23 @@ describe('ReportDrawer', () => {
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(dialog.getAttribute('aria-labelledby')).toBe('report-drawer-title');
   });
+
+  it('shows exact aggregate values even when legacy suppression metadata is present', () => {
+    const fixture = TestBed.createComponent(ReportDrawer);
+    fixture.componentRef.setInput('report', {
+      ...report,
+      caseBreakdownAvailable: true,
+      suppressedMetrics: ['newCases', 'controls'],
+      complementarySuppressedMetrics: ['total'],
+    });
+    fixture.detectChanges();
+
+    const values = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.drawer-metrics strong'),
+      (node) => node.textContent?.trim(),
+    );
+    expect(values).toEqual(['6', '4', '2', '0']);
+    expect(fixture.nativeElement.textContent).not.toContain('<5');
+    expect(fixture.nativeElement.textContent).not.toContain('Protegido');
+  });
 });

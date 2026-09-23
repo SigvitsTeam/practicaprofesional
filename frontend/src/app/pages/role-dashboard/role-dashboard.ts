@@ -187,11 +187,7 @@ export class RoleDashboard {
     const missing = rows.filter((row) => row.status === 'SIN_REPORTE');
     const returned = rows.filter((row) => row.status.startsWith('DEVUELTO'));
     const alerts = rows.reduce((sum, row) => sum + (row.alerts ?? 0), 0);
-    const alertsSuppressed = rows.some(
-      (row) =>
-        row.suppressedMetrics?.includes('alerts') ||
-        row.complementarySuppressedMetrics?.includes('alerts'),
-    );
+    const alertsUnavailable = rows.some((row) => row.alerts === null);
     const tasks: RoleTask[] = [];
     const ownsFacilityWorkflow = ['establishment-manager', 'coordination-digitizer'].includes(
       this.role().id,
@@ -210,10 +206,10 @@ export class RoleDashboard {
         status: 'Corrección',
         target: ownsFacilityWorkflow ? 'Reporte ITS 2' : 'Bandeja de revisión',
       });
-    if (alerts || alertsSuppressed)
+    if (alerts || alertsUnavailable)
       tasks.push({
-        title: alertsSuppressed
-          ? 'Hay observaciones abiertas con conteo protegido'
+        title: alertsUnavailable
+          ? 'Hay observaciones abiertas con cifra no disponible'
           : `${alerts} ${alerts === 1 ? 'observación abierta' : 'observaciones abiertas'}`,
         detail: 'Revise los reportes observados dentro de su alcance.',
         status: 'Revisión',
@@ -399,14 +395,7 @@ export class RoleDashboard {
     rows: TerritorialAnalyticsResponse['rows'],
     metric: 'attentions' | 'alerts',
   ): string {
-    if (
-      rows.some(
-        (row) =>
-          row.suppressedMetrics?.includes(metric) ||
-          row.complementarySuppressedMetrics?.includes(metric),
-      )
-    )
-      return 'Protegido';
+    if (rows.some((row) => row[metric] === null)) return '—';
     return String(rows.reduce((sum, row) => sum + (row[metric] ?? 0), 0));
   }
 }

@@ -500,16 +500,7 @@ export class Consolidated {
 
   private analyticsMetric(metric: TerritorialAnalyticsMetric): number | string {
     const analytics = this.analytics();
-    if (!analytics) return 0;
-    if (
-      analytics.rows.some(
-        (row) =>
-          row[metric] === null ||
-          row.suppressedMetrics.includes(metric) ||
-          row.complementarySuppressedMetrics.includes(metric),
-      )
-    )
-      return 'Protegido';
+    if (!analytics || analytics.rows.some((row) => row[metric] === null)) return '—';
     return analytics.rows.reduce((total, row) => total + (row[metric] ?? 0), 0);
   }
 

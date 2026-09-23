@@ -16,7 +16,6 @@ import { formatHondurasDateTime, formatHondurasMonth } from '../../core/honduras
 import { Report, ReportStatus } from '../../core/models';
 import { RoleContext } from '../../core/role-context';
 import { ItsCaptureApiService } from '../../core/its-capture-api.service';
-import { formatSuppressedCount } from '../../core/small-count';
 
 interface ReportHistoryItem {
   label: string;
@@ -96,10 +95,10 @@ export class ReportDrawer implements AfterViewInit {
     checks.push({
       label: 'Observaciones abiertas',
       detail:
-        report.alerts || report.suppressedMetrics?.includes('alerts')
+        report.alerts || report.unavailableMetrics?.includes('alerts')
           ? `${this.metricDisplay('alerts')} requieren seguimiento`
           : 'Sin observaciones abiertas',
-      warning: report.alerts > 0 || Boolean(report.suppressedMetrics?.includes('alerts')),
+      warning: report.alerts > 0 || Boolean(report.unavailableMetrics?.includes('alerts')),
     });
     if (report.caseBreakdownAvailable) {
       checks.push({
@@ -151,12 +150,8 @@ export class ReportDrawer implements AfterViewInit {
 
   metricDisplay(metric: 'total' | 'newCases' | 'controls' | 'alerts') {
     const report = this.report();
-    if (report.complementarySuppressedMetrics?.includes(metric)) return 'Protegido';
-    return formatSuppressedCount(
-      report[metric],
-      report.smallCountThreshold ?? 5,
-      Boolean(report.suppressedMetrics?.includes(metric)),
-    );
+    if (report.unavailableMetrics?.includes(metric)) return '—';
+    return String(report[metric]);
   }
 
   returnReport() {

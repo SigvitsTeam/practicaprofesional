@@ -21,7 +21,6 @@ describe('RuntimeConfigService', () => {
               tileUrl: 'https://maps.example.test/{z}/{x}/{y}.png',
               attribution: 'Proveedor de prueba',
               maxZoom: 19,
-              smallCountThreshold: 7,
             },
           }),
       }),
@@ -33,7 +32,7 @@ describe('RuntimeConfigService', () => {
     expect(service.apiUrl).toBe('https://api.sigvits.hn/api');
     expect(service.auth.supabaseUrl).toBe('https://project.supabase.co');
     expect(service.auth.demoEnabled).toBe(false);
-    expect(service.maps.smallCountThreshold).toBe(7);
+    expect(service.maps.maxZoom).toBe(19);
   });
 
   it('keeps safe defaults when optional map values are invalid', async () => {
@@ -47,7 +46,6 @@ describe('RuntimeConfigService', () => {
               tileUrl: 'https://maps.example.test/static.png',
               attribution: 'Proveedor que no debe conservarse',
               maxZoom: 4,
-              smallCountThreshold: -1,
             },
           }),
       }),
@@ -57,7 +55,6 @@ describe('RuntimeConfigService', () => {
     await service.load();
 
     expect(service.maps.maxZoom).toBe(18);
-    expect(service.maps.smallCountThreshold).toBe(0);
     expect(service.maps.tileUrl).toBe('https://tile.openstreetmap.org/{z}/{x}/{y}.png');
     expect(service.maps.attribution).toBe('© OpenStreetMap contributors');
   });

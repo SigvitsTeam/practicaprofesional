@@ -21,9 +21,9 @@ export class RenderMunicipalPreliminaryUseCase {
     sheet.addRow([`Región: ${this.safe(report.municipality.regionName)}`]);
     sheet.addRow([`Período: ${String(report.month).padStart(2, '0')}/${report.year}`]);
     sheet.addRow(['Estado: PRELIMINAR ITS-1 · PENDIENTE DE DEPURACIÓN Y APROBACIÓN']);
-    sheet.addRow([`${report.notice}${this.privacyNotice(report)}`]);
+    sheet.addRow([report.notice]);
     sheet.addRow([
-      `Totales protegidos · Atenciones: ${this.metric(this.total(report, 'attentions'))} · Casos nuevos: ${this.metric(this.total(report, 'newCases'))} · Controles: ${this.metric(this.total(report, 'controls'))} · Alertas: ${this.metric(this.total(report, 'alerts'))}`,
+      `Totales exactos · Atenciones: ${this.total(report, 'attentions')} · Casos nuevos: ${this.total(report, 'newCases')} · Controles: ${this.total(report, 'controls')} · Alertas: ${this.total(report, 'alerts')}`,
     ]);
     sheet.addRow([
       'Código',
@@ -39,10 +39,10 @@ export class RenderMunicipalPreliminaryUseCase {
         this.safe(row.code),
         this.safe(row.name),
         this.safe(row.status),
-        this.metric(row.attentions),
-        this.metric(row.newCases),
-        this.metric(row.controls),
-        this.metric(row.alerts),
+        row.attentions,
+        row.newCases,
+        row.controls,
+        row.alerts,
       ]);
 
     for (let rowNumber = 1; rowNumber <= 7; rowNumber += 1)
@@ -103,18 +103,9 @@ export class RenderMunicipalPreliminaryUseCase {
         color: rgb(0.55, 0.35, 0),
       });
       y -= 17;
-      if (report.privacy.smallCountThreshold > 0) {
-        page.drawText(`CONTEOS <${report.privacy.smallCountThreshold} Y COMPLEMENTOS: SUPRIMIDO`, {
-          x: 34,
-          y,
-          size: 8,
-          font: regular,
-        });
-        y -= 15;
-      }
       page.drawText(
         this.plain(
-          `Totales protegidos | Atenciones: ${this.metric(this.total(report, 'attentions'))} | Nuevos: ${this.metric(this.total(report, 'newCases'))} | Controles: ${this.metric(this.total(report, 'controls'))} | Alertas: ${this.metric(this.total(report, 'alerts'))}`,
+          `Totales exactos | Atenciones: ${this.total(report, 'attentions')} | Nuevos: ${this.total(report, 'newCases')} | Controles: ${this.total(report, 'controls')} | Alertas: ${this.total(report, 'alerts')}`,
         ),
         { x: 34, y, size: 8, font: bold },
       );
@@ -140,7 +131,7 @@ export class RenderMunicipalPreliminaryUseCase {
       page.drawText(this.plain(row.name).slice(0, 38), { x: 105, y, size: 8, font: regular });
       page.drawText(this.plain(row.status).slice(0, 23), { x: 335, y, size: 8, font: regular });
       [row.attentions, row.newCases, row.controls, row.alerts].forEach((value, index) =>
-        page.drawText(String(this.metric(value)), {
+        page.drawText(String(value), {
           x: [490, 555, 615, 684][index]!,
           y,
           size: 8,
@@ -158,21 +149,8 @@ export class RenderMunicipalPreliminaryUseCase {
     return document.save();
   }
 
-  private total(report: MunicipalPreliminaryReport, metric: PreliminaryMetric): number | null {
-    return report.rows.some((row) => row[metric] === null)
-      ? null
-      : report.rows.reduce((sum, row) => sum + (row[metric] ?? 0), 0);
-  }
-
-  private metric(value: number | null): number | string {
-    return value === null ? 'SUPRIMIDO' : value;
-  }
-
-  private privacyNotice(report: MunicipalPreliminaryReport): string {
-    const threshold = report.privacy.smallCountThreshold;
-    return threshold > 0
-      ? ` Valores positivos menores a ${threshold} y supresiones complementarias se muestran como SUPRIMIDO.`
-      : '';
+  private total(report: MunicipalPreliminaryReport, metric: PreliminaryMetric): number {
+    return report.rows.reduce((sum, row) => sum + row[metric], 0);
   }
 
   private safe(value: string): string {

@@ -37,7 +37,6 @@ describe('Leaflet production module interoperability', () => {
               tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               attribution: '© OpenStreetMap contributors',
               maxZoom: 18,
-              smallCountThreshold: 5,
             },
           },
         },
@@ -48,10 +47,11 @@ describe('Leaflet production module interoperability', () => {
       name: 'CIS Puerto Cortés',
       code: 'QA-01',
       status: 'Aprobado',
-      total: 14,
+      total: 3,
       newCases: 9,
       controls: 5,
       alerts: 0,
+      suppressedMetrics: ['total'],
       sent: 'Hoy',
       latitude: 15.82,
       longitude: -87.92,
@@ -82,7 +82,7 @@ describe('Leaflet production module interoperability', () => {
     );
 
     const marker = host.querySelector<HTMLElement>('.leaflet-marker-icon');
-    expect(marker?.getAttribute('aria-label')).toBe('CIS Puerto Cortés: Atenciones 14');
+    expect(marker?.getAttribute('aria-label')).toBe('CIS Puerto Cortés: Atenciones 3');
     marker?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(selected).toHaveBeenCalledWith(report);
 

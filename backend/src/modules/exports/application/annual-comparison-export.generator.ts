@@ -17,12 +17,12 @@ import type {
 interface MonthlyAggregate {
   series: 'A' | 'B';
   period: string;
-  attentions: number | null;
-  newCases: number | null;
-  controls: number | null;
-  totalCases: number | null;
-  alerts: number | null;
-  ratePer1000: number | null;
+  attentions: number;
+  newCases: number;
+  controls: number;
+  totalCases: number;
+  alerts: number;
+  ratePer1000: number;
   dataStatus: 'PRELIMINAR' | 'OFICIAL';
 }
 
@@ -40,10 +40,9 @@ export class AnnualComparisonExportGenerator {
       this.aggregateRange(job, 'A', parameters.rangeAStart, parameters.rangeAEnd),
       this.aggregateRange(job, 'B', parameters.rangeBStart, parameters.rangeBEnd),
     ]);
-    const smallCountThreshold = this.privacy.smallCountThreshold;
     return job.format === 'XLSX'
-      ? this.xlsx(job, parameters, seriesA, seriesB, smallCountThreshold)
-      : this.pdf(job, parameters, seriesA, seriesB, smallCountThreshold);
+      ? this.xlsx(job, parameters, seriesA, seriesB)
+      : this.pdf(job, parameters, seriesA, seriesB);
   }
 
   private async aggregateRange(
@@ -72,24 +71,19 @@ export class AnnualComparisonExportGenerator {
     period: string,
     rows: readonly TerritorialAnalyticsPublicRow[],
   ): MonthlyAggregate {
-    const attentions = this.protectedSum(rows, 'attentions');
-    const newCases = this.protectedSum(rows, 'newCases');
-    const controls = this.protectedSum(rows, 'controls');
-    const alerts = this.protectedSum(rows, 'alerts');
+    const attentions = this.sumRows(rows, 'attentions');
+    const newCases = this.sumRows(rows, 'newCases');
+    const controls = this.sumRows(rows, 'controls');
+    const alerts = this.sumRows(rows, 'alerts');
     return {
       series,
       period,
       attentions,
       newCases,
       controls,
-      totalCases: newCases === null || controls === null ? null : newCases + controls,
+      totalCases: newCases + controls,
       alerts,
-      ratePer1000:
-        attentions === null || newCases === null
-          ? null
-          : attentions
-            ? Number(((newCases / attentions) * 1000).toFixed(2))
-            : 0,
+      ratePer1000: attentions ? Number(((newCases / attentions) * 1000).toFixed(2)) : 0,
       dataStatus:
         rows.length > 0 && rows.every((row) => row.dataStatus === 'OFICIAL')
           ? 'OFICIAL'
@@ -102,7 +96,6 @@ export class AnnualComparisonExportGenerator {
     parameters: AnnualComparisonParameters,
     seriesA: readonly MonthlyAggregate[],
     seriesB: readonly MonthlyAggregate[],
-    smallCountThreshold: number,
   ): Promise<Uint8Array> {
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'SIGVITS';
@@ -115,7 +108,7 @@ export class AnnualComparisonExportGenerator {
       `SIGVITS · Comparación anual agregada · ${preliminary ? 'PRELIMINAR' : 'OFICIAL'}`,
     ]);
     summary.addRow([
-      `Alcance: ${job.scopeLevel} · ${preliminary ? 'Cifras ITS 1 pendientes de depuración y aprobación institucional' : 'Períodos cerrados oficialmente'}${this.privacyNotice(smallCountThreshold)}`,
+      `Alcance: ${job.scopeLevel} · ${preliminary ? 'Cifras ITS 1 pendientes de depuración y aprobación institucional' : 'Períodos cerrados oficialmente'}`,
     ]);
     summary.addRow([
       `Dimensión: ${parameters.dimension === 'periods' ? 'Períodos' : 'Indicadores'}`,
@@ -145,26 +138,26 @@ export class AnnualComparisonExportGenerator {
       'A',
       `${parameters.rangeAStart} — ${parameters.rangeAEnd}`,
       this.indicatorLabel(parameters.indicatorA),
-      this.metric(this.indicatorValue(totalA, parameters.indicatorA), smallCountThreshold),
-      this.metric(totalA.attentions, smallCountThreshold),
-      this.metric(totalA.newCases, smallCountThreshold),
-      this.metric(totalA.controls, smallCountThreshold),
-      this.metric(totalA.totalCases, smallCountThreshold),
-      this.metric(totalA.alerts, smallCountThreshold),
-      this.metric(totalA.ratePer1000, smallCountThreshold),
+      this.indicatorValue(totalA, parameters.indicatorA),
+      totalA.attentions,
+      totalA.newCases,
+      totalA.controls,
+      totalA.totalCases,
+      totalA.alerts,
+      totalA.ratePer1000,
       totalA.dataStatus,
     ]);
     summary.addRow([
       'B',
       `${parameters.rangeBStart} — ${parameters.rangeBEnd}`,
       this.indicatorLabel(parameters.indicatorB),
-      this.metric(this.indicatorValue(totalB, parameters.indicatorB), smallCountThreshold),
-      this.metric(totalB.attentions, smallCountThreshold),
-      this.metric(totalB.newCases, smallCountThreshold),
-      this.metric(totalB.controls, smallCountThreshold),
-      this.metric(totalB.totalCases, smallCountThreshold),
-      this.metric(totalB.alerts, smallCountThreshold),
-      this.metric(totalB.ratePer1000, smallCountThreshold),
+      this.indicatorValue(totalB, parameters.indicatorB),
+      totalB.attentions,
+      totalB.newCases,
+      totalB.controls,
+      totalB.totalCases,
+      totalB.alerts,
+      totalB.ratePer1000,
       totalB.dataStatus,
     ]);
     summary.getRow(1).font = { bold: true, size: 14, color: { argb: 'FF0C5447' } };
@@ -202,12 +195,12 @@ export class AnnualComparisonExportGenerator {
       detail.addRow([
         row.series,
         row.period,
-        this.metric(row.attentions, smallCountThreshold),
-        this.metric(row.newCases, smallCountThreshold),
-        this.metric(row.controls, smallCountThreshold),
-        this.metric(row.totalCases, smallCountThreshold),
-        this.metric(row.alerts, smallCountThreshold),
-        this.metric(row.ratePer1000, smallCountThreshold),
+        row.attentions,
+        row.newCases,
+        row.controls,
+        row.totalCases,
+        row.alerts,
+        row.ratePer1000,
         row.dataStatus,
       ]);
     detail.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
@@ -233,7 +226,6 @@ export class AnnualComparisonExportGenerator {
     parameters: AnnualComparisonParameters,
     seriesA: readonly MonthlyAggregate[],
     seriesB: readonly MonthlyAggregate[],
-    smallCountThreshold: number,
   ): Promise<Uint8Array> {
     const document = await PDFDocument.create();
     const regular = await document.embedFont(StandardFonts.Helvetica);
@@ -265,13 +257,7 @@ export class AnnualComparisonExportGenerator {
         { x: 36, y, size: 8, font: bold },
       );
       y -= 15;
-      if (smallCountThreshold > 0) {
-        page.drawText(
-          `* CONTEO PROTEGIDO: VALOR MENOR A ${smallCountThreshold} O SUPRESION COMPLEMENTARIA`,
-          { x: 36, y, size: 7, font: regular },
-        );
-        y -= 18;
-      } else y -= 7;
+      y -= 7;
       page.drawText('Serie', { x: 36, y, size: 8, font: bold });
       page.drawText('Periodo', { x: 80, y, size: 8, font: bold });
       page.drawText('Atenciones', { x: 180, y, size: 8, font: bold });
@@ -292,12 +278,12 @@ export class AnnualComparisonExportGenerator {
       const values = [
         row.series,
         row.period,
-        this.metric(row.attentions, smallCountThreshold, true),
-        this.metric(row.newCases, smallCountThreshold, true),
-        this.metric(row.controls, smallCountThreshold, true),
-        this.metric(row.totalCases, smallCountThreshold, true),
-        this.metric(row.alerts, smallCountThreshold, true),
-        this.metric(row.ratePer1000, smallCountThreshold, true),
+        row.attentions,
+        row.newCases,
+        row.controls,
+        row.totalCases,
+        row.alerts,
+        row.ratePer1000,
       ];
       const positions = [36, 80, 180, 255, 320, 390, 450, 510];
       values.forEach((value, index) =>
@@ -313,23 +299,23 @@ export class AnnualComparisonExportGenerator {
     }
     y -= 12;
     page.drawText(
-      `A ${parameters.rangeAStart}-${parameters.rangeAEnd}: ${this.indicatorLabel(parameters.indicatorA)} = ${this.metric(this.indicatorValue(totalA, parameters.indicatorA), smallCountThreshold, true)}`,
+      `A ${parameters.rangeAStart}-${parameters.rangeAEnd}: ${this.indicatorLabel(parameters.indicatorA)} = ${this.indicatorValue(totalA, parameters.indicatorA)}`,
       { x: 36, y, size: 9, font: bold },
     );
     y -= 16;
     page.drawText(
-      `B ${parameters.rangeBStart}-${parameters.rangeBEnd}: ${this.indicatorLabel(parameters.indicatorB)} = ${this.metric(this.indicatorValue(totalB, parameters.indicatorB), smallCountThreshold, true)}`,
+      `B ${parameters.rangeBStart}-${parameters.rangeBEnd}: ${this.indicatorLabel(parameters.indicatorB)} = ${this.indicatorValue(totalB, parameters.indicatorB)}`,
       { x: 36, y, size: 9, font: bold },
     );
     return document.save();
   }
 
   private total(rows: readonly MonthlyAggregate[]): MonthlyAggregate {
-    const attentions = this.sumVisible(rows, 'attentions');
-    const newCases = this.sumVisible(rows, 'newCases');
-    const controls = this.sumVisible(rows, 'controls');
-    const totalCases = this.sumVisible(rows, 'totalCases');
-    const alerts = this.sumVisible(rows, 'alerts');
+    const attentions = this.sumMonthly(rows, 'attentions');
+    const newCases = this.sumMonthly(rows, 'newCases');
+    const controls = this.sumMonthly(rows, 'controls');
+    const totalCases = this.sumMonthly(rows, 'totalCases');
+    const alerts = this.sumMonthly(rows, 'alerts');
     return {
       series: rows[0]?.series ?? 'A',
       period: '',
@@ -338,12 +324,7 @@ export class AnnualComparisonExportGenerator {
       controls,
       totalCases,
       alerts,
-      ratePer1000:
-        attentions === null || newCases === null
-          ? null
-          : attentions
-            ? Number(((newCases / attentions) * 1000).toFixed(2))
-            : 0,
+      ratePer1000: attentions ? Number(((newCases / attentions) * 1000).toFixed(2)) : 0,
       dataStatus:
         rows.length > 0 && rows.every((row) => row.dataStatus === 'OFICIAL')
           ? 'OFICIAL'
@@ -351,37 +332,21 @@ export class AnnualComparisonExportGenerator {
     };
   }
 
-  private protectedSum(
+  private sumRows(
     rows: readonly TerritorialAnalyticsPublicRow[],
     metric: 'attentions' | 'newCases' | 'controls' | 'alerts',
-  ): number | null {
-    return rows.some((row) => row[metric] === null)
-      ? null
-      : rows.reduce((total, row) => total + (row[metric] ?? 0), 0);
+  ): number {
+    return rows.reduce((total, row) => total + row[metric], 0);
   }
 
-  private sumVisible(
+  private sumMonthly(
     rows: readonly MonthlyAggregate[],
     metric: 'attentions' | 'newCases' | 'controls' | 'totalCases' | 'alerts',
-  ): number | null {
-    return rows.some((row) => row[metric] === null)
-      ? null
-      : rows.reduce((total, row) => total + (row[metric] ?? 0), 0);
+  ): number {
+    return rows.reduce((total, row) => total + row[metric], 0);
   }
 
-  private metric(value: number | null, threshold: number, compact = false): number | string {
-    if (value !== null) return value;
-    return compact && threshold > 0 ? '*' : 'SUPRIMIDO';
-  }
-
-  private privacyNotice(threshold: number): string {
-    return threshold > 0 ? ` · Valores <${threshold} y complementos: SUPRIMIDO` : '';
-  }
-
-  private indicatorValue(
-    total: MonthlyAggregate,
-    indicator: AnnualComparisonIndicator,
-  ): number | null {
+  private indicatorValue(total: MonthlyAggregate, indicator: AnnualComparisonIndicator): number {
     if (indicator === 'TOTAL_CASES') return total.totalCases;
     if (indicator === 'NEW_CASES') return total.newCases;
     if (indicator === 'CONTROLS') return total.controls;

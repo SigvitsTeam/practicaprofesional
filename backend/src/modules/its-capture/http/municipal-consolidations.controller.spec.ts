@@ -18,18 +18,18 @@ const preliminaryReport: MunicipalPreliminaryReport = {
   dataStatus: 'PRELIMINAR',
   dataSource: 'ITS1',
   notice: 'Pendiente de depuración y aprobación.',
-  privacy: { smallCountThreshold: 5, suppressedValue: null },
+  privacy: { smallCountThreshold: 0, suppressedValue: null },
   rows: [
     {
       id: 'facility-1',
       code: 'F1',
       name: 'Hospital',
       status: 'SIN_REPORTE',
-      attentions: null,
+      attentions: 2,
       newCases: 7,
       controls: 0,
-      alerts: null,
-      suppressedMetrics: ['attentions', 'alerts'],
+      alerts: 1,
+      suppressedMetrics: [],
       complementarySuppressedMetrics: [],
     },
   ],
@@ -116,7 +116,7 @@ describe('MunicipalConsolidationsController downloads', () => {
     });
   });
 
-  it('uses the protected summary renderer for preliminary XLSX without reading detailed ITS-2 rows', async () => {
+  it('uses the exact aggregate summary renderer for preliminary XLSX without reading individual ITS-1 rows', async () => {
     const workflow = {
       getCurrent: jest.fn().mockResolvedValue(undefined),
       getPreliminaryReport: jest.fn().mockResolvedValue(preliminaryReport),
@@ -157,7 +157,7 @@ describe('MunicipalConsolidationsController downloads', () => {
     });
   });
 
-  it('uses the protected summary renderer for preliminary PDF', async () => {
+  it('uses the exact aggregate summary renderer for preliminary PDF', async () => {
     const workflow = {
       getCurrent: jest.fn().mockResolvedValue({ status: 'BORRADOR' }),
       getPreliminaryReport: jest.fn().mockResolvedValue(preliminaryReport),

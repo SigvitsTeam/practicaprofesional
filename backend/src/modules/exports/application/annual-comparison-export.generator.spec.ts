@@ -1,5 +1,4 @@
 import ExcelJS from 'exceljs';
-import { ConfigService } from '@nestjs/config';
 import { TerritorialAnalyticsRepository } from '../../its-capture/application/ports/territorial-analytics.repository';
 import { TerritorialAnalyticsPrivacyPolicy } from '../../its-capture/application/territorial-analytics-privacy.policy';
 import type { TerritorialAnalyticsRow } from '../../its-capture/domain/territorial-analytics';
@@ -60,9 +59,7 @@ class SmallCountAnalyticsRepository extends TerritorialAnalyticsRepository {
   }
 }
 
-const privacy = new TerritorialAnalyticsPrivacyPolicy(
-  new ConfigService({ app: { territorialAnalyticsSmallCountThreshold: 5 } }),
-);
+const privacy = new TerritorialAnalyticsPrivacyPolicy();
 
 const baseJob: ClaimedExportJob = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -113,7 +110,7 @@ describe('AnnualComparisonExportGenerator', () => {
     expect(Buffer.from(contents).subarray(0, 5).toString('ascii')).toBe('%PDF-');
   });
 
-  it('does not dilute a protected descendant count into a visible 2 + 98 monthly aggregate', async () => {
+  it('keeps small descendant counts numeric in monthly detail and aggregated summaries', async () => {
     const contents = await new AnnualComparisonExportGenerator(
       new SmallCountAnalyticsRepository(),
       privacy,
@@ -123,13 +120,18 @@ describe('AnnualComparisonExportGenerator', () => {
     const summary = workbook.getWorksheet('Comparación');
     const detail = workbook.getWorksheet('Detalle mensual');
 
-    expect(detail?.getCell('D2').value).toBe('SUPRIMIDO');
-    expect(detail?.getCell('D3').value).toBe('SUPRIMIDO');
-    expect(detail?.getCell('F2').value).toBe('SUPRIMIDO');
-    expect(detail?.getCell('H2').value).toBe('SUPRIMIDO');
-    expect(summary?.getCell('D7').value).toBe('SUPRIMIDO');
-    expect(summary?.getCell('F7').value).toBe('SUPRIMIDO');
-    expect(summary?.getCell('H7').value).toBe('SUPRIMIDO');
-    expect(summary?.getCell('J7').value).toBe('SUPRIMIDO');
+    expect(detail?.getCell('D2').value).toBe(100);
+    expect(detail?.getCell('D3').value).toBe(100);
+    expect(detail?.getCell('E2').value).toBe(20);
+    expect(detail?.getCell('F2').value).toBe(120);
+    expect(detail?.getCell('G2').value).toBe(0);
+    expect(detail?.getCell('H2').value).toBe(1000);
+    expect(summary?.getCell('D7').value).toBe(240);
+    expect(summary?.getCell('E7').value).toBe(200);
+    expect(summary?.getCell('F7').value).toBe(200);
+    expect(summary?.getCell('G7').value).toBe(40);
+    expect(summary?.getCell('H7').value).toBe(240);
+    expect(summary?.getCell('I7').value).toBe(0);
+    expect(summary?.getCell('J7').value).toBe(1000);
   });
 });

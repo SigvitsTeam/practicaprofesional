@@ -161,8 +161,8 @@ describe('Networks monthly view', () => {
             controls: 2,
             alerts: 0,
             reportId: 'report-1',
-            suppressedMetrics: [],
-            complementarySuppressedMetrics: [],
+            suppressedMetrics: ['attentions', 'controls'],
+            complementarySuppressedMetrics: ['newCases'],
           },
         ],
       }),
@@ -288,6 +288,21 @@ describe('Networks monthly view', () => {
     officialFixture.detectChanges();
     expect(officialFixture.nativeElement.textContent).toContain('subtotal oficial');
     expect(officialFixture.nativeElement.textContent).not.toContain('subtotal preliminar');
+  });
+
+  it('shows exact municipal counts below five despite legacy suppression metadata', async () => {
+    const fixture = TestBed.createComponent(Networks);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    const metricValues = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.network-metrics strong'),
+      (node) => node.textContent?.trim(),
+    );
+    expect(metricValues).toEqual(expect.arrayContaining(['10', '8', '2']));
+    expect(fixture.nativeElement.textContent).not.toContain('<5');
+    expect(fixture.nativeElement.textContent).not.toContain('Protegido');
   });
 
   it('uses the current administrative composition without a period snapshot', async () => {

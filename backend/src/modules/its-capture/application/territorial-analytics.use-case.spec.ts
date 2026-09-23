@@ -2,7 +2,6 @@ import {
   RoleCode,
   type AuthorizationSubject,
 } from '../../authorization/domain/authorization.types';
-import { ConfigService } from '@nestjs/config';
 import { TerritorialAnalyticsUseCase } from './territorial-analytics.use-case';
 import { TerritorialAnalyticsRepository } from './ports/territorial-analytics.repository';
 import { TerritorialAnalyticsPrivacyPolicy } from './territorial-analytics-privacy.policy';
@@ -12,9 +11,7 @@ describe('TerritorialAnalyticsUseCase', () => {
   const repository = { list } as unknown as jest.Mocked<TerritorialAnalyticsRepository>;
   const useCase = new TerritorialAnalyticsUseCase(
     repository,
-    new TerritorialAnalyticsPrivacyPolicy(
-      new ConfigService({ app: { territorialAnalyticsSmallCountThreshold: 5 } }),
-    ),
+    new TerritorialAnalyticsPrivacyPolicy(),
   );
   const regionalSubject: AuthorizationSubject = {
     userId: 'regional-1',
@@ -126,7 +123,7 @@ describe('TerritorialAnalyticsUseCase', () => {
     );
   });
 
-  it('reemplaza conteos positivos bajos por null y declara la supresión en el contrato', async () => {
+  it('muestra conteos exactos bajos, incluidos controles, sin alterar el estado preliminar', async () => {
     list.mockResolvedValue([
       {
         id: 'municipality-1',
@@ -136,7 +133,7 @@ describe('TerritorialAnalyticsUseCase', () => {
         ...preliminarySource,
         attentions: 4,
         newCases: 8,
-        controls: 0,
+        controls: 3,
         alerts: 2,
       },
     ]);
@@ -146,7 +143,7 @@ describe('TerritorialAnalyticsUseCase', () => {
       regionalSubject,
     );
 
-    expect(result.privacy).toEqual({ smallCountThreshold: 5, suppressedValue: null });
+    expect(result.privacy).toEqual({ smallCountThreshold: 0, suppressedValue: null });
     expect(result).toMatchObject({
       dataStatus: 'PRELIMINAR',
       dataSource: 'ITS1',
@@ -156,18 +153,19 @@ describe('TerritorialAnalyticsUseCase', () => {
     expect(result.rows[0]).toMatchObject({
       dataStatus: 'PRELIMINAR',
       dataSource: 'ITS1',
-      attentions: null,
+      attentions: 4,
       newCases: 8,
-      controls: 0,
-      alerts: null,
-      suppressedMetrics: ['attentions', 'alerts'],
+      controls: 3,
+      alerts: 2,
+      suppressedMetrics: [],
       complementarySuppressedMetrics: [],
     });
-    expect(JSON.stringify(result)).not.toContain('"attentions":4');
-    expect(JSON.stringify(result)).not.toContain('"alerts":2');
+    expect(JSON.stringify(result)).toContain('"attentions":4');
+    expect(JSON.stringify(result)).toContain('"controls":3');
+    expect(JSON.stringify(result)).toContain('"alerts":2');
   });
 
-  it('aplica supresión complementaria a la menor fila positiva visible por métrica', async () => {
+  it('conserva todos los valores exactos entre establecimientos del mismo padre', async () => {
     list.mockResolvedValue([
       {
         id: 'municipality-small',
@@ -214,14 +212,14 @@ describe('TerritorialAnalyticsUseCase', () => {
 
     expect(result.rows).toEqual([
       expect.objectContaining({
-        attentions: null,
-        suppressedMetrics: ['attentions'],
+        attentions: 2,
+        suppressedMetrics: [],
         complementarySuppressedMetrics: [],
       }),
       expect.objectContaining({
-        attentions: null,
+        attentions: 8,
         suppressedMetrics: [],
-        complementarySuppressedMetrics: ['attentions'],
+        complementarySuppressedMetrics: [],
       }),
       expect.objectContaining({
         attentions: 12,
@@ -230,13 +228,13 @@ describe('TerritorialAnalyticsUseCase', () => {
       }),
     ]);
     const serialized = JSON.stringify(result);
-    expect(serialized).not.toContain('"attentions":2');
-    expect(serialized).not.toContain('"attentions":8');
+    expect(serialized).toContain('"attentions":2');
+    expect(serialized).toContain('"attentions":8');
     expect(serialized).toContain('"attentions":12');
     expect(result.rows.every((row) => !('parentId' in row))).toBe(true);
   });
 
-  it('elige la supresión complementaria dentro de cada padre de forma estable', async () => {
+  it('conserva conteos exactos entre distintos padres territoriales', async () => {
     list.mockResolvedValue([
       {
         id: 'a-small',
@@ -294,16 +292,15 @@ describe('TerritorialAnalyticsUseCase', () => {
     );
 
     expect(result.rows.map((row) => [row.id, row.attentions])).toEqual([
-      ['a-small', null],
-      ['a-complement', null],
-      ['b-small', null],
-      ['b-complement', null],
+      ['a-small', 2],
+      ['a-complement', 8],
+      ['b-small', 3],
+      ['b-complement', 10],
     ]);
-    expect(result.rows[1]?.complementarySuppressedMetrics).toEqual(['attentions']);
-    expect(result.rows[3]?.complementarySuppressedMetrics).toEqual(['attentions']);
+    expect(result.rows.every((row) => row.complementarySuppressedMetrics.length === 0)).toBe(true);
   });
 
-  it('no añade supresión complementaria cuando no existe otra fila positiva visible', async () => {
+  it('devuelve números exactos también para una única fila pequeña y una fila en cero', async () => {
     list.mockResolvedValue([
       {
         id: 'municipality-only',
@@ -335,8 +332,8 @@ describe('TerritorialAnalyticsUseCase', () => {
     );
 
     expect(result.rows[0]).toMatchObject({
-      attentions: null,
-      suppressedMetrics: ['attentions'],
+      attentions: 2,
+      suppressedMetrics: [],
       complementarySuppressedMetrics: [],
     });
     expect(result.rows[1]).toMatchObject({

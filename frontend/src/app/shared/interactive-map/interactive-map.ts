@@ -21,7 +21,6 @@ import type {
 } from 'leaflet';
 import { Report } from '../../core/models';
 import { RuntimeConfigService } from '../../core/runtime-config.service';
-import { formatSmallCount, formatSuppressedCount } from '../../core/small-count';
 
 export type MapMetric = 'total' | 'newCases' | 'controls' | 'alerts';
 export type MapLevel = 'municipal' | 'regional' | 'national';
@@ -113,15 +112,8 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
   }
 
   metricDisplay(report: Report) {
-    const suppressed = Boolean(report.suppressedMetrics?.includes(this.metric()));
-    if (report.complementarySuppressedMetrics?.includes(this.metric())) return 'Protegido';
-    if (suppressed)
-      return formatSuppressedCount(
-        this.metricValue(report),
-        report.smallCountThreshold ?? this.runtimeConfig.maps.smallCountThreshold,
-        true,
-      );
-    return formatSmallCount(this.metricValue(report), this.runtimeConfig.maps.smallCountThreshold);
+    if (report.unavailableMetrics?.includes(this.metric())) return '—';
+    return String(this.metricValue(report));
   }
 
   metricLabel() {

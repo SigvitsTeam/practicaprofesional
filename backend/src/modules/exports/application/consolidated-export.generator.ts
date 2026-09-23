@@ -17,9 +17,9 @@ interface ConsolidatedSourceRow {
   name: string;
   version?: number;
   status: string;
-  attentions?: number | null;
-  newCases?: number | null;
-  controls?: number | null;
+  attentions?: number;
+  newCases?: number;
+  controls?: number;
 }
 
 interface ConsolidatedDocument {
@@ -31,10 +31,9 @@ interface ConsolidatedDocument {
   year: number;
   month: number;
   expectedSources: number;
-  sourceAttentionCount: number | null;
-  newCases?: number | null;
-  controls?: number | null;
-  privacyThreshold?: number;
+  sourceAttentionCount: number;
+  newCases?: number;
+  controls?: number;
   attentionTotalsComplete: boolean;
   attentionsUnder15?: number;
   attentions15Plus?: number;
@@ -176,8 +175,7 @@ export class ConsolidatedExportGenerator {
       // limits this internal read to that scope while allowing its descendants.
       scope: { national: true, regionIds: [], municipalityIds: [], facilityIds: [] },
     });
-    const protectedData = this.privacy.protect(rows);
-    const protectedRows = protectedData.rows;
+    const publicRows = this.privacy.protect(rows).rows;
     const labels: Record<TerritorialAnalyticsLevel, string> = {
       ESTABLECIMIENTO: 'Resumen preliminar municipal ITS',
       MUNICIPIO: 'Resumen preliminar regional ITS',
@@ -191,12 +189,11 @@ export class ConsolidatedExportGenerator {
       year: job.year,
       month: job.month,
       expectedSources: rows.length,
-      sourceAttentionCount: this.protectedSum(protectedRows, 'attentions'),
-      newCases: this.protectedSum(protectedRows, 'newCases'),
-      controls: this.protectedSum(protectedRows, 'controls'),
-      privacyThreshold: protectedData.smallCountThreshold,
+      sourceAttentionCount: this.sum(publicRows, 'attentions'),
+      newCases: this.sum(publicRows, 'newCases'),
+      controls: this.sum(publicRows, 'controls'),
       attentionTotalsComplete: true,
-      sources: protectedRows.map((row) => ({
+      sources: publicRows.map((row) => ({
         code: row.code,
         name: row.name,
         version: row.reportVersion,
@@ -208,13 +205,11 @@ export class ConsolidatedExportGenerator {
     };
   }
 
-  private protectedSum(
+  private sum(
     rows: readonly TerritorialAnalyticsPublicRow[],
     metric: 'attentions' | 'newCases' | 'controls',
-  ): number | null {
-    return rows.some((row) => row[metric] === null)
-      ? null
-      : rows.reduce((total, row) => total + (row[metric] ?? 0), 0);
+  ): number {
+    return rows.reduce((total, row) => total + row[metric], 0);
   }
 
   private async xlsx(document: ConsolidatedDocument): Promise<Uint8Array> {
@@ -230,7 +225,7 @@ export class ConsolidatedExportGenerator {
     sheet.addRow([`Estado: ${document.status} · Versión: ${document.version ?? 'No aplica'}`]);
     sheet.addRow([
       document.preliminary
-        ? `AVISO: datos preliminares acumulados automáticamente desde ITS 1; pendientes de depuración y aprobación institucional.${this.privacyNotice(document.privacyThreshold)}`
+        ? 'AVISO: datos preliminares acumulados automáticamente desde ITS 1; pendientes de depuración y aprobación institucional.'
         : 'Datos aprobados conforme al flujo institucional del nivel correspondiente.',
     ]);
     sheet.addRow([
@@ -365,15 +360,8 @@ export class ConsolidatedExportGenerator {
     return /^[=+\-@]/.test(value) ? `'${value}` : value;
   }
 
-  private metric(value: number | null | undefined, unavailable = 'No disponible'): number | string {
-    if (value === null) return 'SUPRIMIDO';
+  private metric(value: number | undefined, unavailable = 'No disponible'): number | string {
     return value ?? unavailable;
-  }
-
-  private privacyNotice(threshold?: number): string {
-    return threshold && threshold > 0
-      ? ` Valores positivos menores a ${threshold} y supresiones complementarias se muestran como SUPRIMIDO.`
-      : '';
   }
 
   private plain(value: string): string {

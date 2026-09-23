@@ -19,7 +19,6 @@ export interface RuntimeMapConfig {
   tileUrl: string;
   attribution: string;
   maxZoom: number;
-  smallCountThreshold: number;
 }
 
 function isValidTileTemplate(value: unknown): value is string {
@@ -88,12 +87,6 @@ export class RuntimeConfigService {
             Number.isInteger(maps.maxZoom) && maps.maxZoom >= 5 && maps.maxZoom <= 22
               ? maps.maxZoom
               : this.current.maps.maxZoom,
-          smallCountThreshold:
-            Number.isInteger(maps.smallCountThreshold) &&
-            maps.smallCountThreshold >= 0 &&
-            maps.smallCountThreshold <= 100
-              ? maps.smallCountThreshold
-              : this.current.maps.smallCountThreshold,
         },
       };
     } catch (error) {

@@ -8,7 +8,7 @@ import type {
   MonthlyReportCaseCell,
   MonthlyReportCell,
 } from '../domain/its-monthly-report';
-import type { Its2RenderOptions } from './its2-matrix-privacy.policy';
+import type { Its2RenderOptions } from './its2-render-options';
 
 const REFERENCE_WIDTH = 3508;
 const REFERENCE_HEIGHT = 2480;
@@ -97,15 +97,6 @@ export class RenderIts2PdfUseCase {
     text(report.facility.code, 2514, 430, 8, 920, true);
     if (options.preliminaryConsultation) {
       text('PRELIMINAR - CONSULTA ACUMULADA - NO OFICIAL', 1020, 250, 10, 1500, true);
-      if (options.protection?.smallCountThreshold)
-        text(
-          `P = PROTEGIDO: fila y totales ocultos por conteos menores a ${options.protection.smallCountThreshold}`,
-          900,
-          286,
-          7,
-          1800,
-          true,
-        );
     }
 
     const rowStartY = 706;
@@ -123,18 +114,16 @@ export class RenderIts2PdfUseCase {
 
     report.rows.forEach((row, index) => {
       const y = rowStartY + index * rowHeight;
-      const protectedRow = options.protection?.protectedRowIndexes.includes(index) ?? false;
-      const visible = (value: number): number | string => (protectedRow ? 'P' : value);
-      centered(visible(row.diagnosis.newCases), caseX[0], y, 106);
-      centered(visible(row.diagnosis.controls), caseX[1], y, 108);
-      centered(visible(row.sex.male), sexX[0], y, 80);
-      centered(visible(row.sex.female), sexX[1], y, 80);
+      centered(row.diagnosis.newCases, caseX[0], y, 106);
+      centered(row.diagnosis.controls, caseX[1], y, 108);
+      centered(row.sex.male, sexX[0], y, 80);
+      centered(row.sex.female, sexX[1], y, 80);
       ageGroups.forEach((group, ageIndex) => {
         const cell = row.ageGroups[group.code];
         if (!cell) return;
         const x = ageStartX + ageIndex * agePairWidth;
-        centered(visible(cell.male), x, y, 80);
-        centered(visible(cell.female), x + ageSexOffset, y, 80);
+        centered(cell.male, x, y, 80);
+        centered(cell.female, x + ageSexOffset, y, 80);
       });
       const populationValues = [
         row.population.generalMale,
@@ -145,10 +134,10 @@ export class RenderIts2PdfUseCase {
         row.population.sexWorkerPregnant,
       ].flatMap((cell: MonthlyReportCaseCell) => [cell.newCases, cell.controls]);
       populationValues.forEach((value, columnIndex) =>
-        centered(visible(value), populationStartX + columnIndex * populationColumnWidth, y, 80),
+        centered(value, populationStartX + columnIndex * populationColumnWidth, y, 80),
       );
-      centered(visible(row.population.contacts.male), 3300, y, 82);
-      centered(visible(row.population.contacts.female), 3382, y, 82);
+      centered(row.population.contacts.male, 3300, y, 82);
+      centered(row.population.contacts.female, 3382, y, 82);
     });
 
     const sumCase = (
@@ -166,17 +155,15 @@ export class RenderIts2PdfUseCase {
     const totalY = rowStartY + 18 * rowHeight;
     const diagnosis = sumCase((row) => row.diagnosis);
     const sex = sumSex((row) => row.sex);
-    const visibleTotal = (value: number): number | string =>
-      options.protection?.protectTotals ? 'P' : value;
-    centered(visibleTotal(diagnosis.newCases), caseX[0], totalY, 106);
-    centered(visibleTotal(diagnosis.controls), caseX[1], totalY, 108);
-    centered(visibleTotal(sex.male), sexX[0], totalY, 80);
-    centered(visibleTotal(sex.female), sexX[1], totalY, 80);
+    centered(diagnosis.newCases, caseX[0], totalY, 106);
+    centered(diagnosis.controls, caseX[1], totalY, 108);
+    centered(sex.male, sexX[0], totalY, 80);
+    centered(sex.female, sexX[1], totalY, 80);
     ageGroups.forEach((group, ageIndex) => {
       const total = sumSex((row) => row.ageGroups[group.code] ?? { male: 0, female: 0 });
       const x = ageStartX + ageIndex * agePairWidth;
-      centered(visibleTotal(total.male), x, totalY, 80);
-      centered(visibleTotal(total.female), x + ageSexOffset, totalY, 80);
+      centered(total.male, x, totalY, 80);
+      centered(total.female, x + ageSexOffset, totalY, 80);
     });
     const populationSelectors = [
       (row: ItsMonthlyReport['rows'][number]): MonthlyReportCaseCell => row.population.generalMale,
@@ -195,11 +182,11 @@ export class RenderIts2PdfUseCase {
       .flatMap(sumCase)
       .flatMap((cell) => [cell.newCases, cell.controls])
       .forEach((value, index) =>
-        centered(visibleTotal(value), populationStartX + index * populationColumnWidth, totalY, 80),
+        centered(value, populationStartX + index * populationColumnWidth, totalY, 80),
       );
     const contacts = sumSex((row) => row.population.contacts);
-    centered(visibleTotal(contacts.male), 3300, totalY, 82);
-    centered(visibleTotal(contacts.female), 3382, totalY, 82);
+    centered(contacts.male, 3300, totalY, 82);
+    centered(contacts.female, 3382, totalY, 82);
 
     document.setTitle(
       `ITS-2 ${report.facility.code} ${options.periodLabel ?? `${report.year}-${String(report.month).padStart(2, '0')}`}`,

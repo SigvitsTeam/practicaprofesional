@@ -28,7 +28,6 @@ x-backend-environment: &backend-environment
   REQUEST_BODY_LIMIT: ${REQUEST_BODY_LIMIT:-100kb}
   THROTTLE_TTL_MS: ${THROTTLE_TTL_MS:-60000}
   THROTTLE_LIMIT: ${THROTTLE_LIMIT:-100}
-  SIGVITS_MAP_SMALL_COUNT_THRESHOLD: ${SIGVITS_MAP_SMALL_COUNT_THRESHOLD:-5}
   TRUST_PROXY: ${TRUST_PROXY:-true}
 
 x-backend-secrets: &backend-secrets
@@ -182,7 +181,6 @@ services:
       SIGVITS_MAP_TILE_URL: ${SIGVITS_MAP_TILE_URL:-https://tile.openstreetmap.org/{z}/{x}/{y}.png}
       SIGVITS_MAP_ATTRIBUTION: ${SIGVITS_MAP_ATTRIBUTION:-}
       SIGVITS_MAP_MAX_ZOOM: ${SIGVITS_MAP_MAX_ZOOM:-18}
-      SIGVITS_MAP_SMALL_COUNT_THRESHOLD: ${SIGVITS_MAP_SMALL_COUNT_THRESHOLD:-5}
     depends_on:
       api:
         condition: service_healthy

@@ -1,5 +1,4 @@
 import ExcelJS from 'exceljs';
-import { ConfigService } from '@nestjs/config';
 import type { MunicipalConsolidationRepository } from '../../its-capture/application/ports/municipal-consolidation.repository';
 import type { NationalConsolidationRepository } from '../../its-capture/application/ports/national-consolidation.repository';
 import type { RegionalConsolidationRepository } from '../../its-capture/application/ports/regional-consolidation.repository';
@@ -83,9 +82,7 @@ const generator = new ConsolidatedExportGenerator(
   { getCurrent: regionalGetCurrent } as unknown as RegionalConsolidationRepository,
   { getCurrent: nationalGetCurrent } as unknown as NationalConsolidationRepository,
   { list: analyticsList },
-  new TerritorialAnalyticsPrivacyPolicy(
-    new ConfigService({ app: { territorialAnalyticsSmallCountThreshold: 5 } }),
-  ),
+  new TerritorialAnalyticsPrivacyPolicy(),
 );
 
 const baseJob: ClaimedExportJob = {
@@ -150,10 +147,10 @@ describe('ConsolidatedExportGenerator', () => {
     expect(sheet?.getCell('A5').value).toContain('datos preliminares');
     expect(sheet?.getCell('A11').value).toBe("'=E01");
     expect(sheet?.getCell('E11').value).toBe(12);
-    expect(sheet?.getCell('F11').value).toBe('SUPRIMIDO');
-    expect(sheet?.getCell('F12').value).toBe('SUPRIMIDO');
+    expect(sheet?.getCell('F11').value).toBe(4);
+    expect(sheet?.getCell('F12').value).toBe(6);
     expect(sheet?.getCell('A7').value).toContain('Atenciones: 32');
-    expect(sheet?.getCell('A7').value).toContain('Casos nuevos: SUPRIMIDO');
+    expect(sheet?.getCell('A7').value).toContain('Casos nuevos: 10');
     expect(sheet?.getCell('A7').value).toContain('Controles: 18');
     expect(analyticsList).toHaveBeenCalledWith({
       level: 'ESTABLECIMIENTO',

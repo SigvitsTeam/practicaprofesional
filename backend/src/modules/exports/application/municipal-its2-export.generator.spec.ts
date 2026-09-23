@@ -1,6 +1,4 @@
-import { ConfigService } from '@nestjs/config';
 import ExcelJS from 'exceljs';
-import { Its2MatrixPrivacyPolicy } from '../../its-capture/application/its2-matrix-privacy.policy';
 import { RenderIts2XlsxUseCase } from '../../its-capture/application/render-its2-xlsx.use-case';
 import type { MonthlyReportSource } from '../../its-capture/domain/its-monthly-report';
 import type { ClaimedExportJob, ResolvedMunicipalExportRange } from '../domain/export-job';
@@ -32,7 +30,7 @@ const attention = {
   diagnoses: [{ diseaseId: 'disease-1', caseType: 'NUEVO' as const }],
 };
 
-function source(count: number): MonthlyReportSource {
+function source(count: number, caseType: 'NUEVO' | 'CONTROL' = 'NUEVO'): MonthlyReportSource {
   return {
     facility: {
       id: 'municipality-1',
@@ -54,7 +52,10 @@ function source(count: number): MonthlyReportSource {
         formatOrder: 1,
       },
     ],
-    attentions: Array.from({ length: count }, () => ({ ...attention })),
+    attentions: Array.from({ length: count }, () => ({
+      ...attention,
+      diagnoses: [{ diseaseId: 'disease-1', caseType }],
+    })),
   };
 }
 
@@ -88,9 +89,6 @@ describe('MunicipalIts2ExportGenerator', () => {
   } as unknown as MunicipalIts2ExportRepository;
   const generator = new MunicipalIts2ExportGenerator(
     repository,
-    new Its2MatrixPrivacyPolicy(
-      new ConfigService({ app: { territorialAnalyticsSmallCountThreshold: 5 } }),
-    ),
     { execute: renderPdfExecute },
     new RenderIts2XlsxUseCase(),
   );
@@ -117,31 +115,55 @@ describe('MunicipalIts2ExportGenerator', () => {
     expect(sheet?.getCell('C32').value).toEqual({ formula: 'SUM(C14:C31)', result: 6 });
   });
 
-  it('protects the complete row and every total when the range contains a small cell', async () => {
+  it.each([1, 2, 3, 4])(
+    'keeps all 36 ITS-2 columns and totals numeric for %i controls',
+    async (count) => {
+      getReportSource.mockResolvedValueOnce(source(count, 'CONTROL'));
+
+      const contents = await generator.generate(job);
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(new Uint8Array(contents).buffer);
+      const sheet = workbook.getWorksheet('ITS 2');
+
+      expect(sheet?.getCell('A5').value).toContain('PRELIMINAR · CONSULTA');
+      expect(sheet?.getCell('A6').value).toContain('no corresponde a un cierre mensual oficial');
+      expect(sheet?.getCell('C14').value).toBe(0);
+      expect(sheet?.getCell('D14').value).toBe(count);
+      for (let column = 3; column <= 38; column += 1) {
+        expect(typeof sheet?.getCell(14, column).value).toBe('number');
+        const total = sheet?.getCell(32, column).value;
+        expect(total).toEqual(
+          expect.objectContaining({
+            formula: expect.any(String),
+          }),
+        );
+        expect(total).not.toBe('PROTEGIDO');
+      }
+      expect(sheet?.getCell('D32').value).toEqual({
+        formula: 'SUM(D14:D31)',
+        result: count,
+      });
+    },
+  );
+
+  it('passes the real range and exact ITS-2 matrix to the PDF renderer', async () => {
     getReportSource.mockResolvedValueOnce(source(1));
-
-    const contents = await generator.generate(job);
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.load(new Uint8Array(contents).buffer);
-    const sheet = workbook.getWorksheet('ITS 2');
-
-    expect(sheet?.getCell('C14').value).toBe('PROTEGIDO');
-    expect(sheet?.getCell('AL14').value).toBe('PROTEGIDO');
-    expect(sheet?.getCell('C32').value).toBe('PROTEGIDO');
-    expect(sheet?.getCell('AL32').value).toBe('PROTEGIDO');
-  });
-
-  it('passes the real range and privacy options to the PDF renderer', async () => {
     await generator.generate({ ...job, format: 'PDF' });
 
     expect(renderPdfExecute).toHaveBeenCalledWith(
-      expect.objectContaining({ year: 2026, month: 3, totalAttentions: 6 }),
       expect.objectContaining({
+        year: 2026,
+        month: 3,
+        totalAttentions: 1,
+        rows: expect.arrayContaining([
+          expect.objectContaining({ diagnosis: { newCases: 1, controls: 0 } }),
+        ]),
+      }),
+      {
         periodLabel: '01–03',
         yearLabel: '2026',
         preliminaryConsultation: true,
-        protection: expect.objectContaining({ protectTotals: false }),
-      }),
+      },
     );
   });
 

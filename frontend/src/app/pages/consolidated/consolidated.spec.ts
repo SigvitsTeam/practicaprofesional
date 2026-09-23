@@ -53,12 +53,12 @@ describe('Consolidated preliminary ITS 1 summary', () => {
             status: 'BORRADOR',
             dataStatus: 'PRELIMINAR',
             dataSource: 'ITS1',
-            attentions: 14,
-            newCases: 9,
-            controls: 5,
+            attentions: 4,
+            newCases: 3,
+            controls: 1,
             alerts: 0,
-            suppressedMetrics: [],
-            complementarySuppressedMetrics: [],
+            suppressedMetrics: ['attentions', 'controls'],
+            complementarySuppressedMetrics: ['newCases'],
           },
         ],
       }),
@@ -117,7 +117,13 @@ describe('Consolidated preliminary ITS 1 summary', () => {
     expect(element.textContent).toContain(
       'Datos preliminares pendientes de depuración y aprobación.',
     );
-    expect(element.querySelector('.summary-card > strong')?.textContent?.trim()).toBe('14');
+    expect(element.querySelector('.summary-card > strong')?.textContent?.trim()).toBe('4');
+    const breakdown = Array.from(element.querySelectorAll('.mini-row strong'), (node) =>
+      node.textContent?.trim(),
+    );
+    expect(breakdown).toEqual(expect.arrayContaining(['3', '1']));
+    expect(element.textContent).not.toContain('<5');
+    expect(element.textContent).not.toContain('Protegido');
     expect(element.textContent).toContain('Preparar consolidado municipal');
   });
 

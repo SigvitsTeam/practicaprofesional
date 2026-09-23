@@ -11,8 +11,6 @@ import {
 } from '../../core/its-capture-api.service';
 import { Report } from '../../core/models';
 import { RoleContext } from '../../core/role-context';
-import { RuntimeConfigService } from '../../core/runtime-config.service';
-import { formatSmallCount } from '../../core/small-count';
 import { OperationalPeriodService } from '../../core/operational-period';
 import { InteractiveMap, MapLevel, MapMetric } from '../../shared/interactive-map/interactive-map';
 
@@ -28,7 +26,6 @@ export class Maps {
   protected readonly roleContext = inject(RoleContext);
   private readonly auth = inject(AuthService);
   private readonly api = inject(ItsCaptureApiService);
-  private readonly runtimeConfig = inject(RuntimeConfigService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly operationalPeriod = inject(OperationalPeriodService);
   protected readonly liveReports = signal<Report[]>([]);
@@ -132,15 +129,8 @@ export class Maps {
     return !this.auth.isDemo();
   }
   get totalMetricDisplay() {
-    if (
-      this.reports.some(
-        (report) =>
-          report.suppressedMetrics?.includes(this.metric) ||
-          report.complementarySuppressedMetrics?.includes(this.metric),
-      )
-    )
-      return 'Protegido';
-    return formatSmallCount(this.totalMetric, this.runtimeConfig.maps.smallCountThreshold);
+    if (this.reports.some((report) => report.unavailableMetrics?.includes(this.metric))) return '—';
+    return String(this.totalMetric);
   }
   get metricLabel() {
     return (
@@ -241,12 +231,9 @@ export class Maps {
           this.dataNotice.set(result.notice);
           this.liveReports.set(
             result.rows.map((row) => {
-              const primary = (row.suppressedMetrics ?? []).map((metric) =>
-                this.reportMetric(metric),
-              );
-              const complementary = (row.complementarySuppressedMetrics ?? []).map((metric) =>
-                this.reportMetric(metric),
-              );
+              const unavailable = (['attentions', 'newCases', 'controls', 'alerts'] as const)
+                .filter((metric) => row[metric] === null)
+                .map((metric) => this.reportMetric(metric));
               return {
                 territoryId: row.id,
                 workflowId: row.reportId,
@@ -271,11 +258,13 @@ export class Maps {
                 latitude: row.latitude,
                 longitude: row.longitude,
                 coordinatesValidated: row.coordinatesValidated,
-                suppressedMetrics: [...new Set([...primary, ...complementary])],
-                complementarySuppressedMetrics: complementary,
-                smallCountThreshold:
-                  result.privacy?.smallCountThreshold ??
-                  this.runtimeConfig.maps.smallCountThreshold,
+                suppressedMetrics: (row.suppressedMetrics ?? []).map((metric) =>
+                  this.reportMetric(metric),
+                ),
+                complementarySuppressedMetrics: (row.complementarySuppressedMetrics ?? []).map(
+                  (metric) => this.reportMetric(metric),
+                ),
+                unavailableMetrics: unavailable,
               };
             }),
           );

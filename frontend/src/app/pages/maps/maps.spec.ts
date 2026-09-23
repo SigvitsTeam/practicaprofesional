@@ -61,8 +61,11 @@ describe('Maps hierarchical navigation and privacy', () => {
                 id: '33333333-3333-4333-8333-333333333333',
                 code: '85481',
                 name: 'CIS Linda Coello',
-                attentions: null,
-                suppressedMetrics: ['attentions'] as const,
+                attentions: 3,
+                newCases: 2,
+                controls: 1,
+                suppressedMetrics: ['attentions', 'controls'] as const,
+                complementarySuppressedMetrics: ['newCases'] as const,
               },
             ];
     return {
@@ -104,7 +107,6 @@ describe('Maps hierarchical navigation and privacy', () => {
               tileUrl: 'https://tiles.example.test/{z}/{x}/{y}.png',
               attribution: 'QA',
               maxZoom: 18,
-              smallCountThreshold: 5,
             },
           },
         },
@@ -155,15 +157,25 @@ describe('Maps hierarchical navigation and privacy', () => {
     expect(getTerritorialAnalytics).toHaveBeenLastCalledWith('REGION', 2026, 8, undefined);
   });
 
-  it('renders a suppressed value and does not present it as zero in the total', async () => {
+  it('renders exact ITS 2 counts below five in the ranking and total', async () => {
     element.querySelector<HTMLButtonElement>('.ranking button')?.click();
     fixture.detectChanges();
     element.querySelector<HTMLButtonElement>('.ranking button')?.click();
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(element.querySelector('.ranking b')?.textContent?.trim()).toBe('<5');
-    expect(element.querySelectorAll('.map-kpis strong')[2]?.textContent?.trim()).toBe('Protegido');
+    expect(element.querySelector('.ranking b')?.textContent?.trim()).toBe('3');
+    expect(element.querySelectorAll('.map-kpis strong')[2]?.textContent?.trim()).toBe('3');
+    expect(element.textContent).not.toContain('<5');
+    expect(element.textContent).not.toContain('Protegido');
+
+    element.querySelector<HTMLSelectElement>('.map-filters select')!.value = 'controls';
+    element
+      .querySelector<HTMLSelectElement>('.map-filters select')!
+      .dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(element.querySelector('.ranking b')?.textContent?.trim()).toBe('1');
+    expect(element.querySelectorAll('.map-kpis strong')[2]?.textContent?.trim()).toBe('1');
   });
 
   it('identifies the ITS 1 aggregation as preliminary', () => {
@@ -209,7 +221,7 @@ describe('Maps hierarchical navigation and privacy', () => {
     },
   );
 
-  it('renders a complementary-suppressed value as protected', async () => {
+  it('does not misrepresent a null response from an older API as zero', async () => {
     getTerritorialAnalytics.mockImplementation((level: TerritorialAnalyticsLevel) => {
       const result = response(level);
       if (level === 'ESTABLECIMIENTO') {
@@ -229,8 +241,8 @@ describe('Maps hierarchical navigation and privacy', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(element.querySelector('.ranking b')?.textContent?.trim()).toBe('Protegido');
-    expect(element.querySelectorAll('.map-kpis strong')[2]?.textContent?.trim()).toBe('Protegido');
+    expect(element.querySelector('.ranking b')?.textContent?.trim()).toBe('—');
+    expect(element.querySelectorAll('.map-kpis strong')[2]?.textContent?.trim()).toBe('—');
   });
 
   it('does not show Cortés municipalities after selecting another demo region', async () => {

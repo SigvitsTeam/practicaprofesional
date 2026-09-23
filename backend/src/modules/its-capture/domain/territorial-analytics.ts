@@ -12,7 +12,7 @@ export interface TerritorialAnalyticsQuery {
 
 export interface TerritorialAnalyticsRow {
   id: string;
-  /** Internal grouping key used for deterministic complementary suppression. */
+  /** Internal hierarchy key; it is never exposed by the public aggregate response. */
   parentId?: string;
   code: string;
   name: string;
@@ -53,16 +53,13 @@ export interface TerritorialAnalyticsPublicRow extends Omit<
   TerritorialAnalyticsRow,
   TerritorialAnalyticsMetric | 'parentId'
 > {
-  attentions: number | null;
-  newCases: number | null;
-  controls: number | null;
-  alerts: number | null;
-  /** Metrics hidden because their positive value is below the configured threshold. */
+  attentions: number;
+  newCases: number;
+  controls: number;
+  alerts: number;
+  /** Retained for API compatibility; ITS-2 aggregate values are never suppressed. */
   suppressedMetrics: readonly TerritorialAnalyticsMetric[];
-  /**
-   * Additional metrics hidden to prevent recovering the only small value by subtraction.
-   * Unlike suppressedMetrics, these values may be greater than or equal to the threshold.
-   */
+  /** Retained for API compatibility; always empty for authorized ITS-2 aggregates. */
   complementarySuppressedMetrics: readonly TerritorialAnalyticsMetric[];
 }
 

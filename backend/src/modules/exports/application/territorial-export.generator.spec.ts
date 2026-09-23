@@ -1,5 +1,4 @@
 import ExcelJS from 'exceljs';
-import { ConfigService } from '@nestjs/config';
 import { TerritorialAnalyticsRepository } from '../../its-capture/application/ports/territorial-analytics.repository';
 import { TerritorialAnalyticsPrivacyPolicy } from '../../its-capture/application/territorial-analytics-privacy.policy';
 import type { TerritorialAnalyticsRow } from '../../its-capture/domain/territorial-analytics';
@@ -60,9 +59,7 @@ const baseJob: ClaimedExportJob = {
 describe('TerritorialExportGenerator', () => {
   const generator = new TerritorialExportGenerator(
     new AnalyticsRepository(),
-    new TerritorialAnalyticsPrivacyPolicy(
-      new ConfigService({ app: { territorialAnalyticsSmallCountThreshold: 5 } }),
-    ),
+    new TerritorialAnalyticsPrivacyPolicy(),
   );
 
   it('generates a valid XLSX and neutralizes spreadsheet formulas', async () => {
@@ -71,8 +68,8 @@ describe('TerritorialExportGenerator', () => {
     await workbook.xlsx.load(new Uint8Array(contents).buffer);
     const sheet = workbook.getWorksheet('Resumen territorial');
     expect(sheet?.getCell('A7').value).toBe("'=unsafe");
-    expect(sheet?.getCell('E7').value).toBe('SUPRIMIDO');
-    expect(sheet?.getCell('E8').value).toBe('SUPRIMIDO');
+    expect(sheet?.getCell('E7').value).toBe(3);
+    expect(sheet?.getCell('E8').value).toBe(6);
   });
 
   it('generates a valid PDF artifact', async () => {

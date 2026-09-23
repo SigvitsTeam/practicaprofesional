@@ -68,10 +68,10 @@ export interface MunicipalPreliminaryReport {
     code: string;
     name: string;
     status: string;
-    attentions: number | null;
-    newCases: number | null;
-    controls: number | null;
-    alerts: number | null;
+    attentions: number;
+    newCases: number;
+    controls: number;
+    alerts: number;
     suppressedMetrics: readonly string[];
     complementarySuppressedMetrics: readonly string[];
   }[];

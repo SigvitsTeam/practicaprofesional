@@ -47,9 +47,7 @@ type MunicipalityView = {
   newCases: number;
   controls: number;
   alerts: number;
-  suppressedMetrics: ('total' | 'newCases' | 'controls' | 'alerts')[];
-  complementarySuppressedMetrics: ('total' | 'newCases' | 'controls' | 'alerts')[];
-  smallCountThreshold: number;
+  unavailableMetrics: ('total' | 'newCases' | 'controls' | 'alerts')[];
   reports: string;
   hasReport: boolean;
   associated: boolean;
@@ -440,14 +438,9 @@ export class Networks {
               newCases: metric?.newCases ?? 0,
               controls: metric?.controls ?? 0,
               alerts: metric?.alerts ?? 0,
-              suppressedMetrics: [
-                ...(metric?.suppressedMetrics ?? []),
-                ...(metric?.complementarySuppressedMetrics ?? []),
-              ].map((name) => (name === 'attentions' ? ('total' as const) : name)),
-              complementarySuppressedMetrics: (metric?.complementarySuppressedMetrics ?? []).map(
-                (name) => (name === 'attentions' ? ('total' as const) : name),
-              ),
-              smallCountThreshold: analytics?.privacy?.smallCountThreshold ?? 5,
+              unavailableMetrics: (['attentions', 'newCases', 'controls', 'alerts'] as const)
+                .filter((name) => !metric || metric[name] === null)
+                .map((name) => (name === 'attentions' ? ('total' as const) : name)),
               reports: metric?.reportId
                 ? this.reportStatusLabel(metric.status)
                 : 'Sin ITS 2 preparado',
@@ -531,10 +524,8 @@ export class Networks {
     row: MunicipalityView,
     metric: 'total' | 'newCases' | 'controls' | 'alerts' = this.selectedMetric,
   ) {
-    if (row.complementarySuppressedMetrics.includes(metric)) return 'Protegido';
-    return row.suppressedMetrics.includes(metric)
-      ? `<${row.smallCountThreshold}`
-      : String(row[metric]);
+    if (row.unavailableMetrics.includes(metric)) return '—';
+    return String(row[metric]);
   }
   protected metricWidth(row: MunicipalityView) {
     return `${Math.round((this.metricValue(row) / this.maxMetricValue) * 100)}%`;
@@ -542,13 +533,9 @@ export class Networks {
 
   private aggregateMetric(metric: 'total' | 'newCases' | 'controls' | 'alerts') {
     if (
-      this.filteredAssociatedMunicipalities.some(
-        (row) =>
-          row.suppressedMetrics.includes(metric) ||
-          row.complementarySuppressedMetrics.includes(metric),
-      )
+      this.filteredAssociatedMunicipalities.some((row) => row.unavailableMetrics.includes(metric))
     )
-      return 'Protegido';
+      return '—';
     return this.filteredAssociatedMunicipalities.reduce((total, row) => total + row[metric], 0);
   }
   protected actionLabel(action: string) {

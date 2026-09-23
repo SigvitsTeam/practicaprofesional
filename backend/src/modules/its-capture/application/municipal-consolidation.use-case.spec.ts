@@ -285,18 +285,18 @@ describe('MunicipalConsolidationUseCase', () => {
       facilities: [],
     });
     analyticsExecute.mockResolvedValue({
-      privacy: { smallCountThreshold: 5, suppressedValue: null },
+      privacy: { smallCountThreshold: 0, suppressedValue: null },
       rows: [
         {
           id: 'facility-1',
           code: 'E01',
           name: 'Hospital',
           status: 'SIN_REPORTE',
-          attentions: null,
-          newCases: null,
+          attentions: 2,
+          newCases: 1,
           controls: 0,
           alerts: 0,
-          suppressedMetrics: ['attentions', 'newCases'],
+          suppressedMetrics: [],
           complementarySuppressedMetrics: [],
         },
       ],
@@ -323,7 +323,7 @@ describe('MunicipalConsolidationUseCase', () => {
     expect(report).toMatchObject({
       dataStatus: 'PRELIMINAR',
       dataSource: 'ITS1',
-      rows: [expect.objectContaining({ attentions: null })],
+      rows: [expect.objectContaining({ attentions: 2, newCases: 1, controls: 0 })],
     });
   });
 

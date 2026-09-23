@@ -37,10 +37,12 @@ describe('RoleDashboard', () => {
             status: 'BORRADOR',
             dataStatus: 'PRELIMINAR',
             dataSource: 'ITS1',
-            attentions: 40,
+            attentions: 4,
             newCases: 30,
             controls: 10,
             alerts: 2,
+            suppressedMetrics: ['attentions'],
+            complementarySuppressedMetrics: ['alerts'],
           },
           {
             id: 'facility-2',
@@ -213,7 +215,12 @@ describe('RoleDashboard', () => {
     );
     expect(text).toContain('Datos preliminares');
     expect(text).toContain('Suma automática desde ITS 1');
-    expect(text).toContain('40');
+    const attentionCard = Array.from(
+      (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.role-kpi'),
+    ).find((card) => card.textContent?.includes('Atenciones registradas'));
+    expect(attentionCard?.querySelector('strong')?.textContent?.trim()).toBe('4');
+    expect(text).not.toContain('<5');
+    expect(text).not.toContain('Protegido');
     expect(text).toContain('1 territorio sin reporte vigente');
     expect(text).toContain('Centro pendiente');
     expect(text).not.toContain('Permisos efectivos');

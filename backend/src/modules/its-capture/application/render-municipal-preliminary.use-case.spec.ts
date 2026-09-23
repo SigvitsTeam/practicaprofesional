@@ -17,18 +17,18 @@ const report: MunicipalPreliminaryReport = {
   dataSource: 'ITS1',
   notice:
     'Datos preliminares acumulados automáticamente desde ITS 1; pendientes de depuración y aprobación institucional.',
-  privacy: { smallCountThreshold: 5, suppressedValue: null },
+  privacy: { smallCountThreshold: 0, suppressedValue: null },
   rows: [
     {
       id: 'facility-small',
       code: 'F1',
-      name: 'Establecimiento protegido',
+      name: 'Establecimiento con conteos bajos',
       status: 'SIN_REPORTE',
-      attentions: null,
-      newCases: null,
+      attentions: 2,
+      newCases: 1,
       controls: 0,
-      alerts: null,
-      suppressedMetrics: ['attentions', 'newCases', 'alerts'],
+      alerts: 3,
+      suppressedMetrics: [],
       complementarySuppressedMetrics: [],
     },
     {
@@ -49,18 +49,23 @@ const report: MunicipalPreliminaryReport = {
 describe('RenderMunicipalPreliminaryUseCase', () => {
   const renderer = new RenderMunicipalPreliminaryUseCase();
 
-  it('creates an explicitly preliminary XLSX and never derives a total across suppressed cells', async () => {
+  it('creates an explicitly preliminary XLSX with exact numeric counts and totals', async () => {
     const output = await renderer.xlsx(report);
     const workbook = new ExcelJS.Workbook();
     await workbook.xlsx.load(new Uint8Array(output).buffer);
     const sheet = workbook.getWorksheet('Preliminar ITS-1');
 
     expect(sheet?.getCell('A5').value).toContain('PRELIMINAR ITS-1');
-    expect(sheet?.getCell('A6').value).toContain('menores a 5');
-    expect(sheet?.getCell('A7').value).toContain('Atenciones: SUPRIMIDO');
-    expect(sheet?.getCell('D9').value).toBe('SUPRIMIDO');
-    expect(sheet?.getCell('E9').value).toBe('SUPRIMIDO');
-    expect(sheet?.getCell('G9').value).toBe('SUPRIMIDO');
+    expect(sheet?.getCell('A6').value).not.toContain('SUPRIMIDO');
+    expect(sheet?.getCell('A7').value).toContain('Totales exactos');
+    expect(sheet?.getCell('A7').value).toContain('Atenciones: 14');
+    expect(sheet?.getCell('A7').value).toContain('Casos nuevos: 9');
+    expect(sheet?.getCell('A7').value).toContain('Controles: 4');
+    expect(sheet?.getCell('A7').value).toContain('Alertas: 3');
+    expect(sheet?.getCell('D9').value).toBe(2);
+    expect(sheet?.getCell('E9').value).toBe(1);
+    expect(sheet?.getCell('F9').value).toBe(0);
+    expect(sheet?.getCell('G9').value).toBe(3);
     expect(sheet?.getCell('D10').value).toBe(12);
     expect(sheet?.getCell('A10').value).toBe("'=FORMULA");
   });

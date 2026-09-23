@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { Its2MatrixPrivacyPolicy } from '../../its-capture/application/its2-matrix-privacy.policy';
 import { RenderIts2PdfUseCase } from '../../its-capture/application/render-its2-pdf.use-case';
 import { RenderIts2XlsxUseCase } from '../../its-capture/application/render-its2-xlsx.use-case';
 import { buildItsMonthlyReport } from '../../its-capture/domain/its-monthly-report';
@@ -10,7 +9,6 @@ import { MunicipalIts2ExportRepository } from './ports/municipal-its2-export.rep
 export class MunicipalIts2ExportGenerator {
   constructor(
     private readonly repository: MunicipalIts2ExportRepository,
-    private readonly privacy: Its2MatrixPrivacyPolicy,
     private readonly renderPdf: RenderIts2PdfUseCase,
     private readonly renderXlsx: RenderIts2XlsxUseCase,
   ) {}
@@ -29,7 +27,6 @@ export class MunicipalIts2ExportGenerator {
       periodLabel: range.periodLabel,
       yearLabel: range.yearLabel,
       preliminaryConsultation: true,
-      protection: this.privacy.protect(report),
     };
     return job.format === 'PDF'
       ? this.renderPdf.execute(report, options)

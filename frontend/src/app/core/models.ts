@@ -27,7 +27,7 @@ export interface Report {
   coordinatesValidated?: boolean;
   suppressedMetrics?: ('total' | 'newCases' | 'controls' | 'alerts')[];
   complementarySuppressedMetrics?: ('total' | 'newCases' | 'controls' | 'alerts')[];
-  smallCountThreshold?: number;
+  unavailableMetrics?: ('total' | 'newCases' | 'controls' | 'alerts')[];
 }
 
 export interface Establishment {
