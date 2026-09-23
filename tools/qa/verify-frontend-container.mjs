@@ -213,7 +213,6 @@ try {
     config.maps.tileUrl,
     "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   );
-  assert.equal(config.maps.smallCountThreshold, 5);
   evidence.runtimeConfig = config;
   evidence.passed = true;
 } catch (error) {

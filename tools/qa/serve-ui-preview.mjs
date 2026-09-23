@@ -136,7 +136,6 @@ const server = createServer(async (req, res) => {
         tileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
         attribution: "© OpenStreetMap contributors",
         maxZoom: 18,
-        smallCountThreshold: 5,
       },
     });
     return;
