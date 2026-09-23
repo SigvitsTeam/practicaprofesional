@@ -63,6 +63,10 @@ if [ "$map_max_zoom" -lt 5 ] || [ "$map_max_zoom" -gt 22 ]; then
   echo "SIGVITS_MAP_MAX_ZOOM debe estar entre 5 y 22." >&2
   exit 65
 fi
+map_small_count_threshold="${SIGVITS_MAP_SMALL_COUNT_THRESHOLD:-5}"
+case "$map_small_count_threshold" in
+  ''|*[!0-9]*) echo "SIGVITS_MAP_SMALL_COUNT_THRESHOLD debe ser un entero no negativo." >&2; exit 65 ;;
+esac
 umask 027
 target=/usr/share/nginx/html/config/runtime-config.json
 temporary="${target}.tmp"
@@ -73,6 +77,7 @@ jq -n \
   --arg mapTileUrl "$map_tile_url" \
   --arg mapAttribution "$map_attribution" \
   --argjson mapMaxZoom "$map_max_zoom" \
+  --argjson mapSmallCountThreshold "$map_small_count_threshold" \
   '{
     apiUrl: $apiUrl,
     auth: {
@@ -85,7 +90,8 @@ jq -n \
     maps: {
       tileUrl: $mapTileUrl,
       attribution: $mapAttribution,
-      maxZoom: $mapMaxZoom
+      maxZoom: $mapMaxZoom,
+      smallCountThreshold: $mapSmallCountThreshold
     }
   }' \
   > "$temporary"

@@ -72,6 +72,7 @@ const config = {
     tileUrl: mapTileUrl,
     attribution: configuredMapAttribution || '© OpenStreetMap contributors',
     maxZoom: integer('SIGVITS_MAP_MAX_ZOOM', 18, 5, 22),
+    smallCountThreshold: integer('SIGVITS_MAP_SMALL_COUNT_THRESHOLD', 5, 0, 1000000),
   },
 };
 
