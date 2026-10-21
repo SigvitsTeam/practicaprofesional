@@ -86,6 +86,15 @@ describe('Leaflet production module interoperability', () => {
     marker?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(selected).toHaveBeenCalledWith(report);
 
+    fixture.componentRef.setInput('level', 'regional');
+    fixture.detectChanges();
+    const regionalMap = (fixture.componentInstance as unknown as { map: import('leaflet').Map })
+      .map;
+    expect(regionalMap.getZoom()).toBeLessThanOrEqual(8);
+    fixture.componentRef.setInput('level', 'municipal');
+    fixture.detectChanges();
+    expect(regionalMap.getZoom()).toBeGreaterThan(8);
+
     const tileLayer = (
       fixture.componentInstance as unknown as {
         tileLayer?: TileLayer;
@@ -105,6 +114,31 @@ describe('Leaflet production module interoperability', () => {
     tileLayer?.fire('load');
     fixture.detectChanges();
     expect(host.textContent).not.toContain('El proveedor cartográfico no respondió.');
+
+    const selectedLocation = vi.fn();
+    fixture.componentInstance.locationSelected.subscribe(selectedLocation);
+    fixture.componentRef.setInput('catalogLocations', [
+      {
+        id: 'facility-1',
+        name: 'Establecimiento del catálogo',
+        code: 'F1',
+        latitude: 15.82,
+        longitude: -87.92,
+        coordinatesValidated: false,
+      },
+      { id: 'facility-2', name: 'Sin coordenadas', code: 'F2', coordinatesValidated: false },
+    ]);
+    fixture.componentRef.setInput('catalogLabel', 'Establecimientos de Puerto Cortés');
+    fixture.detectChanges();
+    expect(host.querySelector('.ranking')).toBeNull();
+    expect(host.textContent).not.toContain('Ranking agregado');
+    expect(host.textContent).toContain('1 con ubicación');
+    expect(host.textContent).toContain('1 sin coordenadas');
+    const catalogMarker = host.querySelector<HTMLElement>('.leaflet-marker-icon');
+    expect(catalogMarker?.getAttribute('aria-label')).toBe('Establecimiento del catálogo');
+    expect(catalogMarker?.querySelector('.reference')).not.toBeNull();
+    catalogMarker?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(selectedLocation).toHaveBeenCalledWith('facility-1');
     fixture.destroy();
   });
 });

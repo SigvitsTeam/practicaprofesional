@@ -1347,49 +1347,81 @@
     <div class="section-heading">
       <div><h2>Estructura territorial</h2></div>
     </div>
-    <button [class.scope-locked]="regionalScope">
-      ⌄ <i>HN</i><strong>Honduras</strong
-      ><span class="badge neutral">{{ regionalScope ? 'Alcance limitado' : 'Nacional' }}</span>
+    <button
+      type="button"
+      [class.scope-locked]="regionalScope"
+      [class.selected]="selectedTerritoryKind === 'national'"
+      (click)="selectTerritory('national')"
+    >
+      <span aria-hidden="true">⌄</span>
+      <span class="tree-label"><i>HN</i><strong>Honduras</strong></span>
+      <span class="badge neutral">{{ regionalScope ? 'Alcance limitado' : 'Nacional' }}</span>
     </button>
     @for (region of regions; track region.id) {
-      <button class="level-1">
-        ⌄ <i>{{ region.code }}</i
-        ><strong>{{ region.name }}</strong
-        ><span class="badge" [class.active]="region.active">{{ region.status }}</span>
+      <button
+        type="button"
+        class="level-1"
+        [class.selected]="selectedTerritoryKind === 'region' && selectedTerritoryId === region.id"
+        (click)="selectTerritory('region', region.id)"
+      >
+        <span aria-hidden="true">⌄</span>
+        <span class="tree-label"
+          ><i>{{ region.code }}</i
+          ><strong>{{ region.name }}</strong></span
+        >
+        <span class="badge" [class.active]="region.active">{{ region.status }}</span>
       </button>
       @for (municipality of municipalities; track municipality.id) {
         @if (municipality.regionId === region.id) {
           <button
             class="level-2"
-            [class.selected]="selectedMunicipality?.id === municipality.id"
+            [class.selected]="
+              selectedTerritoryKind === 'municipality' &&
+              selectedMunicipality?.id === municipality.id
+            "
             (click)="selectMunicipality(municipality.id)"
           >
-            ⌄ <i>{{ municipality.code }}</i
-            ><strong>{{ municipality.name }}</strong
+            <span aria-hidden="true">⌄</span>
+            <span class="tree-label"
+              ><i>{{ municipality.code }}</i
+              ><strong>{{ municipality.name }}</strong></span
             ><span class="badge" [class.active]="municipality.active">{{
               municipality.status
             }}</span>
           </button>
-          @if (selectedMunicipality?.id === municipality.id) {
-            @for (facility of selectedFacilities; track facility.id) {
-              <button class="level-3">
-                <span>•</span><strong>{{ facility.name }}</strong>
-                @if (!facility.hasCoordinates) {
-                  <b
-                    class="warning-text coordinate-state"
-                    title="Sin coordenadas registradas"
-                    aria-label="Sin coordenadas registradas"
-                    >!</b
-                  >
-                } @else if (!facility.coordinatesValidated) {
-                  <b
-                    class="reference-text coordinate-state"
-                    title="Referencia pendiente de validación GPS"
-                    aria-label="Referencia pendiente de validación GPS"
-                    >i</b
-                  >
-                }
-              </button>
+          @if (
+            selectedMunicipality?.id === municipality.id ||
+            (selectedTerritoryKind === 'region' && selectedTerritoryId === region.id) ||
+            selectedTerritoryKind === 'national'
+          ) {
+            @for (facility of facilities; track facility.id) {
+              @if (facility.municipalityId === municipality.id) {
+                <button
+                  type="button"
+                  class="level-3"
+                  [class.selected]="
+                    selectedTerritoryKind === 'facility' && selectedTerritoryId === facility.id
+                  "
+                  (click)="selectTerritory('facility', facility.id)"
+                >
+                  <span>•</span><strong>{{ facility.name }}</strong>
+                  @if (!facility.hasCoordinates) {
+                    <b
+                      class="warning-text coordinate-state"
+                      title="Sin coordenadas registradas"
+                      aria-label="Sin coordenadas registradas"
+                      >!</b
+                    >
+                  } @else if (!facility.coordinatesValidated) {
+                    <b
+                      class="reference-text coordinate-state"
+                      title="Referencia pendiente de validación GPS"
+                      aria-label="Referencia pendiente de validación GPS"
+                      >i</b
+                    >
+                  }
+                </button>
+              }
             }
           }
         }
@@ -1398,28 +1430,55 @@
   </aside>
 
   <article class="panel territory-detail">
-    @if (selectedMunicipality; as municipality) {
+    @if (selectedTerritory; as municipality) {
       <div class="territory-title">
         <div>
-          <span class="eyebrow">COORDINACIÓN MUNICIPAL</span>
+          <span class="eyebrow">{{ municipality.label }}</span>
           <h2>{{ municipality.name }}</h2>
           <p>Código oficial {{ municipality.code }} · {{ municipality.region }}</p>
         </div>
         <div class="territory-title-actions">
-          <span class="badge" [class.active]="municipality.active">{{ municipality.status }}</span
-          ><button
-            class="btn secondary"
-            type="button"
-            (click)="openTerritoryStatus(municipality, 'MUNICIPIO')"
-          >
-            Cambiar estado</button
-          ><button class="btn primary" type="button" (click)="openCreate('establishment')">
-            ＋ Nuevo establecimiento
-          </button>
+          <span class="badge" [class.active]="municipality.active">{{ municipality.status }}</span>
+          @if (municipality.entityType) {
+            <button
+              class="btn secondary"
+              type="button"
+              (click)="openTerritoryStatus(municipality, municipality.entityType!)"
+            >
+              Cambiar estado
+            </button>
+          }
+          @if (
+            selectedTerritoryKind !== 'facility' &&
+            (selectedTerritoryKind !== 'national' || globalScope)
+          ) {
+            <button
+              class="btn primary"
+              type="button"
+              (click)="
+                openCreate(
+                  selectedTerritoryKind === 'national'
+                    ? 'region'
+                    : selectedTerritoryKind === 'region'
+                      ? 'municipality'
+                      : 'establishment'
+                )
+              "
+            >
+              ＋
+              {{
+                selectedTerritoryKind === 'national'
+                  ? 'Nueva región'
+                  : selectedTerritoryKind === 'region'
+                    ? 'Nuevo municipio'
+                    : 'Nuevo establecimiento'
+              }}
+            </button>
+          }
         </div>
       </div>
 
-      <div class="tabs" role="tablist" aria-label="Secciones de la coordinación municipal">
+      <div class="tabs" role="tablist" [attr.aria-label]="'Secciones de ' + municipality.name">
         @for (tab of tabs; track tab.id) {
           <button
             type="button"
@@ -1447,40 +1506,58 @@
                 ><span>Estado operativo</span><input [value]="municipality.status" readonly
               /></label>
               <label class="wide"
-                ><span>Región sanitaria</span><input [value]="municipality.region" readonly
+                ><span>Ubicación en la estructura</span
+                ><input [value]="municipality.region" readonly
               /></label>
             </div>
+            @if (selectedFacility; as facility) {
+              <div class="territory-form">
+                <label
+                  ><span>Tipo de establecimiento</span><input [value]="facility.type" readonly
+                /></label>
+                <label class="wide"
+                  ><span>Dirección</span
+                  ><input [value]="facility.address || 'Sin dirección registrada'" readonly
+                /></label>
+              </div>
+            }
             <div class="coordinate-panel">
-              <div class="mini-map">
-                <i>＋</i><span>{{ municipality.name }}</span>
+              <div class="geo-unavailable geo-unavailable-compact">
+                <strong>{{ selectedFacilities.length }} establecimientos en este alcance</strong>
+                <p>
+                  {{ locatedFacilityCount }} con coordenadas registradas ·
+                  {{ validatedFacilityCount }} con GPS validado.
+                </p>
+                <button type="button" class="btn secondary" (click)="selectTab('geography')">
+                  Ver geografía
+                </button>
               </div>
               <div>
-                <h3>Territorio geográfico asociado</h3>
+                <h3>Validación registrada</h3>
                 <p>
                   Validación registrada en el catálogo para el código oficial
                   {{ municipality.code }}.
                 </p>
                 <span class="validation-chip">{{
-                  municipality.mapValidated ? '✓ GEOMETRÍA VALIDADA' : 'GEOMETRÍA PENDIENTE'
+                  municipality.mapValidated ? '✓ VALIDADA EN CATÁLOGO' : 'VALIDACIÓN PENDIENTE'
                 }}</span>
               </div>
             </div>
           }
           @case ('geography') {
             <section class="geography-view" [attr.aria-label]="'Geografía de ' + municipality.name">
-              <div class="geo-map-large">
-                <div class="geo-shape">
-                  <span>{{ municipality.name }}</span
-                  ><i></i>
-                </div>
-                <div class="geo-map-label">
-                  {{ municipality.code }} ·
-                  {{
-                    municipality.mapValidated
-                      ? 'Límite municipal validado'
-                      : 'Validación de límite pendiente'
-                  }}
-                </div>
+              <div class="territory-geography-map">
+                <app-interactive-map
+                  [catalogLocations]="geographyLocations"
+                  [catalogLabel]="'Establecimientos de ' + municipality.name"
+                  level="national"
+                  metric="total"
+                  (locationSelected)="selectMapLocation($event)"
+                />
+                <p class="geo-boundary-note">
+                  Ubicaciones registradas de establecimientos. El mapa base no representa límites
+                  sanitarios validados.
+                </p>
               </div>
               <div class="geo-details">
                 <div class="section-heading">
@@ -1494,7 +1571,7 @@
                 </div>
                 <dl>
                   <div>
-                    <dt>Municipio</dt>
+                    <dt>Territorio</dt>
                     <dd>{{ municipality.name }}</dd>
                   </div>
                   <div>
@@ -1502,7 +1579,7 @@
                     <dd>{{ municipality.code }}</dd>
                   </div>
                   <div>
-                    <dt>Región</dt>
+                    <dt>Ubicación en la estructura</dt>
                     <dd>{{ municipality.region }}</dd>
                   </div>
                   <div>
@@ -1591,6 +1668,9 @@
                   </p>
                 </div>
               </div>
+              @if (historyError) {
+                <p role="alert">{{ historyError }}</p>
+              }
               <div class="history-timeline">
                 @for (event of history; track event.id) {
                   <article>
@@ -1605,9 +1685,10 @@
                 } @empty {
                   <p>
                     {{
-                      historyLoading
-                        ? 'Cargando historial…'
-                        : 'No hay eventos territoriales registrados para este municipio.'
+                      historyError ||
+                        (historyLoading
+                          ? 'Cargando historial…'
+                          : 'No hay eventos territoriales registrados para el elemento seleccionado.')
                     }}
                   </p>
                 }
@@ -1628,7 +1709,7 @@
       </div>
     } @else {
       <div class="tab-content">
-        <p>No hay municipios disponibles dentro del alcance autorizado.</p>
+        <p>No hay elementos disponibles dentro del alcance autorizado.</p>
       </div>
     }
   </article>

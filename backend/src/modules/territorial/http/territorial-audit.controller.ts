@@ -35,6 +35,22 @@ export class TerritorialAuditController {
     @CurrentSubject() subject: AuthorizationSubject,
   ): Promise<TerritorialAuditPage> {
     try {
+      if (query.entityType) {
+        if (
+          query.municipalityId ||
+          query.networkId ||
+          (query.entityType === 'NACIONAL' ? !!query.entityId : !query.entityId)
+        )
+          throw new BadRequestException('Indique un único territorio válido.');
+        return await this.audit.listTerritoryEvents(
+          query.entityType,
+          query.entityId,
+          query.limit,
+          query.cursor,
+          subject,
+        );
+      }
+      if (query.entityId) throw new BadRequestException('Debe indicar el tipo de territorio.');
       if (!!query.municipalityId === !!query.networkId)
         throw new BadRequestException('Debe indicar exactamente un municipio o una red.');
       return query.networkId

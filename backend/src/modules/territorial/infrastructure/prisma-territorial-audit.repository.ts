@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { TerritorialAuditRepository } from '../application/ports/territorial-audit.repository';
 import type { TerritorialAuditPage } from '../domain/territorial-audit';
@@ -7,6 +8,75 @@ import type { TerritorialAuditPage } from '../domain/territorial-audit';
 export class PrismaTerritorialAuditRepository extends TerritorialAuditRepository {
   constructor(private readonly prisma: PrismaService) {
     super();
+  }
+
+  async findTerritoryRegion(
+    type: 'REGION' | 'ESTABLECIMIENTO',
+    id: string,
+  ): Promise<string | null> {
+    if (type === 'REGION') {
+      const row = await this.prisma.client.region.findUnique({
+        where: { id },
+        select: { id: true },
+      });
+      return row?.id ?? null;
+    }
+    const row = await this.prisma.client.healthFacility.findUnique({
+      where: { id },
+      select: { municipality: { select: { regionId: true } } },
+    });
+    return row?.municipality.regionId ?? null;
+  }
+
+  async listTerritoryEvents(input: {
+    entityType: 'NACIONAL' | 'REGION' | 'ESTABLECIMIENTO';
+    entityId?: string;
+    regionIds?: readonly string[];
+    limit: number;
+    cursor?: string;
+  }): Promise<TerritorialAuditPage> {
+    if (input.entityType === 'ESTABLECIMIENTO') {
+      return this.listEvents({
+        entityId: input.entityId!,
+        entities: ['HEALTH_FACILITY', 'ESTABLECIMIENTO'],
+        limit: input.limit,
+        cursor: input.cursor,
+      });
+    }
+    const regions = await this.prisma.client.region.findMany({
+      where: {
+        ...(input.entityType === 'REGION'
+          ? { id: input.entityId }
+          : input.regionIds
+            ? { id: { in: [...input.regionIds] } }
+            : {}),
+      },
+      select: { id: true },
+    });
+    const regionIds = regions.map((row) => row.id);
+    const municipalities = await this.prisma.client.municipality.findMany({
+      where: { regionId: { in: regionIds } },
+      select: { id: true },
+    });
+    const municipalityIds = municipalities.map((row) => row.id);
+    const facilities = await this.prisma.client.healthFacility.findMany({
+      where: { municipalityId: { in: municipalityIds } },
+      select: { id: true },
+    });
+    return this.queryEvents(
+      {
+        OR: [
+          { entity: 'REGION', entityId: { in: regionIds } },
+          { entity: { in: ['MUNICIPALITY', 'MUNICIPIO'] }, entityId: { in: municipalityIds } },
+          {
+            entity: { in: ['HEALTH_FACILITY', 'ESTABLECIMIENTO'] },
+            entityId: { in: facilities.map((row) => row.id) },
+          },
+        ],
+      },
+      input.limit,
+      input.cursor,
+    );
   }
 
   async findMunicipalityRegion(municipalityId: string): Promise<string | null> {
@@ -57,10 +127,21 @@ export class PrismaTerritorialAuditRepository extends TerritorialAuditRepository
     limit: number;
     cursor?: string;
   }): Promise<TerritorialAuditPage> {
+    return this.queryEvents(
+      { entityId: input.entityId, entity: { in: input.entities } },
+      input.limit,
+      input.cursor,
+    );
+  }
+
+  private async queryEvents(
+    where: Prisma.AuditEventWhereInput,
+    limit: number,
+    cursor?: string,
+  ): Promise<TerritorialAuditPage> {
     const rows = await this.prisma.client.auditEvent.findMany({
       where: {
-        entityId: input.entityId,
-        entity: { in: input.entities },
+        ...where,
         dataLevel: 'CONFIGURACION',
       },
       select: {
@@ -72,11 +153,11 @@ export class PrismaTerritorialAuditRepository extends TerritorialAuditRepository
         actor: { select: { fullName: true } },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: input.limit + 1,
-      ...(input.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+      take: limit + 1,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
-    const hasMore = rows.length > input.limit;
-    const page = hasMore ? rows.slice(0, input.limit) : rows;
+    const hasMore = rows.length > limit;
+    const page = hasMore ? rows.slice(0, limit) : rows;
     return {
       items: page.map((row) => ({
         id: row.id,

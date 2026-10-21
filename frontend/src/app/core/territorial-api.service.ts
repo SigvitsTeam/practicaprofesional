@@ -34,6 +34,8 @@ export interface FacilityRecord {
   address?: string;
   operationalStatus: string;
   hasCoordinates: boolean;
+  latitude?: number;
+  longitude?: number;
   coordinatesValidated: boolean;
   active: boolean;
   updatedAt: string;
@@ -112,6 +114,16 @@ export class TerritorialApiService {
   }
   listMunicipalityAudit(municipalityId: string, cursor?: string) {
     const params: Record<string, string> = { municipalityId, limit: '25' };
+    if (cursor) params['cursor'] = cursor;
+    return this.http.get<TerritorialAuditPage>(`${this.base}/territories/audit-events`, { params });
+  }
+  listTerritoryAudit(
+    entityType: 'NACIONAL' | 'REGION' | 'ESTABLECIMIENTO',
+    entityId?: string,
+    cursor?: string,
+  ) {
+    const params: Record<string, string> = { entityType, limit: '25' };
+    if (entityId) params['entityId'] = entityId;
     if (cursor) params['cursor'] = cursor;
     return this.http.get<TerritorialAuditPage>(`${this.base}/territories/audit-events`, { params });
   }

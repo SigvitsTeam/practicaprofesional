@@ -8,7 +8,11 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { forkJoin, Subscription } from 'rxjs';
+import {
+  InteractiveMap,
+  type CatalogMapLocation,
+} from '../../shared/interactive-map/interactive-map';
 import { finalize } from 'rxjs/operators';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RoleContext } from '../../core/role-context';
@@ -39,7 +43,7 @@ type AdminSection = 'overview' | 'territories' | 'facilities' | 'users';
 
 @Component({
   selector: 'app-territory',
-  imports: [FormsModule],
+  imports: [FormsModule, InteractiveMap],
   templateUrl: './territory.html',
   styleUrl: './territory.css',
 })
@@ -91,9 +95,12 @@ export class Territory implements OnInit {
     code: string;
     name: string;
     type: string;
+    address?: string;
     status: string;
     rawStatus: string;
     hasCoordinates: boolean;
+    latitude?: number;
+    longitude?: number;
     coordinatesValidated: boolean;
     active: boolean;
     updatedAt: string;
@@ -110,6 +117,11 @@ export class Territory implements OnInit {
     { id: 'users', label: 'Usuarios', description: 'Perfiles y accesos' },
   ];
   protected selectedMunicipalityId = '';
+  protected selectedTerritoryKind: 'national' | 'region' | 'municipality' | 'facility' =
+    'municipality';
+  protected selectedTerritoryId = '';
+  private historySubscription?: Subscription;
+  protected historyError = '';
   protected regionSearch = '';
   protected municipalitySearch = '';
   protected facilitySearch = '';
@@ -196,10 +208,99 @@ export class Territory implements OnInit {
     );
   }
   get selectedRegion() {
-    return this.regions.find((row) => row.id === this.selectedMunicipality?.regionId);
+    return this.regions.find(
+      (row) =>
+        row.id ===
+        (this.selectedTerritoryKind === 'region'
+          ? this.selectedTerritoryId
+          : this.selectedMunicipality?.regionId),
+    );
+  }
+  get selectedTerritory() {
+    const kind = this.selectedTerritoryKind;
+    const municipality = this.selectedMunicipality;
+    const facility = this.facilities.find((row) => row.id === this.selectedTerritoryId);
+    const region = this.selectedRegion;
+    if (kind === 'facility')
+      return facility
+        ? {
+            ...facility,
+            region: `${facility.municipality} · ${region?.name ?? ''}`,
+            mapValidated: facility.coordinatesValidated,
+            label: 'ESTABLECIMIENTO DE SALUD',
+            entityType: 'ESTABLECIMIENTO' as const,
+          }
+        : undefined;
+    if (kind === 'region')
+      return region
+        ? {
+            ...region,
+            region: 'Honduras',
+            mapValidated:
+              this.municipalities.filter((row) => row.regionId === region.id).length > 0 &&
+              this.municipalities
+                .filter((row) => row.regionId === region.id)
+                .every((row) => row.mapValidated),
+            label: 'REGIÓN SANITARIA',
+            entityType: 'REGION' as const,
+          }
+        : undefined;
+    if (kind === 'national')
+      return {
+        id: 'HN',
+        code: 'HN',
+        name: 'Honduras',
+        region: this.regionalScope
+          ? 'Catálogo dentro del alcance autorizado'
+          : 'Catálogo nacional autorizado',
+        active: true,
+        status: this.regionalScope ? 'Alcance limitado' : 'Nacional',
+        rawStatus: '',
+        updatedAt:
+          [...this.regions, ...this.municipalities, ...this.facilities]
+            .map((row) => row.updatedAt)
+            .sort()
+            .at(-1) ?? '',
+        mapValidated:
+          this.municipalities.length > 0 && this.municipalities.every((row) => row.mapValidated),
+        label: 'ESTRUCTURA NACIONAL',
+        entityType: undefined,
+      };
+    return municipality
+      ? { ...municipality, label: 'COORDINACIÓN MUNICIPAL', entityType: 'MUNICIPIO' as const }
+      : undefined;
+  }
+  get selectionMunicipalityIds() {
+    if (this.selectedTerritoryKind === 'national')
+      return new Set(this.municipalities.map((row) => row.id));
+    if (this.selectedTerritoryKind === 'region')
+      return new Set(
+        this.municipalities
+          .filter((row) => row.regionId === this.selectedTerritoryId)
+          .map((row) => row.id),
+      );
+    return new Set(this.selectedMunicipality ? [this.selectedMunicipality.id] : []);
+  }
+  get selectedFacility() {
+    return this.selectedTerritoryKind === 'facility'
+      ? this.facilities.find((row) => row.id === this.selectedTerritoryId)
+      : undefined;
   }
   get selectedFacilities() {
-    return this.facilities.filter((row) => row.municipalityId === this.selectedMunicipality?.id);
+    if (this.selectedTerritoryKind === 'facility')
+      return this.facilities.filter((row) => row.id === this.selectedTerritoryId);
+    const municipalityIds = this.selectionMunicipalityIds;
+    return this.facilities.filter((row) => municipalityIds.has(row.municipalityId));
+  }
+  private cachedGeographyLocations: CatalogMapLocation[] = [];
+  get geographyLocations(): CatalogMapLocation[] {
+    const locations = this.selectedFacilities;
+    if (
+      locations.length !== this.cachedGeographyLocations.length ||
+      locations.some((location, index) => location !== this.cachedGeographyLocations[index])
+    )
+      this.cachedGeographyLocations = locations;
+    return this.cachedGeographyLocations;
   }
   get validatedFacilityCount() {
     return this.selectedFacilities.filter((row) => row.coordinatesValidated).length;
@@ -217,15 +318,27 @@ export class Territory implements OnInit {
       : 0;
   }
   get responsibles() {
-    const municipality = this.selectedMunicipality;
-    if (!municipality) return [];
+    const municipalityIds = this.selectionMunicipalityIds;
+    const regionIds = new Set(
+      this.municipalities.filter((row) => municipalityIds.has(row.id)).map((row) => row.regionId),
+    );
+    if (this.selectedTerritoryKind === 'region') regionIds.add(this.selectedTerritoryId);
+    if (this.selectedTerritoryKind === 'national')
+      this.regions.forEach((row) => regionIds.add(row.id));
     const facilityIds = new Set(this.selectedFacilities.map((row) => row.id));
     return this.users
       .filter(
         (user) =>
-          user.assignment.municipalityId === municipality.id ||
-          (!!user.assignment.facilityId && facilityIds.has(user.assignment.facilityId)) ||
-          user.assignment.regionId === municipality.regionId,
+          user.assignment.scopeType === 'NACIONAL' ||
+          (user.assignment.scopeType === 'MUNICIPIO' &&
+            !!user.assignment.municipalityId &&
+            municipalityIds.has(user.assignment.municipalityId)) ||
+          (user.assignment.scopeType === 'ESTABLECIMIENTO' &&
+            !!user.assignment.facilityId &&
+            facilityIds.has(user.assignment.facilityId)) ||
+          (user.assignment.scopeType === 'REGION' &&
+            !!user.assignment.regionId &&
+            regionIds.has(user.assignment.regionId)),
       )
       .map((user) => ({
         id: user.id,
@@ -249,8 +362,8 @@ export class Territory implements OnInit {
   }
   get readinessProgress() {
     const checks = [
-      this.selectedMunicipality?.active,
-      this.selectedMunicipality?.mapValidated,
+      this.selectedTerritory?.active,
+      this.selectedTerritory?.mapValidated,
       this.selectedFacilities.length > 0,
       this.selectedFacilities.length > 0 &&
         this.locatedFacilityCount === this.selectedFacilities.length,
@@ -612,21 +725,58 @@ export class Territory implements OnInit {
     this.createKind = kind;
     this.formSubmitted = false;
     this.territoryForm = this.emptyForm();
+    if (this.selectedTerritoryKind === 'region')
+      this.territoryForm.regionId = this.selectedTerritoryId;
+    if (
+      this.selectedTerritoryKind === 'municipality' ||
+      this.selectedTerritoryKind === 'facility'
+    ) {
+      this.territoryForm.municipalityId = this.selectedMunicipality?.id ?? '';
+      this.territoryForm.regionId = this.selectedMunicipality?.regionId ?? '';
+    }
     if (kind === 'region') this.territoryForm.status = 'Preconfigurada';
   }
 
   protected selectMunicipality(id: string) {
-    if (id === this.selectedMunicipalityId) return;
-    this.selectedMunicipalityId = id;
+    this.selectTerritory('municipality', id);
+  }
+
+  protected selectTerritory(kind: 'national' | 'region' | 'municipality' | 'facility', id = '') {
+    this.selectedTerritoryKind = kind;
+    this.selectedTerritoryId = id;
+    if (kind === 'facility')
+      this.selectedMunicipalityId =
+        this.facilities.find((row) => row.id === id)?.municipalityId ?? '';
+    if (kind === 'municipality') this.selectedMunicipalityId = id;
     this.loadHistory(false);
   }
 
+  protected selectMapLocation(id: string) {
+    this.selectTerritory('facility', id);
+  }
+
   protected loadHistory(append: boolean) {
-    const municipalityId = this.selectedMunicipality?.id;
-    if (!municipalityId || this.historyLoading) return;
+    if (append && this.historyLoading) return;
+    this.historySubscription?.unsubscribe();
+    if (!append) {
+      this.history = [];
+      this.historyNextCursor = undefined;
+    }
+    this.historyError = '';
+    const kind = this.selectedTerritoryKind;
+    const target = this.selectedTerritory;
+    if (!target) return;
     this.historyLoading = true;
-    this.api
-      .listMunicipalityAudit(municipalityId, append ? this.historyNextCursor : undefined)
+    const cursor = append ? this.historyNextCursor : undefined;
+    const request =
+      kind === 'municipality'
+        ? this.api.listMunicipalityAudit(target.id, cursor)
+        : this.api.listTerritoryAudit(
+            kind === 'national' ? 'NACIONAL' : kind === 'region' ? 'REGION' : 'ESTABLECIMIENTO',
+            kind === 'national' ? undefined : target.id,
+            cursor,
+          );
+    this.historySubscription = request
       .pipe(
         takeUntilDestroyed(this.destroyRef),
         finalize(() => {
@@ -640,8 +790,7 @@ export class Territory implements OnInit {
           this.historyNextCursor = page.nextCursor;
         },
         error: () => {
-          this.history = [];
-          this.historyNextCursor = undefined;
+          this.historyError = 'No se pudo cargar el historial del elemento seleccionado.';
         },
       });
   }
@@ -1206,9 +1355,12 @@ export class Territory implements OnInit {
             code: row.code,
             name: row.name,
             type: row.type,
+            address: row.address,
             status: this.statusLabel(row.operationalStatus),
             rawStatus: row.operationalStatus,
             hasCoordinates: row.hasCoordinates,
+            latitude: row.latitude,
+            longitude: row.longitude,
             coordinatesValidated: row.coordinatesValidated,
             active: row.active,
             updatedAt: row.updatedAt,
@@ -1247,6 +1399,15 @@ export class Territory implements OnInit {
           this.territoryForm.municipalityId ||= this.municipalities[0]?.id ?? '';
           if (!this.municipalities.some((row) => row.id === this.selectedMunicipalityId))
             this.selectedMunicipalityId = this.municipalities[0]?.id ?? '';
+          if (
+            (this.selectedTerritoryKind === 'region' &&
+              !this.regions.some((row) => row.id === this.selectedTerritoryId)) ||
+            (this.selectedTerritoryKind === 'facility' &&
+              !this.facilities.some((row) => row.id === this.selectedTerritoryId))
+          ) {
+            this.selectedTerritoryKind = 'municipality';
+            this.selectedTerritoryId = this.selectedMunicipalityId;
+          }
           this.loadHistory(false);
         },
         error: () => this.notify.emit('No se pudo cargar el catálogo territorial real.'),

@@ -61,6 +61,8 @@ export class PrismaTerritorialCatalogRepository extends TerritorialCatalogReposi
       address: row.address,
       operationalStatus: row.operationalStatus as OperationalStatus,
       hasCoordinates: row.latitude !== null && row.longitude !== null,
+      latitude: row.latitude === null ? undefined : Number(row.latitude),
+      longitude: row.longitude === null ? undefined : Number(row.longitude),
       coordinatesValidated: row.coordinatesValidated,
       active: row.active,
       updatedAt: row.updatedAt,

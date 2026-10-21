@@ -249,7 +249,7 @@ describe('App', () => {
     await settleDeferred(fixture);
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.textContent).toContain(
-      'No hay municipios disponibles dentro del alcance autorizado.',
+      'No hay elementos disponibles dentro del alcance autorizado.',
     );
     expect(compiled.textContent).not.toContain('Puerto Cortés');
     expect(compiled.querySelectorAll('.history-timeline article')).toHaveLength(0);

@@ -7,6 +7,12 @@ import { TerritorialAuditRepository } from './ports/territorial-audit.repository
 import { TerritorialAuditUseCase } from './territorial-audit.use-case';
 
 class Repository extends TerritorialAuditRepository {
+  findTerritoryRegion(_type: 'REGION' | 'ESTABLECIMIENTO', id: string): Promise<string | null> {
+    return Promise.resolve(id === 'missing' ? null : 'region-1');
+  }
+  listTerritoryEvents(): Promise<TerritorialAuditPage> {
+    return this.listMunicipalityEvents();
+  }
   findMunicipalityRegion(id: string): Promise<string | null> {
     return Promise.resolve(id === 'missing' ? null : 'region-1');
   }
@@ -53,6 +59,42 @@ const subject: AuthorizationSubject = {
 };
 
 describe('TerritorialAuditUseCase', () => {
+  it.each(['REGION', 'ESTABLECIMIENTO'] as const)(
+    'rejects %s history outside the assigned region',
+    async (entityType) => {
+      const repository = new Repository();
+      const list = jest.spyOn(repository, 'listTerritoryEvents');
+      await expect(
+        new TerritorialAuditUseCase(repository).listTerritoryEvents(
+          entityType,
+          'target-1',
+          25,
+          undefined,
+          { ...subject, territory: { ...subject.territory, regionIds: ['region-2'] } },
+        ),
+      ).rejects.toBeInstanceOf(TerritorialAuditScopeDeniedError);
+      expect(list).not.toHaveBeenCalled();
+    },
+  );
+
+  it('limits the national overview to the assigned regions', async () => {
+    const repository = new Repository();
+    const list = jest.spyOn(repository, 'listTerritoryEvents');
+    await new TerritorialAuditUseCase(repository).listTerritoryEvents(
+      'NACIONAL',
+      undefined,
+      25,
+      undefined,
+      subject,
+    );
+    expect(list).toHaveBeenCalledWith({
+      entityType: 'NACIONAL',
+      entityId: undefined,
+      regionIds: ['region-1'],
+      limit: 25,
+      cursor: undefined,
+    });
+  });
   it('returns only the bounded page after validating regional scope', async () => {
     const result = await new TerritorialAuditUseCase(new Repository()).listMunicipalityEvents(
       'municipality-1',

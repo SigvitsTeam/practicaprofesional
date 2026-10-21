@@ -12,6 +12,8 @@ import {
   type ManagedUserRecord,
 } from '../../core/user-admin-api.service';
 import { Territory } from './territory';
+import { By } from '@angular/platform-browser';
+import { InteractiveMap } from '../../shared/interactive-map/interactive-map';
 
 const regions: RegionRecord[] = [
   {
@@ -58,6 +60,8 @@ const catalog: TerritorialCatalog = {
       type: 'CIS',
       operationalStatus: 'ACTIVO',
       hasCoordinates: true,
+      latitude: 15.82,
+      longitude: -87.92,
       coordinatesValidated: false,
       active: true,
       updatedAt: '2026-09-02T12:00:00Z',
@@ -104,6 +108,7 @@ describe('Territory user role and scope form', () => {
             listRegions: () => of(regions),
             listCatalog: () => of(catalog),
             listMunicipalityAudit: () => of({ items: [] }),
+            listTerritoryAudit: () => of({ items: [] }),
           },
         },
         {
@@ -129,6 +134,138 @@ describe('Territory user role and scope form', () => {
     await fixture.whenStable();
   }
 
+  async function selectTreeItem(label: string) {
+    const button = Array.from(host.querySelectorAll<HTMLButtonElement>('.tree > button')).find(
+      (row) => row.textContent?.includes(label),
+    );
+    expect(button).toBeDefined();
+    button!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+  }
+
+  it('updates all four tabs for country, region, municipality and facility selections', async () => {
+    const audit = vi.spyOn(TestBed.inject(TerritorialApiService), 'listTerritoryAudit');
+    audit.mockImplementation((type, id) =>
+      of({
+        items: [
+          {
+            id: `${type}-${id}`,
+            action: 'TERRITORIAL_STATUS_CHANGED',
+            entity: type,
+            reason: `Historial ${id ?? 'Honduras'}`,
+            createdAt: '2026-09-02T12:00:00Z',
+          },
+        ],
+      }),
+    );
+    await render();
+    await clickButton('Territorios');
+    for (const [treeName, detailName, expectedFacilities] of [
+      ['Honduras', 'Honduras', 2],
+      ['05', 'Cortés', 2],
+      ['0506', 'Puerto Cortés', 2],
+      ['Centro QA', 'Centro QA', 1],
+    ] as const) {
+      await selectTreeItem(treeName);
+      expect(host.querySelector('.territory-title h2')?.textContent).toContain(detailName);
+      await clickButton('Información general');
+      expect(host.querySelector<HTMLInputElement>('.territory-form input')?.value).toBe(detailName);
+      await clickButton('Geografía');
+      const map = fixture.debugElement.query(By.directive(InteractiveMap))
+        .componentInstance as InteractiveMap;
+      expect(map.catalogLocations()).toHaveLength(expectedFacilities);
+      expect(map.catalogLabel()).toContain(detailName);
+      await clickButton('Responsables');
+      expect(host.querySelector('.responsibles-view')?.getAttribute('aria-label')).toContain(
+        detailName,
+      );
+      await clickButton('Historial');
+      expect(host.querySelector('.history-view')?.getAttribute('aria-label')).toContain(detailName);
+    }
+    expect(audit).toHaveBeenCalledWith('NACIONAL', undefined, undefined);
+    expect(audit).toHaveBeenCalledWith('REGION', 'region-1', undefined);
+    expect(audit).toHaveBeenCalledWith('ESTABLECIMIENTO', 'facility-1', undefined);
+    expect(host.querySelector('.history-view')?.textContent).toContain('Historial facility-1');
+  });
+
+  it('keeps facility responsibles separate from sibling facilities and includes territorial supervision', async () => {
+    users.push(
+      {
+        ...linkedUser(),
+        id: 'own',
+        fullName: 'Responsable propio',
+        assignment: {
+          scopeType: 'ESTABLECIMIENTO',
+          facilityId: 'facility-1',
+          municipalityId: 'municipality-1',
+          regionId: 'region-1',
+          label: 'Centro QA',
+          startDate: '2026-09-01',
+        },
+      },
+      {
+        ...linkedUser(),
+        id: 'sibling',
+        fullName: 'Responsable ajeno',
+        assignment: {
+          scopeType: 'ESTABLECIMIENTO',
+          facilityId: 'facility-inactive',
+          municipalityId: 'municipality-1',
+          regionId: 'region-1',
+          label: 'Centro inactivo',
+          startDate: '2026-09-01',
+        },
+      },
+      {
+        ...linkedUser(),
+        id: 'supervisor',
+        fullName: 'Supervisión regional',
+        assignment: {
+          scopeType: 'REGION',
+          regionId: 'region-1',
+          label: 'Cortés',
+          startDate: '2026-09-01',
+        },
+      },
+    );
+    await render();
+    await clickButton('Territorios');
+    await selectTreeItem('Centro QA');
+    await clickButton('Responsables');
+    const text = host.querySelector('.responsible-list')?.textContent;
+    expect(text).toContain('Responsable propio');
+    expect(text).toContain('Supervisión regional');
+    expect(text).not.toContain('Responsable ajeno');
+  });
+
+  it('discards a pending history response after selecting another territory', async () => {
+    const pending = new Subject<{ items: [] }>();
+    vi.spyOn(TestBed.inject(TerritorialApiService), 'listMunicipalityAudit').mockReturnValue(
+      pending,
+    );
+    vi.spyOn(TestBed.inject(TerritorialApiService), 'listTerritoryAudit').mockReturnValue(
+      of({
+        items: [
+          {
+            id: 'new-event',
+            action: 'TERRITORIAL_STATUS_CHANGED',
+            entity: 'REGION',
+            reason: 'Historial de región',
+            createdAt: '2026-09-02T12:00:00Z',
+          },
+        ],
+      }),
+    );
+    await render();
+    await clickButton('Territorios');
+    await selectTreeItem('05');
+    pending.next({ items: [] });
+    pending.complete();
+    await clickButton('Historial');
+    expect(host.querySelector('.history-view')?.textContent).toContain('Historial de región');
+  });
+
   it('renders an asynchronous catalog without requiring another user interaction', async () => {
     const pending = new Subject<ManagedUserRecord[]>();
     vi.spyOn(TestBed.inject(UserAdminApiService), 'list').mockReturnValue(pending);
@@ -153,7 +290,10 @@ describe('Territory user role and scope form', () => {
     expect(host.textContent).toContain('2 de 2 establecimientos con coordenadas registradas');
     expect(host.textContent).toContain('1 referencia(s) pendiente(s) de validación GPS');
     expect(host.textContent).not.toContain('establecimiento(s) sin coordenadas');
-    expect(host.textContent).toContain('0506 · Límite municipal validado');
+    expect(host.querySelector('app-interactive-map')).not.toBeNull();
+    expect(host.textContent).toContain('El mapa base no representa límites sanitarios validados');
+    expect(host.querySelector('.geo-shape, .geo-map-label, .mini-map')).toBeNull();
+    expect(host.querySelector('.geo-details .validation-chip')?.textContent).toContain('VALIDADA');
     expect(
       host.querySelector('[aria-label="Referencia pendiente de validación GPS"]'),
     ).not.toBeNull();

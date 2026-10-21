@@ -24,6 +24,14 @@ import { RuntimeConfigService } from '../../core/runtime-config.service';
 
 export type MapMetric = 'total' | 'newCases' | 'controls' | 'alerts';
 export type MapLevel = 'municipal' | 'regional' | 'national';
+export interface CatalogMapLocation {
+  id: string;
+  name: string;
+  code: string;
+  latitude?: number;
+  longitude?: number;
+  coordinatesValidated: boolean;
+}
 type LeafletApi = typeof import('leaflet');
 const MIN_MAP_ZOOM = 5;
 const TILE_ERROR_LIMIT = 3;
@@ -43,7 +51,10 @@ export function tileLoadHasFailed(tileErrors: number, loadedTiles: number): bool
   styleUrl: './interactive-map.css',
 })
 export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
-  readonly reports = input.required<Report[]>();
+  readonly reports = input<Report[]>([]);
+  readonly catalogLocations = input<CatalogMapLocation[] | null>(null);
+  readonly catalogLabel = input('Ubicaciones del catálogo territorial');
+  readonly locationSelected = output<string>();
   readonly level = input.required<MapLevel>();
   readonly metric = input.required<MapMetric>();
   readonly allowNational = input(false);
@@ -105,6 +116,9 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
 
   get missingCoordinateCount() {
     return this.reports().length - this.locatedReports.length;
+  }
+  get locatedCatalogLocations() {
+    return (this.catalogLocations() ?? []).filter((location) => this.hasCoordinates(location));
   }
 
   metricValue(report: Report) {
@@ -225,6 +239,34 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
     const markerLayer = this.markerLayer;
     if (!map || !leaflet || !markerLayer) return;
     markerLayer.clearLayers();
+    if (this.catalogLocations() !== null) {
+      for (const location of this.locatedCatalogLocations) {
+        const marker = leaflet.marker([location.latitude!, location.longitude!], {
+          title: location.name,
+          alt: location.name,
+          icon: leaflet.divIcon({
+            className: 'sigvits-marker-shell',
+            html: `<span class="sigvits-map-marker ${location.coordinatesValidated ? 'validated' : 'reference'}">●</span>`,
+            iconAnchor: [18, 18],
+            iconSize: [36, 36],
+          }),
+        });
+        const tooltip = document.createElement('span');
+        tooltip.textContent = `${location.code} · ${location.name} · ${location.coordinatesValidated ? 'GPS validado' : 'Referencia pendiente de validación GPS'}`;
+        marker.bindTooltip(tooltip);
+        const selectLocation = () => this.locationSelected.emit(location.id);
+        marker.on('click', selectLocation);
+        marker.on('keydown', (event: LeafletKeyboardEvent) => {
+          if (!['Enter', ' ', 'Spacebar'].includes(event.originalEvent.key)) return;
+          event.originalEvent.preventDefault();
+          selectLocation();
+        });
+        marker.on('add', () => marker.getElement()?.setAttribute('aria-label', location.name));
+        marker.addTo(markerLayer);
+      }
+      this.fitMap(this.locatedCatalogLocations);
+      return;
+    }
     const located = this.locatedReports;
     for (const report of located) {
       const value = this.metricDisplay(report);
@@ -261,25 +303,28 @@ export class InteractiveMap implements AfterViewInit, OnChanges, OnDestroy {
     this.fitMap(located);
   }
 
-  private fitMap(located: Report[]) {
+  private fitMap(located: Pick<Report, 'latitude' | 'longitude'>[]) {
     const map = this.map;
     const leaflet = this.leaflet;
     if (!map || !leaflet) return;
     if (located.length) {
       const points = located.map((report) => [report.latitude!, report.longitude!] as LatLngTuple);
-      map.fitBounds(leaflet.latLngBounds(points).pad(0.18), { maxZoom: 14, animate: false });
+      map.fitBounds(leaflet.latLngBounds(points).pad(0.18), {
+        maxZoom: this.level() === 'regional' ? 8 : 14,
+        animate: false,
+      });
       return;
     }
     const defaults: Record<MapLevel, { center: LatLngTuple; zoom: number }> = {
       national: { center: [14.75, -86.5], zoom: 7 },
-      regional: { center: [15.45, -87.85], zoom: 9 },
+      regional: { center: [15.45, -87.85], zoom: 8 },
       municipal: { center: [15.82, -87.92], zoom: 12 },
     };
-    const view = defaults[this.level()];
+    const view = defaults[this.catalogLocations() !== null ? 'national' : this.level()];
     map.setView(view.center, view.zoom, { animate: false });
   }
 
-  protected hasCoordinates(report: Report): boolean {
+  protected hasCoordinates(report: Pick<Report, 'latitude' | 'longitude'>): boolean {
     return (
       Number.isFinite(report.latitude) &&
       Number.isFinite(report.longitude) &&

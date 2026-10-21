@@ -25,6 +25,8 @@ export interface FacilitySummary {
   operationalStatus: OperationalStatus;
   /** True when both latitude and longitude are present, regardless of GPS validation status. */
   hasCoordinates: boolean;
+  latitude?: number;
+  longitude?: number;
   coordinatesValidated: boolean;
   active: boolean;
   updatedAt: Date;
