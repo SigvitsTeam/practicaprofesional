@@ -139,16 +139,14 @@ describe('TerritorialCatalogUseCase', () => {
   });
 
   it('rejects coordinate validation outside the assigned region', async () => {
-    jest
-      .spyOn(repository, 'findStatusContext')
-      .mockResolvedValue({
-        id: 'facility-1',
-        entityType: 'ESTABLECIMIENTO',
-        regionId: 'other-region',
-        operationalStatus: OperationalStatus.Active,
-        active: true,
-        updatedAt: new Date(),
-      });
+    jest.spyOn(repository, 'findStatusContext').mockResolvedValue({
+      id: 'facility-1',
+      entityType: 'ESTABLECIMIENTO',
+      regionId: 'other-region',
+      operationalStatus: OperationalStatus.Active,
+      active: true,
+      updatedAt: new Date(),
+    });
     const save = jest.spyOn(repository, 'validateCoordinates');
     await expect(
       useCase.validateCoordinates(
@@ -167,16 +165,14 @@ describe('TerritorialCatalogUseCase', () => {
   });
 
   it('requires valid coordinates and evidence before saving a validation', async () => {
-    jest
-      .spyOn(repository, 'findStatusContext')
-      .mockResolvedValue({
-        id: 'facility-1',
-        entityType: 'ESTABLECIMIENTO',
-        regionId,
-        operationalStatus: OperationalStatus.Active,
-        active: true,
-        updatedAt: new Date(),
-      });
+    jest.spyOn(repository, 'findStatusContext').mockResolvedValue({
+      id: 'facility-1',
+      entityType: 'ESTABLECIMIENTO',
+      regionId,
+      operationalStatus: OperationalStatus.Active,
+      active: true,
+      updatedAt: new Date(),
+    });
     const save = jest.spyOn(repository, 'validateCoordinates');
     await expect(
       useCase.validateCoordinates(
