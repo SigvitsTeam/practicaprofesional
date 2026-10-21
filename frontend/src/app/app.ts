@@ -58,6 +58,7 @@ import { ReviewNotificationsService } from './core/review-notifications.service'
   templateUrl: './app.html',
   styleUrl: './app.css',
   encapsulation: ViewEncapsulation.None,
+  host: { '(document:keydown.escape)': 'closeMobileNavigation()' },
 })
 export class App {
   @ViewChild('territory') private territory?: {
@@ -75,6 +76,7 @@ export class App {
   private readonly destroyRef = inject(DestroyRef);
   private profileSubscriptions = new Subscription();
   active = 'Inicio';
+  mobileNavigationOpen = false;
   adminSection: 'territory' | 'periods' = 'territory';
   get canManagePeriods() {
     return this.role.id === 'superadmin' || this.role.id === 'central-validator';
@@ -464,6 +466,7 @@ export class App {
   }
 
   navigate(page: string) {
+    this.mobileNavigationOpen = false;
     if (!this.role.navItems.includes(page)) {
       this.active = 'Inicio';
       this.selectedReport = null;
@@ -500,9 +503,16 @@ export class App {
   }
 
   signOut() {
+    this.closeMobileNavigation();
     this.auth.signOut();
     this.active = 'Inicio';
     this.selectedReport = null;
+  }
+
+  closeMobileNavigation() {
+    if (!this.mobileNavigationOpen) return;
+    this.mobileNavigationOpen = false;
+    document.querySelector<HTMLButtonElement>('.mobile-navigation-toggle')?.focus();
   }
 
   leaveEmailAction() {

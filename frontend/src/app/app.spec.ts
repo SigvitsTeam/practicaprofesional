@@ -81,6 +81,38 @@ describe('App', () => {
     expect(app).toBeTruthy();
   });
 
+  it('closes the mobile navigation with Escape and returns focus to its toggle', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const toggle = fixture.nativeElement.querySelector(
+      '.mobile-navigation-toggle',
+    ) as HTMLButtonElement;
+    toggle.click();
+    fixture.detectChanges();
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+
+    const navigationButton = fixture.nativeElement.querySelector(
+      '#main-navigation button',
+    ) as HTMLButtonElement;
+    navigationButton.focus();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    fixture.detectChanges();
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
+  });
+
+  it('closes the mobile navigation when signing out', async () => {
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    fixture.componentInstance.mobileNavigationOpen = true;
+    fixture.componentInstance.signOut();
+    fixture.detectChanges();
+    expect(fixture.componentInstance.mobileNavigationOpen).toBe(false);
+    expect(fixture.nativeElement.querySelector('app-login')).toBeTruthy();
+  });
+
   it.each(['invite', 'recovery'])(
     'keeps an existing login when the URL only contains a bare %s marker',
     async (action) => {

@@ -24,9 +24,6 @@
   font-size: 0.72rem;
 }
 @media (max-width: 780px) {
-  .nav-item {
-    font-size: 0;
-  }
   .nav-icon {
     font-size: 1.1rem;
   }

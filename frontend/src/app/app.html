@@ -11,8 +11,18 @@
 } @else if (!profileReady()) {
   <main class="profile-loading"><p>Cargando rol y alcance institucional…</p></main>
 } @else {
-  <main class="app-shell">
+  <main class="app-shell" [class.navigation-open]="mobileNavigationOpen">
+    <button
+      class="mobile-navigation-toggle btn secondary"
+      type="button"
+      aria-controls="main-navigation"
+      [attr.aria-expanded]="mobileNavigationOpen"
+      (click)="mobileNavigationOpen = !mobileNavigationOpen"
+    >
+      {{ mobileNavigationOpen ? '✕ Cerrar menú' : '☰ Menú' }}
+    </button>
     <app-sidebar
+      id="main-navigation"
       [active]="active"
       [role]="role"
       [reviewCount]="reviewNotifications.count()"
@@ -51,11 +61,15 @@
 
         @switch (active) {
           @case ('Inicio') {
-            <app-role-dashboard
-              [role]="role"
-              (navigate)="navigate($event)"
-              (notify)="showNotice($event)"
-            />
+            @defer (on immediate) {
+              <app-role-dashboard
+                [role]="role"
+                (navigate)="navigate($event)"
+                (notify)="showNotice($event)"
+              />
+            } @placeholder {
+              <p class="page-loading">Cargando inicio…</p>
+            }
           }
           @case ('Captura ITS 1') {
             @defer (on immediate) {
