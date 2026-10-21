@@ -835,6 +835,39 @@
 .geo-details {
   padding: 2px 3px;
 }
+.facility-location-validation {
+  padding: 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.facility-location-validation p {
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.coordinate-validation-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+.coordinate-validation-form label {
+  display: grid;
+  gap: 6px;
+}
+.coordinate-validation-form input:not([type='checkbox']),
+.coordinate-validation-form textarea {
+  width: 100%;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--surface, #fff);
+}
+:host-context([data-theme='dark']) .coordinate-validation-form input:not([type='checkbox']),
+:host-context([data-theme='dark']) .coordinate-validation-form textarea {
+  background: #172c35;
+}
 .geo-details .section-heading {
   padding: 0 0 13px;
 }

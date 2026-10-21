@@ -3,6 +3,7 @@ export interface TerritorialAuditEvent {
   action: string;
   entity: string;
   reason: string | null;
+  source?: string;
   actorName: string | null;
   createdAt: Date;
 }

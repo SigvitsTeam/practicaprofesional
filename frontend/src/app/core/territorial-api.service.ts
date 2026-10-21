@@ -64,6 +64,7 @@ export interface TerritorialAuditEventRecord {
   action: string;
   entity: string;
   reason?: string;
+  source?: string;
   actorName?: string;
   createdAt: string;
 }
@@ -82,6 +83,21 @@ export class TerritorialApiService {
 
   listRegions() {
     return this.http.get<RegionRecord[]>(`${this.base}/regions`);
+  }
+  validateFacilityCoordinates(
+    id: string,
+    input: {
+      latitude: number;
+      longitude: number;
+      source: string;
+      reason: string;
+      expectedUpdatedAt: string;
+    },
+  ) {
+    return this.http.patch<void>(
+      `${this.base}/territories/facilities/${id}/coordinates/validate`,
+      input,
+    );
   }
   listCatalog() {
     return this.http.get<TerritorialCatalog>(`${this.base}/territories/catalog`);

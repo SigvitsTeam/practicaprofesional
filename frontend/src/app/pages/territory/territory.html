@@ -1539,7 +1539,11 @@
                   {{ municipality.code }}.
                 </p>
                 <span class="validation-chip">{{
-                  municipality.mapValidated ? '✓ VALIDADA EN CATÁLOGO' : 'VALIDACIÓN PENDIENTE'
+                  selectedFacility
+                    ? locationState(selectedFacility)
+                    : municipality.mapValidated
+                      ? '✓ VALIDADA EN CATÁLOGO'
+                      : 'VALIDACIÓN PENDIENTE'
                 }}</span>
               </div>
             </div>
@@ -1560,13 +1564,129 @@
                 </p>
               </div>
               <div class="geo-details">
+                @if (selectedFacility; as facility) {
+                  <section
+                    class="facility-location-validation"
+                    aria-label="Validación de ubicación del establecimiento"
+                  >
+                    <h3>{{ locationState(facility) }}</h3>
+                    <p>
+                      {{
+                        facility.hasCoordinates
+                          ? facility.coordinatesValidated
+                            ? 'La ubicación figura validada en el catálogo. Consulte su respaldo en el historial.'
+                            : 'Hay coordenadas registradas; falta confirmar el punto exacto del establecimiento con evidencia.'
+                          : 'Registre y verifique las coordenadas del establecimiento.'
+                      }}
+                    </p>
+                    @if (globalScope || regionalScope) {
+                      <button
+                        type="button"
+                        class="btn secondary"
+                        (click)="openCoordinateValidation()"
+                        [disabled]="coordinateValidationSaving"
+                      >
+                        {{
+                          facility.coordinatesValidated
+                            ? 'Actualizar validación'
+                            : 'Validar ubicación'
+                        }}
+                      </button>
+                    }
+                    <button type="button" class="btn tertiary" (click)="selectTab('history')">
+                      Ver historial y evidencia
+                    </button>
+                    @if (coordinateValidationOpen) {
+                      <form
+                        class="coordinate-validation-form"
+                        (ngSubmit)="saveCoordinateValidation()"
+                      >
+                        <label
+                          ><span>Latitud *</span
+                          ><input
+                            type="number"
+                            name="validationLatitude"
+                            min="-90"
+                            max="90"
+                            step="0.000001"
+                            [(ngModel)]="coordinateValidationForm.latitude"
+                            required
+                        /></label>
+                        <label
+                          ><span>Longitud *</span
+                          ><input
+                            type="number"
+                            name="validationLongitude"
+                            min="-180"
+                            max="180"
+                            step="0.000001"
+                            [(ngModel)]="coordinateValidationForm.longitude"
+                            required
+                        /></label>
+                        <label
+                          ><span>Fuente o evidencia *</span
+                          ><textarea
+                            name="validationSource"
+                            maxlength="500"
+                            minlength="10"
+                            [(ngModel)]="coordinateValidationForm.source"
+                            placeholder="Documento, acta o referencia del levantamiento GPS"
+                            required
+                          ></textarea>
+                        </label>
+                        <label
+                          ><span>Motivo de validación *</span
+                          ><textarea
+                            name="validationReason"
+                            maxlength="500"
+                            minlength="10"
+                            [(ngModel)]="coordinateValidationForm.reason"
+                            required
+                          ></textarea>
+                        </label>
+                        <label
+                          ><input
+                            type="checkbox"
+                            name="validationConfirmed"
+                            [(ngModel)]="coordinateValidationForm.confirmed"
+                            required
+                          />
+                          Confirmo que la evidencia respalda el punto exacto del
+                          establecimiento.</label
+                        >
+                        @if (coordinateValidationError) {
+                          <p role="alert">{{ coordinateValidationError }}</p>
+                        }
+                        <button
+                          class="btn primary"
+                          type="submit"
+                          [disabled]="coordinateValidationSaving"
+                        >
+                          {{ coordinateValidationSaving ? 'Guardando…' : 'Guardar validación' }}
+                        </button>
+                        <button
+                          class="btn tertiary"
+                          type="button"
+                          (click)="coordinateValidationOpen = false"
+                          [disabled]="coordinateValidationSaving"
+                        >
+                          Cancelar
+                        </button>
+                      </form>
+                    }
+                  </section>
+                }
                 <div class="section-heading">
                   <div>
                     <h2>Geografía asociada</h2>
                     <p>Estado real registrado en el catálogo territorial</p>
                   </div>
                   <span class="validation-chip">{{
-                    municipality.mapValidated ? '✓ VALIDADA' : 'PENDIENTE'
+                    selectedFacility
+                      ? locationState(selectedFacility)
+                      : municipality.mapValidated
+                        ? '✓ VALIDADA'
+                        : 'PENDIENTE'
                   }}</span>
                 </div>
                 <dl>
@@ -1679,6 +1799,9 @@
                     <div>
                       <strong>{{ auditActionLabel(event.action) }}</strong>
                       <p>{{ event.reason || 'Sin motivo descriptivo registrado.' }}</p>
+                      @if (event.source) {
+                        <p>Fuente: {{ event.source }}</p>
+                      }
                       <small>{{ event.actorName || 'Sistema' }}</small>
                     </div>
                   </article>

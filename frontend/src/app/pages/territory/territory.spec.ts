@@ -109,6 +109,7 @@ describe('Territory user role and scope form', () => {
             listCatalog: () => of(catalog),
             listMunicipalityAudit: () => of({ items: [] }),
             listTerritoryAudit: () => of({ items: [] }),
+            validateFacilityCoordinates: vi.fn(() => of(undefined)),
           },
         },
         {
@@ -143,6 +144,51 @@ describe('Territory user role and scope form', () => {
     fixture.detectChanges();
     await fixture.whenStable();
   }
+
+  it('requires explicit evidence before validating a reference location and refreshes the catalog', async () => {
+    const save = vi.spyOn(TestBed.inject(TerritorialApiService), 'validateFacilityCoordinates');
+    await render();
+    await clickButton('Territorios');
+    await selectTreeItem('Centro QA');
+    await clickButton('Geografía');
+    expect(host.querySelector('.facility-location-validation h3')?.textContent).toContain(
+      'Ubicación de referencia',
+    );
+    await clickButton('Validar ubicación');
+    await clickButton('Guardar validación');
+    expect(save).not.toHaveBeenCalled();
+    for (const [name, value] of [
+      ['validationSource', 'Acta de levantamiento GPS institucional'],
+      ['validationReason', 'Punto exacto contrastado con el acta'],
+    ]) {
+      const field = host.querySelector<HTMLTextAreaElement>(`[name="${name}"]`)!;
+      field.value = value;
+      field.dispatchEvent(new Event('input'));
+      fixture.detectChanges();
+    }
+    host.querySelector<HTMLInputElement>('[name="validationConfirmed"]')!.click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+    vi.spyOn(TestBed.inject(TerritorialApiService), 'listCatalog').mockReturnValue(
+      of({
+        ...catalog,
+        facilities: catalog.facilities.map((row) =>
+          row.id === 'facility-1' ? { ...row, coordinatesValidated: true } : row,
+        ),
+      }),
+    );
+    await clickButton('Guardar validación');
+    expect(save).toHaveBeenCalledWith('facility-1', {
+      latitude: 15.82,
+      longitude: -87.92,
+      source: 'Acta de levantamiento GPS institucional',
+      reason: 'Punto exacto contrastado con el acta',
+      expectedUpdatedAt: catalog.facilities[0].updatedAt,
+    });
+    expect(host.querySelector('.facility-location-validation h3')?.textContent).toContain(
+      'Ubicación validada',
+    );
+  });
 
   it('updates all four tabs for country, region, municipality and facility selections', async () => {
     const audit = vi.spyOn(TestBed.inject(TerritorialApiService), 'listTerritoryAudit');

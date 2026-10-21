@@ -166,9 +166,8 @@ async function seed(): Promise<void> {
             name: facility.name,
             type: facility.type,
             address: facility.address,
-            latitude: facility.latitude,
-            longitude: facility.longitude,
-            coordinatesValidated: facility.coordinatesValidated,
+            // Existing geography and its validation belong to the institutional record.
+            // Reference coordinates are supplied only when creating a new facility.
             active: true,
           },
           create: {

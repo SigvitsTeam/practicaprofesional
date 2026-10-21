@@ -120,6 +120,42 @@ export class TerritorialCatalogUseCase {
       throw new TerritorialScopeDeniedError();
   }
 
+  async validateCoordinates(
+    id: string,
+    input: { latitude: number; longitude: number; source: string; expectedUpdatedAt: string },
+    subject: AuthorizationSubject,
+    audit: AuditContext,
+  ): Promise<void> {
+    const context = await this.repository.findStatusContext('ESTABLECIMIENTO', id);
+    if (!context) throw new TerritorialEntityNotFoundError('El establecimiento no existe.');
+    this.requireRegion(context.regionId, subject);
+    if (
+      !Number.isFinite(input.latitude) ||
+      !Number.isFinite(input.longitude) ||
+      Math.abs(input.latitude) > 90 ||
+      Math.abs(input.longitude) > 180
+    )
+      throw new InvalidTerritorialDataError('Ingrese coordenadas válidas.');
+    const source = input.source.trim();
+    if (source.length < 10 || source.length > 500)
+      throw new InvalidTerritorialDataError(
+        'Registre la fuente o evidencia de validación (10–500 caracteres).',
+      );
+    if (!audit.reason || audit.reason.trim().length < 10)
+      throw new InvalidTerritorialDataError('Registre el motivo de validación.');
+    const expectedUpdatedAt = new Date(input.expectedUpdatedAt);
+    if (!Number.isFinite(expectedUpdatedAt.getTime()))
+      throw new InvalidTerritorialDataError('La versión del establecimiento no es válida.');
+    await this.repository.validateCoordinates({
+      id,
+      latitude: input.latitude,
+      longitude: input.longitude,
+      source,
+      expectedUpdatedAt,
+      audit,
+    });
+  }
+
   private code(value: string): string {
     const code = value.trim().toUpperCase();
     if (!/^[A-Z0-9][A-Z0-9_-]{1,29}$/.test(code))

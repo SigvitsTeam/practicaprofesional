@@ -18,6 +18,7 @@
     "db:bootstrap-admin": "npm run scripts:build && node dist-scripts/prisma/bootstrap-admin.js",
     "db:provision-user": "npm run scripts:build && node dist-scripts/prisma/provision-institutional-user.js",
     "db:seed:pilot": "npm run scripts:build && node dist-scripts/prisma/seed-pilot.js",
+    "db:review:geography": "npm run scripts:build && node dist-scripts/prisma/review-geography-validations.js",
     "db:seed:calendar:2026": "npm run scripts:build && node dist-scripts/prisma/seed-calendar-2026.js",
     "db:import:diseases": "npm run scripts:build && node dist-scripts/prisma/import-disease-catalog.js",
     "db:seed:its-catalog": "npm run db:seed:pilot && npm run db:import:diseases",

@@ -60,3 +60,19 @@ o confirmar el punto GPS de los diez establecimientos marcados como referencia c
 registrar fecha, responsable y fuente de validación en la bitácora territorial. Los doce registros
 ya tienen latitud y longitud, por lo que esta pendiente no debe mostrarse como ausencia de
 coordenadas.
+
+## Validación y conservación de evidencia
+
+El seed del piloto asigna coordenadas de referencia y su estado únicamente a establecimientos nuevos.
+Al volver a ejecutarlo, conserva las coordenadas y validaciones de los registros existentes.
+
+En Administración → Territorios, seleccione el establecimiento y abra Geografía → Validar ubicación.
+Registre el punto exacto, la fuente o acta de respaldo y el motivo. Confirme la verificación antes de
+guardar. El servidor registra al usuario autenticado, la fecha y los valores anteriores y nuevos en
+el historial del establecimiento. Si el registro cambió durante la revisión, exige recargarlo.
+
+Para revisar posibles validaciones perdidas, ejecute `npm run db:review:geography` desde `backend`.
+La herramienta es de solo lectura: muestra el estado y señala si la auditoría conserva evidencia
+de una validación anterior. No convierte automáticamente referencias en ubicaciones validadas.
+Una recuperación debe contrastar el respaldo y registrar la validación mediante el mismo formulario.
+La ausencia de evidencia no permite afirmar que una referencia haya sido validada anteriormente.

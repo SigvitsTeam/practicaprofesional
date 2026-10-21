@@ -149,6 +149,7 @@ export class PrismaTerritorialAuditRepository extends TerritorialAuditRepository
         action: true,
         entity: true,
         reason: true,
+        newData: true,
         createdAt: true,
         actor: { select: { fullName: true } },
       },
@@ -164,6 +165,13 @@ export class PrismaTerritorialAuditRepository extends TerritorialAuditRepository
         action: row.action,
         entity: row.entity,
         reason: row.reason,
+        source:
+          row.newData &&
+          typeof row.newData === 'object' &&
+          !Array.isArray(row.newData) &&
+          typeof row.newData['source'] === 'string'
+            ? row.newData['source']
+            : undefined,
         actorName: row.actor?.fullName ?? null,
         createdAt: row.createdAt,
       })),

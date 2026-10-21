@@ -40,11 +40,33 @@ import {
   CreateMunicipalityDto,
   TerritorialEntityTypeDto,
   UpdateTerritorialStatusDto,
+  ValidateFacilityCoordinatesDto,
 } from './territorial-catalog.dto';
 
 @Controller('territories')
 export class TerritorialCatalogController {
   constructor(private readonly catalog: TerritorialCatalogUseCase) {}
+
+  @Patch('facilities/:id/coordinates/validate')
+  @RequireAccess({
+    permission: 'territorial:status:update',
+    dataLevel: DataLevel.Configuration,
+    scope: 'OWN',
+  })
+  validateCoordinates(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: ValidateFacilityCoordinatesDto,
+    @CurrentSubject() subject: AuthorizationSubject,
+    @Req() request: RequestWithContext,
+  ): Promise<void> {
+    return this.handle(() =>
+      this.catalog.validateCoordinates(id, body, subject, {
+        actorUserId: subject.userId,
+        requestId: request.requestId,
+        reason: body.reason,
+      }),
+    );
+  }
 
   @Get('catalog')
   @RequireAccess({

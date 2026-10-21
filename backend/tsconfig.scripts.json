@@ -14,6 +14,7 @@
     "prisma/provision-institutional-user.ts",
     "prisma/seed-calendar-2026.ts",
     "prisma/seed-pilot.ts",
+    "prisma/review-geography-validations.ts",
     "prisma/set-monthly-period-status.ts",
     "prisma/verify-period-data.ts",
     "prisma/smoke-its2-workflow.ts",

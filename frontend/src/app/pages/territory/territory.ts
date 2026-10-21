@@ -122,6 +122,89 @@ export class Territory implements OnInit {
   protected selectedTerritoryId = '';
   private historySubscription?: Subscription;
   protected historyError = '';
+  protected coordinateValidationOpen = false;
+  protected coordinateValidationSaving = false;
+  protected coordinateValidationError = '';
+  protected coordinateValidationForm: {
+    latitude: number | null;
+    longitude: number | null;
+    source: string;
+    reason: string;
+    confirmed: boolean;
+  } = { latitude: null, longitude: null, source: '', reason: '', confirmed: false };
+
+  protected locationState(facility: { hasCoordinates: boolean; coordinatesValidated: boolean }) {
+    return !facility.hasCoordinates
+      ? 'Sin coordenadas'
+      : facility.coordinatesValidated
+        ? 'Ubicación validada'
+        : 'Ubicación de referencia';
+  }
+
+  protected openCoordinateValidation() {
+    const facility = this.selectedFacility;
+    if (!facility || (!this.globalScope && !this.regionalScope)) return;
+    this.coordinateValidationForm = {
+      latitude: facility.latitude ?? null,
+      longitude: facility.longitude ?? null,
+      source: '',
+      reason: '',
+      confirmed: false,
+    };
+    this.coordinateValidationError = '';
+    this.coordinateValidationOpen = true;
+  }
+
+  protected saveCoordinateValidation() {
+    const facility = this.selectedFacility;
+    if (!facility || this.coordinateValidationSaving) return;
+    const form = this.coordinateValidationForm;
+    if (
+      form.latitude === null ||
+      form.longitude === null ||
+      !Number.isFinite(form.latitude) ||
+      !Number.isFinite(form.longitude) ||
+      Math.abs(form.latitude) > 90 ||
+      Math.abs(form.longitude) > 180 ||
+      form.source.trim().length < 10 ||
+      form.reason.trim().length < 10 ||
+      !form.confirmed
+    ) {
+      this.coordinateValidationError =
+        'Ingrese coordenadas válidas, fuente y motivo (mínimo 10 caracteres) y confirme que verificó la ubicación exacta.';
+      return;
+    }
+    this.coordinateValidationSaving = true;
+    this.coordinateValidationError = '';
+    this.api
+      .validateFacilityCoordinates(facility.id, {
+        latitude: Math.round(form.latitude * 1e6) / 1e6,
+        longitude: Math.round(form.longitude * 1e6) / 1e6,
+        source: form.source.trim(),
+        reason: form.reason.trim(),
+        expectedUpdatedAt: facility.updatedAt,
+      })
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        finalize(() => {
+          this.coordinateValidationSaving = false;
+          this.changeDetector.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.coordinateValidationOpen = false;
+          this.loadCatalog();
+          this.notify.emit(
+            'Ubicación validada. La fuente, responsable y fecha quedaron registrados en el historial.',
+          );
+        },
+        error: () => {
+          this.coordinateValidationError =
+            'No se pudo guardar la validación. Recargue el catálogo y compruebe si el establecimiento fue modificado.';
+        },
+      });
+  }
   protected regionSearch = '';
   protected municipalitySearch = '';
   protected facilitySearch = '';
@@ -226,7 +309,7 @@ export class Territory implements OnInit {
         ? {
             ...facility,
             region: `${facility.municipality} · ${region?.name ?? ''}`,
-            mapValidated: facility.coordinatesValidated,
+            mapValidated: facility.hasCoordinates && facility.coordinatesValidated,
             label: 'ESTABLECIMIENTO DE SALUD',
             entityType: 'ESTABLECIMIENTO' as const,
           }
@@ -303,7 +386,8 @@ export class Territory implements OnInit {
     return this.cachedGeographyLocations;
   }
   get validatedFacilityCount() {
-    return this.selectedFacilities.filter((row) => row.coordinatesValidated).length;
+    return this.selectedFacilities.filter((row) => row.hasCoordinates && row.coordinatesValidated)
+      .length;
   }
   get locatedFacilityCount() {
     return this.selectedFacilities.filter((row) => row.hasCoordinates).length;
@@ -742,6 +826,7 @@ export class Territory implements OnInit {
   }
 
   protected selectTerritory(kind: 'national' | 'region' | 'municipality' | 'facility', id = '') {
+    this.coordinateValidationOpen = false;
     this.selectedTerritoryKind = kind;
     this.selectedTerritoryId = id;
     if (kind === 'facility')
@@ -800,6 +885,8 @@ export class Territory implements OnInit {
       (
         {
           MUNICIPALITY_CREATED: 'Municipio creado',
+          FACILITY_COORDINATES_VALIDATED: 'Ubicación del establecimiento validada',
+          FACILITY_COORDINATES_RESTORED: 'Validación de ubicación restaurada desde evidencia',
           TERRITORIAL_STATUS_CHANGED: 'Estado territorial actualizado',
         } as Record<string, string>
       )[action] ?? action.replaceAll('_', ' ')

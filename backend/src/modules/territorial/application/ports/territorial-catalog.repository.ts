@@ -5,9 +5,11 @@ import type {
   MunicipalitySummary,
   TerritorialEntityType,
   TerritorialStatusContext,
+  ValidateFacilityCoordinatesInput,
 } from '../../domain/territorial-catalog';
 
 export abstract class TerritorialCatalogRepository {
+  abstract validateCoordinates(input: ValidateFacilityCoordinatesInput): Promise<void>;
   abstract listMunicipalities(regionIds?: readonly string[]): Promise<MunicipalitySummary[]>;
   abstract listFacilities(municipalityIds?: readonly string[]): Promise<FacilitySummary[]>;
   abstract findRegion(regionId: string): Promise<{ id: string; active: boolean } | null>;

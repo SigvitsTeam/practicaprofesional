@@ -4,6 +4,9 @@ import {
   IsOptional,
   IsString,
   IsUUID,
+  IsNumber,
+  Min,
+  Max,
   Matches,
   MaxLength,
   MinLength,
@@ -34,6 +37,14 @@ export enum TerritorialEntityTypeDto {
 
 export class UpdateTerritorialStatusDto {
   @IsEnum(OperationalStatus) status!: OperationalStatus;
+  @IsISO8601() expectedUpdatedAt!: string;
+  @IsString() @MinLength(10) @MaxLength(500) reason!: string;
+}
+
+export class ValidateFacilityCoordinatesDto {
+  @IsNumber({ maxDecimalPlaces: 6 }) @Min(-90) @Max(90) latitude!: number;
+  @IsNumber({ maxDecimalPlaces: 6 }) @Min(-180) @Max(180) longitude!: number;
+  @IsString() @MinLength(10) @MaxLength(500) source!: string;
   @IsISO8601() expectedUpdatedAt!: string;
   @IsString() @MinLength(10) @MaxLength(500) reason!: string;
 }

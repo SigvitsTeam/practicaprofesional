@@ -14,12 +14,72 @@ import {
   type MunicipalitySummary,
   type TerritorialEntityType,
   type TerritorialStatusContext,
+  type ValidateFacilityCoordinatesInput,
 } from '../domain/territorial-catalog';
 
 @Injectable()
 export class PrismaTerritorialCatalogRepository extends TerritorialCatalogRepository {
   constructor(private readonly prisma: PrismaService) {
     super();
+  }
+
+  async validateCoordinates(input: ValidateFacilityCoordinatesInput): Promise<void> {
+    try {
+      await this.prisma.client.$transaction(
+        async (tx) => {
+          const previous = await tx.healthFacility.findUnique({
+            where: { id: input.id },
+            select: { latitude: true, longitude: true, coordinatesValidated: true },
+          });
+          if (!previous) throw new TerritorialEntityNotFoundError('El establecimiento no existe.');
+          const validatedAt = new Date();
+          const updated = await tx.healthFacility.updateMany({
+            where: { id: input.id, updatedAt: input.expectedUpdatedAt },
+            data: {
+              latitude: input.latitude,
+              longitude: input.longitude,
+              coordinatesValidated: true,
+              updatedAt: validatedAt,
+            },
+          });
+          if (updated.count !== 1)
+            throw new TerritorialConcurrencyError(
+              'El establecimiento cambió. Recargue y verifique las coordenadas nuevamente.',
+            );
+          await tx.auditEvent.create({
+            data: {
+              actorUserId: input.audit.actorUserId,
+              action: 'FACILITY_COORDINATES_VALIDATED',
+              entity: 'HEALTH_FACILITY',
+              entityId: input.id,
+              dataLevel: 'CONFIGURACION',
+              previousData: {
+                latitude: previous.latitude === null ? null : Number(previous.latitude),
+                longitude: previous.longitude === null ? null : Number(previous.longitude),
+                coordinatesValidated: previous.coordinatesValidated,
+              },
+              newData: {
+                latitude: input.latitude,
+                longitude: input.longitude,
+                coordinatesValidated: true,
+                source: input.source,
+                validatedAt: validatedAt.toISOString(),
+                validatedBy: input.audit.actorUserId,
+              },
+              reason: input.audit.reason,
+              requestId: input.audit.requestId,
+            },
+          });
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
+    } catch (error: unknown) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034')
+        throw new TerritorialConcurrencyError(
+          'Otra operación modificó el establecimiento. Recargue e intente nuevamente.',
+        );
+      throw error;
+    }
   }
 
   async listMunicipalities(regionIds?: readonly string[]): Promise<MunicipalitySummary[]> {

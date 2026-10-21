@@ -48,6 +48,15 @@ export interface CreateFacilityInput {
   audit: AuditContext;
 }
 
+export interface ValidateFacilityCoordinatesInput {
+  id: string;
+  latitude: number;
+  longitude: number;
+  source: string;
+  expectedUpdatedAt: Date;
+  audit: AuditContext;
+}
+
 export class InvalidTerritorialDataError extends Error {
   constructor(message: string) {
     super(message);

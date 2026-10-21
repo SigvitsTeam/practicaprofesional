@@ -16,6 +16,9 @@ import { TerritorialCatalogRepository } from './ports/territorial-catalog.reposi
 import { TerritorialCatalogUseCase } from './territorial-catalog.use-case';
 
 class Repository extends TerritorialCatalogRepository {
+  validateCoordinates(): Promise<void> {
+    return Promise.resolve();
+  }
   municipalities: MunicipalitySummary[] = [];
   facilities: FacilitySummary[] = [];
   regions = [{ id: '11111111-1111-4111-8111-111111111111', active: true }];
@@ -133,6 +136,75 @@ describe('TerritorialCatalogUseCase', () => {
   beforeEach(() => {
     repository = new Repository();
     useCase = new TerritorialCatalogUseCase(repository);
+  });
+
+  it('rejects coordinate validation outside the assigned region', async () => {
+    jest
+      .spyOn(repository, 'findStatusContext')
+      .mockResolvedValue({
+        id: 'facility-1',
+        entityType: 'ESTABLECIMIENTO',
+        regionId: 'other-region',
+        operationalStatus: OperationalStatus.Active,
+        active: true,
+        updatedAt: new Date(),
+      });
+    const save = jest.spyOn(repository, 'validateCoordinates');
+    await expect(
+      useCase.validateCoordinates(
+        'facility-1',
+        {
+          latitude: 15.82,
+          longitude: -87.92,
+          source: 'Acta GPS institucional',
+          expectedUpdatedAt: new Date().toISOString(),
+        },
+        subject,
+        audit,
+      ),
+    ).rejects.toBeInstanceOf(TerritorialScopeDeniedError);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('requires valid coordinates and evidence before saving a validation', async () => {
+    jest
+      .spyOn(repository, 'findStatusContext')
+      .mockResolvedValue({
+        id: 'facility-1',
+        entityType: 'ESTABLECIMIENTO',
+        regionId,
+        operationalStatus: OperationalStatus.Active,
+        active: true,
+        updatedAt: new Date(),
+      });
+    const save = jest.spyOn(repository, 'validateCoordinates');
+    await expect(
+      useCase.validateCoordinates(
+        'facility-1',
+        {
+          latitude: 91,
+          longitude: -87.92,
+          source: 'Acta GPS institucional',
+          expectedUpdatedAt: new Date().toISOString(),
+        },
+        subject,
+        audit,
+      ),
+    ).rejects.toThrow('coordenadas válidas');
+    await expect(
+      useCase.validateCoordinates(
+        'facility-1',
+        {
+          latitude: 15.82,
+          longitude: -87.92,
+          source: 'GPS',
+          expectedUpdatedAt: new Date().toISOString(),
+        },
+        subject,
+        audit,
+      ),
+    ).rejects.toThrow('fuente o evidencia');
+    expect(save).not.toHaveBeenCalled();
   });
 
   it('normaliza y crea un municipio dentro de la región asignada', async () => {
