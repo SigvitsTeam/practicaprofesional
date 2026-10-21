@@ -39,19 +39,21 @@
         {{ reviewCount() }}<i></i>
       </button>
     }
-    <button
-      class="user user-menu-button"
-      type="button"
-      (click)="logout.emit()"
-      title="Cerrar sesión"
-      aria-label="Cerrar sesión"
-    >
+    <div class="user">
       <div class="avatar">{{ userInitials() }}</div>
       <div class="user-summary">
         <strong>{{ userName() }}</strong
         ><span>{{ role().roleName }}</span>
       </div>
-      <b>Salir</b>
+    </div>
+    <button
+      class="logout-button"
+      type="button"
+      (click)="logout.emit()"
+      title="Cerrar sesión"
+      aria-label="Cerrar sesión"
+    >
+      Salir
     </button>
   </div>
 </header>

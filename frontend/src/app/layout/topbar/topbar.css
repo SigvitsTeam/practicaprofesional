@@ -13,20 +13,22 @@
 .avatar {
   font-size: 0.75rem;
 }
-.user-menu-button {
+.logout-button {
   min-width: 0;
   min-height: 44px;
-  padding: 6px 10px;
+  flex-shrink: 0;
+  padding: 6px 14px;
   border-radius: 8px;
-  border: 0;
-  color: inherit;
-  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background: var(--surface, #fff);
   cursor: pointer;
-  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
 }
-.user-menu-button > b {
-  color: var(--muted);
-  font-size: 0.62rem;
+.logout-button:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
 }
 .role-switcher {
   min-width: 0;
@@ -109,10 +111,10 @@
 .theme-toggle {
   flex-shrink: 0;
 }
-.user-menu-button:hover {
+.logout-button:hover {
   color: var(--red);
   background: #f8e9ea;
 }
-:host-context([data-theme='dark']) .user-menu-button:hover {
+:host-context([data-theme='dark']) .logout-button:hover {
   background: #3b2429;
 }
