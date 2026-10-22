@@ -19,6 +19,22 @@ function stop(exitCode) {
 process.once('SIGTERM', () => stop(0));
 process.once('SIGINT', () => stop(0));
 
+console.log('Aplicando migraciones pendientes antes de iniciar API y worker...');
+const migration = spawn(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy'], {
+  stdio: 'inherit',
+  env: process.env,
+});
+children.add(migration);
+const migrationCode = await new Promise((resolve) => {
+  migration.once('error', () => resolve(1));
+  migration.once('close', (code) => resolve(code ?? 1));
+});
+children.delete(migration);
+if (stopping || migrationCode !== 0) {
+  console.error('El arranque se detuvo; API y worker no se iniciaron.');
+  process.exit(migrationCode || 1);
+}
+
 for (const [name, file] of [
   ['api', 'dist/main.js'],
   ['worker', 'dist-worker/export-worker.js'],
