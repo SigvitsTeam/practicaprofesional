@@ -29,7 +29,7 @@ export class SupabaseIdentityInvitationGateway extends IdentityInvitationGateway
         method: 'POST',
         headers: {
           apikey: secret,
-          authorization: `Bearer ${secret}`,
+          ...this.authorizationHeader(secret),
           'content-type': 'application/json',
           'x-supabase-api-version': '2024-01-01',
         },
@@ -91,7 +91,7 @@ export class SupabaseIdentityInvitationGateway extends IdentityInvitationGateway
         method: 'GET',
         headers: {
           apikey: secret,
-          authorization: `Bearer ${secret}`,
+          ...this.authorizationHeader(secret),
           'x-supabase-api-version': '2024-01-01',
         },
         signal: AbortSignal.timeout(this.config.adminTimeoutMs),
@@ -124,6 +124,11 @@ export class SupabaseIdentityInvitationGateway extends IdentityInvitationGateway
       emailConfirmedAt,
       lastAccessAt: this.timestamp(body, 'last_sign_in_at'),
     };
+  }
+
+  private authorizationHeader(secret: string): Record<string, string> {
+    // Supabase secret API keys are not JWTs; the API gateway handles apikey authentication.
+    return secret.startsWith('sb_secret_') ? {} : { authorization: `Bearer ${secret}` };
   }
 
   private timestamp(body: object, key: string): Date | null {

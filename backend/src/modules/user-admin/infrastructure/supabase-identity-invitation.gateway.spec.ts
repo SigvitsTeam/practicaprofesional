@@ -15,6 +15,26 @@ const config = {
 describe('SupabaseIdentityInvitationGateway', () => {
   afterEach(() => jest.restoreAllMocks());
 
+  it.each(['invite', 'getStatus'] as const)(
+    'uses secret API keys only in apikey for %s',
+    async (operation) => {
+      const request = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValue(
+          new Response(JSON.stringify({ id: 'provider-user-123' }), { status: 200 }),
+        );
+      const gateway = new SupabaseIdentityInvitationGateway({
+        ...config,
+        adminSecret: 'sb_secret_test-key',
+      });
+      if (operation === 'invite') await gateway.invite('user@example.org');
+      else await gateway.getStatus('provider-user-123');
+      const headers = request.mock.calls[0]?.[1]?.headers as Record<string, string>;
+      expect(headers.apikey).toBe('sb_secret_test-key');
+      expect(headers).not.toHaveProperty('authorization');
+    },
+  );
+
   it('sends the server secret only in headers and returns the immutable subject', async () => {
     const request = jest
       .spyOn(global, 'fetch')
