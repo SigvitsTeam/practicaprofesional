@@ -566,6 +566,13 @@
   .municipality-production > article {
     grid-template-columns: 1fr;
   }
+  .municipality-production.administrative-composition > article {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .consolidated-actions,
+  .network-modal footer {
+    flex-wrap: wrap;
+  }
   .municipality-production article > span {
     text-align: left;
   }

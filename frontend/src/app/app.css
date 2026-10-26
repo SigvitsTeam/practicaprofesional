@@ -260,6 +260,7 @@ nav {
 }
 .page-heading {
   display: flex;
+  margin-bottom: 24px;
   justify-content: space-between;
   align-items: flex-end;
   gap: 24px;
@@ -283,7 +284,10 @@ nav {
   font-size: 12px;
 }
 .btn {
-  height: 38px;
+  height: auto;
+  min-height: 42px;
+  padding-block: 10px;
+  line-height: 1.35;
   padding: 0 15px;
   border-radius: 7px;
   font-size: 11px;
@@ -310,6 +314,7 @@ nav {
   margin: 22px 0 17px;
   padding: 11px 14px;
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
   border: 1px solid var(--line);
@@ -705,7 +710,7 @@ td small {
 }
 .review-summary > div {
   position: relative;
-  height: 82px;
+  min-height: 94px;
   padding: 15px 17px;
   border: 1px solid var(--line);
   border-radius: 9px;
@@ -1239,7 +1244,7 @@ td small {
 .map-layout {
   min-height: 565px;
   display: grid;
-  grid-template-columns: 230px minmax(400px, 1fr) 250px;
+  grid-template-columns: 210px minmax(0, 1fr) 220px;
   gap: 12px;
 }
 .map-filters {

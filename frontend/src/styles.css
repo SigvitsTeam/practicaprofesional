@@ -20,6 +20,27 @@ textarea {
 button {
   cursor: pointer;
 }
+body {
+  line-height: 1.5;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--green, #087a5b);
+  outline-offset: 3px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 .sr-only {
   position: absolute;
   width: 1px;
@@ -30,4 +51,51 @@ button {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* Shared layout rhythm and flexible content. */
+.page-heading > div,
+.panel-heading > div,
+.section-heading > div,
+.table-toolbar > div,
+.map-layout > *,
+.review-summary > *,
+.kpi-grid > * {
+  min-width: 0;
+}
+.page-heading p,
+.panel-heading p,
+.section-heading p {
+  line-height: 1.6;
+}
+.page-heading > .btn {
+  flex-shrink: 0;
+}
+.panel-heading,
+.section-heading {
+  padding-block: 14px;
+}
+.table-toolbar,
+.table-toolbar > div:last-child {
+  flex-wrap: wrap;
+}
+.panel {
+  box-shadow: 0 2px 8px #092f3d04;
+}
+.kpi header {
+  min-height: 32px;
+  gap: 8px;
+}
+.kpi header i,
+.alerts > button i,
+.avatar {
+  flex-shrink: 0;
+}
+.review-summary span {
+  display: block;
+  padding-right: 16px;
+  line-height: 1.5;
+}
+.table-wrap {
+  border-radius: inherit;
 }
