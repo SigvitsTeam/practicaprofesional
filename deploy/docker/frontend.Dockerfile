@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 ARG NODE_IMAGE=node:24.20.0-bookworm-slim
-ARG NGINX_IMAGE=nginxinc/nginx-unprivileged:1.30.4-alpine
+ARG NGINX_IMAGE=nginxinc/nginx-unprivileged:1.30.6-alpine
 
 FROM ${NODE_IMAGE} AS build
 WORKDIR /app
