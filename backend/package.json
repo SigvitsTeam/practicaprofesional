@@ -46,7 +46,7 @@
     "check": "npm run format:check && npm run typecheck && npm run lint && npm test && npm run test:e2e && npm run build && npm run build:worker"
   },
   "dependencies": {
-    "@nestjs/common": "^11.1.29",
+    "@nestjs/common": "^12.2.0",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.29",
     "@nestjs/platform-express": "^11.1.29",
